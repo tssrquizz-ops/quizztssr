@@ -1770,6 +1770,7 @@ window.fbCurrentUser  = ()           => auth.currentUser;
     <input id="fb-password" class="fb-input" type="password" placeholder="Mot de passe" style="margin-bottom:14px;" onkeydown="if(event.key==='Enter')fbHandleSubmit()">
     <div class="fb-error" id="fb-error"></div>
     <button class="fb-submit" id="fb-submit-btn" onclick="fbHandleSubmit()">SE CONNECTER</button>
+    <button onclick="fbCloseModal()" style="width:100%;margin-top:10px;padding:10px;background:none;border:1.5px dashed var(--border2);border-radius:5px;font-family:monospace;font-size:8px;color:var(--text2);cursor:pointer;letter-spacing:1px;transition:all .15s;" onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--text2)'" onmouseout="this.style.color='var(--text2)';this.style.borderColor='var(--border2)'">CONTINUER SANS COMPTE →</button>
   </div>
 </div>
 
@@ -1813,6 +1814,19 @@ function fbOpenModal() {
   var m = document.getElementById('fb-auth-modal');
   if (m) m.style.display = 'flex';
 }
+function fbCloseModal() {
+  var m = document.getElementById('fb-auth-modal');
+  if (m) m.style.display = 'none';
+}
+// Ouvrir automatiquement au lancement si non connecté
+window.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    // Si Firebase n'a pas encore détecté un utilisateur connecté, afficher la modal
+    if (!window.fbIsLoggedIn || !window.fbIsLoggedIn()) {
+      fbOpenModal();
+    }
+  }, 800); // léger délai pour laisser Firebase auth se résoudre
+});
 </script>
 
 <!-- MENU -->
