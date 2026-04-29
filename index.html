@@ -1576,9 +1576,13 @@ body.rpg-mode::before { opacity:0 !important; }
 </style>
 <!-- ============ FIREBASE SDK ============ -->
 <script type="module">
-// =====================================================
-// TSSR QUIZ — Firebase Auth + Firestore Sync
-// =====================================================
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+         createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
+         signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp }
+         from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyBXMDEKxQ2HP5d4lxSx0IpaDEIjrhAFSEE",
   authDomain:        "tssrquizz-2744f.firebaseapp.com",
@@ -1588,57 +1592,112 @@ const FIREBASE_CONFIG = {
   appId:             "1:968867578298:web:b67e5854522788a8d1dd83"
 };
 
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword,
-         createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
-         signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp }
-         from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+const app      = initializeApp(FIREBASE_CONFIG);
+const auth     = getAuth(app);
+const db       = getFirestore(app);
+const gProvider = new GoogleAuthProvider();
 
-const app  = initializeApp(FIREBASE_CONFIG);
-const auth = getAuth(app);
-const db   = getFirestore(app);
+// ── Expose globalement ──
+window._fbAuth           = auth;
+window._fbDb             = db;
+window._fbDoc            = doc;
+window._fbGetDoc         = getDoc;
+window._fbSetDoc         = setDoc;
+window._fbUpdateDoc      = updateDoc;
+window._fbServerTs       = serverTimestamp;
+window._fbGoogleProvider = gProvider;
+window._fbSignInEmail    = signInWithEmailAndPassword;
+window._fbSignUpEmail    = createUserWithEmailAndPassword;
+window._fbSignInPopup    = signInWithPopup;
+window._fbSignOut        = signOut;
+window._fbUser           = null;
 
-// Exposer globalement pour le reste du quiz
-window._fbAuth = auth;
-window._fbDb   = db;
-window._fbDoc  = doc;
-window._fbGetDoc  = getDoc;
-window._fbSetDoc  = setDoc;
-window._fbUpdateDoc = updateDoc;
-window._fbGoogleProvider = new GoogleAuthProvider();
-window._fbSignInEmail  = signInWithEmailAndPassword;
-window._fbSignUpEmail  = createUserWithEmailAndPassword;
-window._fbSignInPopup  = signInWithPopup;
-window._fbSignOut      = signOut;
-window._fbServerTs     = serverTimestamp;
+// ── Charger données depuis Firestore ──
+window.fbLoadUserData = async function(uid) {
+  try {
+    var snap = await getDoc(doc(db, 'users', uid));
+    if (snap.exists()) {
+      var d = snap.data();
+      var map = {srs:'tssr5_qdb',stats:'tssr5_stats',streak:'tssr5_streak',
+                 badges:'tssr5_badges',history:'tssr5_history',hs:'tssr5_hs'};
+      Object.keys(map).forEach(function(k){
+        if(d[k]!==undefined) try{localStorage.setItem(map[k],JSON.stringify(d[k]));}catch(e){}
+      });
+      if (d.prefs) {
+        if (d.prefs.vt)     try{localStorage.setItem('tssr5_vt', d.prefs.vt);}catch(e){}
+        if (d.prefs.ui)     try{localStorage.setItem('tssr5_ui', d.prefs.ui);}catch(e){}
+        if (d.prefs.sound  !== undefined) try{localStorage.setItem('tssr5_sound',  JSON.stringify(d.prefs.sound));}catch(e){}
+        if (d.prefs.qcount !== undefined) try{localStorage.setItem('tssr5_qcount', JSON.stringify(d.prefs.qcount));}catch(e){}
+      }
+    }
+    // Recharger vars globales
+    try{window.hsD     = JSON.parse(localStorage.getItem('tssr5_hs')    ||'{}');}catch(e){}
+    try{window.stD     = JSON.parse(localStorage.getItem('tssr5_stats') ||'{}');}catch(e){}
+    try{window.bdD     = JSON.parse(localStorage.getItem('tssr5_badges')||'[]');}catch(e){}
+    try{window.streakD = JSON.parse(localStorage.getItem('tssr5_streak')||'{"current":0,"best":0,"lastDate":""}');}catch(e){}
+    try{window.historyD= JSON.parse(localStorage.getItem('tssr5_history')||'[]');}catch(e){}
+  } catch(err) { console.warn('[Firebase] load error:', err); }
+};
 
-// ── Auth state change ──
-onAuthStateChanged(auth, async (user) => {
+// ── Sauvegarder vers Firestore ──
+window.fbSaveUserData = async function() {
+  if (!window._fbUser) return;
+  try {
+    var payload = {
+      srs:     JSON.parse(localStorage.getItem('tssr5_qdb')    ||'{}'),
+      stats:   JSON.parse(localStorage.getItem('tssr5_stats')  ||'{}'),
+      streak:  JSON.parse(localStorage.getItem('tssr5_streak') ||'{}'),
+      badges:  JSON.parse(localStorage.getItem('tssr5_badges') ||'[]'),
+      history: JSON.parse(localStorage.getItem('tssr5_history')||'[]'),
+      hs:      JSON.parse(localStorage.getItem('tssr5_hs')     ||'{}'),
+      prefs: {
+        vt:     localStorage.getItem('tssr5_vt')    ||'vt-dark',
+        ui:     localStorage.getItem('tssr5_ui')    ||'ui-arcade',
+        sound:  JSON.parse(localStorage.getItem('tssr5_sound') ||'false'),
+        qcount: JSON.parse(localStorage.getItem('tssr5_qcount')||'10')
+      },
+      email:     window._fbUser.email || '',
+      updatedAt: serverTimestamp()
+    };
+    await setDoc(doc(db,'users',window._fbUser.uid), payload, {merge:true});
+  } catch(err) { console.warn('[Firebase] save error:', err); }
+};
+
+// ── Auth state ──
+onAuthStateChanged(auth, async function(user) {
   if (user) {
     window._fbUser = user;
     await window.fbLoadUserData(user.uid);
-    window.fbHideLogin();
+    // Masquer login screen
+    var ls = document.getElementById('fb-login-screen');
+    if (ls) ls.style.display = 'none';
+    // Mettre à jour le side menu
     window.fbUpdateAuthUI(user);
+    // Lancer le menu
     if (typeof initMenu === 'function') initMenu();
+    var sm = document.getElementById('screen-menu');
+    if (sm) { document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');}); sm.classList.add('active'); }
   } else {
     window._fbUser = null;
     window.fbUpdateAuthUI(null);
-    // Ne pas forcer l'affichage login si l'utilisateur a choisi "continuer sans compte"
+    // Afficher login seulement si l'user n'a pas cliqué "continuer sans compte"
     if (!window._fbSkipLogin) {
-      window.fbShowLogin();
+      var ls2 = document.getElementById('fb-login-screen');
+      if (ls2) ls2.style.display = 'flex';
     }
   }
 });
 
-window.fbIsLoggedIn   = () => !!window._fbUser;
-window.fbCurrentUser  = () => auth.currentUser;
+// Sauvegarder avant fermeture
+window.addEventListener('beforeunload', function(){
+  if (window._fbUser && window.fbSaveUserData) window.fbSaveUserData();
+});
 </script>
 
 <!-- ============ STYLES AUTH ============ -->
 <style>
-/* Écran login plein page */
-#fb-login-screen{display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);align-items:center;justify-content:center;padding:20px;}
+#fb-login-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px;}
+#fb-login-screen.visible{display:flex;}
 #fb-auth-section{border-top:1px solid var(--border);padding-top:14px;margin-top:14px;}
 #fb-login-btn,#fb-logout-btn{width:100%;align-items:center;gap:8px;padding:9px 14px;border-radius:6px;font-family:monospace;font-size:8px;cursor:pointer;letter-spacing:1px;transition:all .15s;border:1.5px solid var(--border2);background:var(--panel);color:var(--text);}
 #fb-login-btn:hover{border-color:var(--acc);color:var(--acc);}
@@ -1648,57 +1707,57 @@ window.fbCurrentUser  = () => auth.currentUser;
 #fb-sync-status{font-family:monospace;font-size:8px;color:var(--text2);margin-top:6px;display:none;align-items:center;gap:5px;}
 .fb-sync-dot{width:6px;height:6px;border-radius:50%;background:#00d87a;flex-shrink:0;animation:fbpulse 2s infinite;}
 @keyframes fbpulse{0%,100%{opacity:1;}50%{opacity:.4;}}
-.fb-input{width:100%;padding:11px 14px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:6px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text);outline:none;transition:border-color .2s;box-sizing:border-box;}
-.fb-input:focus{border-color:var(--acc);}
-.fb-error{display:none;font-family:monospace;font-size:9px;color:#f87171;background:rgba(248,113,113,.1);border:1px solid #f87171;border-radius:4px;padding:7px 10px;margin-top:4px;}
+.fb-login-box{width:100%;max-width:380px;background:var(--panel);border:1.5px solid var(--border2);border-radius:12px;padding:32px 28px;}
+.fb-field{width:100%;padding:11px 14px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:6px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text);outline:none;transition:border-color .2s;box-sizing:border-box;margin-bottom:10px;}
+.fb-field:focus{border-color:var(--acc);}
+.fb-err{display:none;font-family:monospace;font-size:9px;color:#f87171;background:rgba(248,113,113,.1);border:1px solid #f87171;border-radius:4px;padding:7px 10px;margin-bottom:10px;}
 </style>
 </head>
 <body class="vt-dark cat-reseau ui-arcade">
 <div id="app">
 
 <!-- ============ ÉCRAN LOGIN PLEIN PAGE ============ -->
-<div id="fb-login-screen" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);align-items:center;justify-content:center;padding:20px;">
-  <div style="width:100%;max-width:380px;background:var(--panel);border:1.5px solid var(--border2);border-radius:12px;padding:32px 28px;">
+<div id="fb-login-screen">
+  <div class="fb-login-box">
     <div style="text-align:center;margin-bottom:24px;">
       <div style="font-size:32px;margin-bottom:8px;">📚</div>
       <div style="font-family:monospace;font-size:13px;color:var(--acc);letter-spacing:1px;">TSSR QUIZ</div>
       <div style="font-family:monospace;font-size:8px;color:var(--text2);margin-top:4px;letter-spacing:1px;">Connecte-toi pour retrouver ta progression</div>
     </div>
 
-    <!-- Tabs connexion / inscription -->
-    <div style="display:flex;gap:0;margin-bottom:20px;border:1.5px solid var(--border2);border-radius:6px;overflow:hidden;">
-      <button id="fb-tab-login" onclick="fbSwitchTab('login')" style="flex:1;padding:8px;font-family:monospace;font-size:8px;cursor:pointer;border:none;background:var(--acc);color:var(--bg);letter-spacing:1px;">CONNEXION</button>
-      <button id="fb-tab-signup" onclick="fbSwitchTab('signup')" style="flex:1;padding:8px;font-family:monospace;font-size:8px;cursor:pointer;border:none;background:transparent;color:var(--text2);letter-spacing:1px;">INSCRIPTION</button>
+    <div style="display:flex;margin-bottom:20px;border:1.5px solid var(--border2);border-radius:6px;overflow:hidden;">
+      <button id="fb-tab-login" onclick="fbSwitchTab('login')"
+        style="flex:1;padding:9px;font-family:monospace;font-size:8px;cursor:pointer;border:none;background:var(--acc);color:var(--bg);letter-spacing:1px;transition:all .15s;">
+        CONNEXION
+      </button>
+      <button id="fb-tab-signup" onclick="fbSwitchTab('signup')"
+        style="flex:1;padding:9px;font-family:monospace;font-size:8px;cursor:pointer;border:none;background:transparent;color:var(--text2);letter-spacing:1px;transition:all .15s;">
+        INSCRIPTION
+      </button>
     </div>
 
-    <!-- Champs -->
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
-      <input id="fb-email" type="email" placeholder="Email" autocomplete="email" class="fb-input">
-      <input id="fb-password" type="password" placeholder="Mot de passe" autocomplete="current-password" class="fb-input">
-      <input id="fb-name" type="text" placeholder="Prénom (inscription)" autocomplete="given-name" class="fb-input" style="display:none;">
-    </div>
+    <input id="fb-email" type="email" placeholder="Email" autocomplete="email" class="fb-field">
+    <input id="fb-password" type="password" placeholder="Mot de passe" autocomplete="current-password" class="fb-field">
+    <input id="fb-name" type="text" placeholder="Prénom (inscription)" autocomplete="given-name" class="fb-field" style="display:none;">
 
-    <div class="fb-error" id="fb-error"></div>
+    <div class="fb-err" id="fb-error"></div>
 
-    <!-- Bouton principal -->
     <button id="fb-submit-btn" onclick="fbSubmit()"
-      style="width:100%;padding:13px;background:var(--acc);border:none;border-radius:6px;font-family:monospace;font-size:9px;color:var(--bg);cursor:pointer;letter-spacing:1px;margin-top:8px;margin-bottom:10px;transition:all .15s;">
+      style="width:100%;padding:13px;background:var(--acc);border:none;border-radius:6px;font-family:monospace;font-size:9px;color:var(--bg);cursor:pointer;letter-spacing:1px;margin-bottom:10px;transition:filter .15s;">
       SE CONNECTER
     </button>
 
-    <!-- Séparateur -->
-    <div style="display:flex;align-items:center;gap:8px;margin:10px 0;color:var(--dim);font-family:monospace;font-size:8px;">
+    <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px;color:var(--dim);font-family:monospace;font-size:8px;">
       <div style="flex:1;height:1px;background:var(--border);"></div>ou<div style="flex:1;height:1px;background:var(--border);"></div>
     </div>
 
-    <!-- Google -->
     <button onclick="fbGoogleLogin()"
-      style="width:100%;padding:12px;background:var(--panel);border:1.5px solid var(--border2);border-radius:6px;font-family:monospace;font-size:9px;color:var(--text2);cursor:pointer;letter-spacing:1px;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
+      style="width:100%;padding:12px;background:var(--panel);border:1.5px solid var(--border2);border-radius:6px;font-family:monospace;font-size:9px;color:var(--text2);cursor:pointer;letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;transition:border-color .15s;"
+      onmouseover="this.style.borderColor='var(--acc)'" onmouseout="this.style.borderColor='var(--border2)'">
       <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.3 9 3.4l6.7-6.7C35.8 2.5 30.3 0 24 0 14.6 0 6.6 5.5 2.6 13.6l7.8 6C12.3 13.5 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10 7.1-17z"/><path fill="#FBBC05" d="M10.4 28.6A14.6 14.6 0 0 1 9.5 24c0-1.6.3-3.2.9-4.6l-7.8-6A23.9 23.9 0 0 0 0 24c0 3.8.9 7.4 2.6 10.6l7.8-6z"/><path fill="#34A853" d="M24 48c6.3 0 11.6-2.1 15.4-5.7l-7.5-5.8c-2.1 1.4-4.8 2.2-7.9 2.2-6.3 0-11.6-3.9-13.6-9.4l-7.8 6C6.6 42.5 14.6 48 24 48z"/></svg>
       CONTINUER AVEC GOOGLE
     </button>
 
-    <!-- Continuer sans compte -->
     <button onclick="fbContinueWithoutAccount()"
       style="width:100%;padding:11px;background:none;border:1.5px dashed var(--border2);border-radius:6px;font-family:monospace;font-size:8px;color:var(--text2);cursor:pointer;letter-spacing:1px;transition:all .15s;"
       onmouseover="this.style.borderColor='var(--text2)';this.style.color='var(--text)'"
@@ -1709,90 +1768,8 @@ window.fbCurrentUser  = () => auth.currentUser;
 </div>
 
 <script>
-// ============================================================
-// FIREBASE — Couche données
-// ============================================================
+// ── Fonctions UI Firebase (non-module) ──
 
-// ── Chargement des données utilisateur depuis Firestore ──
-window.fbLoadUserData = async function(uid) {
-  try {
-    var docRef = window._fbDoc(window._fbDb, 'users', uid);
-    var snap   = await window._fbGetDoc(docRef);
-    if (snap.exists()) {
-      var data = snap.data();
-      if (data.srs)     { try { localStorage.setItem('tssr5_qdb',     JSON.stringify(data.srs));     } catch(e){} }
-      if (data.stats)   { try { localStorage.setItem('tssr5_stats',   JSON.stringify(data.stats));   } catch(e){} }
-      if (data.streak)  { try { localStorage.setItem('tssr5_streak',  JSON.stringify(data.streak));  } catch(e){} }
-      if (data.badges)  { try { localStorage.setItem('tssr5_badges',  JSON.stringify(data.badges));  } catch(e){} }
-      if (data.history) { try { localStorage.setItem('tssr5_history', JSON.stringify(data.history)); } catch(e){} }
-      if (data.hs)      { try { localStorage.setItem('tssr5_hs',      JSON.stringify(data.hs));      } catch(e){} }
-      if (data.prefs)   {
-        if (data.prefs.vt)     { try { localStorage.setItem('tssr5_vt',     data.prefs.vt);                          } catch(e){} }
-        if (data.prefs.sound !== undefined) { try { localStorage.setItem('tssr5_sound', JSON.stringify(data.prefs.sound)); } catch(e){} }
-        if (data.prefs.ui)     { try { localStorage.setItem('tssr5_ui',     data.prefs.ui);                          } catch(e){} }
-        if (data.prefs.qcount) { try { localStorage.setItem('tssr5_qcount', JSON.stringify(data.prefs.qcount));      } catch(e){} }
-      }
-    }
-    // Recharger les variables globales depuis localStorage
-    try { hsD      = JSON.parse(localStorage.getItem('tssr5_hs')      || '{}'); } catch(e){}
-    try { stD      = JSON.parse(localStorage.getItem('tssr5_stats')    || '{}'); } catch(e){}
-    try { bdD      = JSON.parse(localStorage.getItem('tssr5_badges')   || '[]'); } catch(e){}
-    try { streakD  = JSON.parse(localStorage.getItem('tssr5_streak')   || '{"current":0,"best":0,"lastDate":""}'); } catch(e){}
-    try { historyD = JSON.parse(localStorage.getItem('tssr5_history')  || '[]'); } catch(e){}
-  } catch(err) {
-    console.warn('fbLoadUserData error:', err);
-  }
-};
-
-// ── Sauvegarde complète vers Firestore ──
-window.fbSaveUserData = async function() {
-  if (!window._fbUser) return;
-  try {
-    var uid    = window._fbUser.uid;
-    var docRef = window._fbDoc(window._fbDb, 'users', uid);
-    var payload = {
-      srs:     JSON.parse(localStorage.getItem('tssr5_qdb')     || '{}'),
-      stats:   JSON.parse(localStorage.getItem('tssr5_stats')   || '{}'),
-      streak:  JSON.parse(localStorage.getItem('tssr5_streak')  || '{}'),
-      badges:  JSON.parse(localStorage.getItem('tssr5_badges')  || '[]'),
-      history: JSON.parse(localStorage.getItem('tssr5_history') || '[]'),
-      hs:      JSON.parse(localStorage.getItem('tssr5_hs')      || '{}'),
-      prefs: {
-        vt:     localStorage.getItem('tssr5_vt')     || 'vt-dark',
-        sound:  JSON.parse(localStorage.getItem('tssr5_sound')  || 'false'),
-        ui:     localStorage.getItem('tssr5_ui')     || 'ui-arcade',
-        qcount: JSON.parse(localStorage.getItem('tssr5_qcount') || '10')
-      },
-      updatedAt: window._fbServerTs ? window._fbServerTs() : new Date().toISOString(),
-      email: window._fbUser.email || ''
-    };
-    await window._fbSetDoc(docRef, payload, { merge: true });
-  } catch(err) {
-    console.warn('fbSaveUserData error:', err);
-  }
-};
-
-// ── Login UI helpers ──
-window.fbShowLogin = function() {
-  var s = document.getElementById('fb-login-screen');
-  if (s) s.style.display = 'flex';
-  document.querySelectorAll('.screen').forEach(function(x) { x.classList.remove('active'); });
-};
-window.fbHideLogin = function() {
-  var s = document.getElementById('fb-login-screen');
-  if (s) s.style.display = 'none';
-};
-
-// ── Continuer sans compte ──
-window.fbContinueWithoutAccount = function() {
-  window._fbSkipLogin = true;
-  window.fbHideLogin();
-  if (typeof initMenu === 'function') initMenu();
-  var menu = document.getElementById('screen-menu');
-  if (menu) menu.classList.add('active');
-};
-
-// ── Update UI auth dans le side menu ──
 window.fbUpdateAuthUI = function(user) {
   var loginBtn  = document.getElementById('fb-login-btn');
   var logoutBtn = document.getElementById('fb-logout-btn');
@@ -1813,27 +1790,28 @@ window.fbUpdateAuthUI = function(user) {
   }
 };
 
-// ── Tab switch connexion/inscription ──
 window.fbSwitchTab = function(tab) {
   var isLogin = tab === 'login';
-  document.getElementById('fb-tab-login').style.background  = isLogin ? 'var(--acc)' : 'transparent';
-  document.getElementById('fb-tab-login').style.color       = isLogin ? 'var(--bg)'  : 'var(--text2)';
-  document.getElementById('fb-tab-signup').style.background = isLogin ? 'transparent' : 'var(--acc)';
-  document.getElementById('fb-tab-signup').style.color      = isLogin ? 'var(--text2)' : 'var(--bg)';
-  document.getElementById('fb-submit-btn').textContent      = isLogin ? 'SE CONNECTER' : "S'INSCRIRE";
-  document.getElementById('fb-name').style.display          = isLogin ? 'none' : 'block';
-  document.getElementById('fb-error').style.display         = 'none';
+  var tl = document.getElementById('fb-tab-login');
+  var ts = document.getElementById('fb-tab-signup');
+  var sb = document.getElementById('fb-submit-btn');
+  var fn = document.getElementById('fb-name');
+  var er = document.getElementById('fb-error');
+  if(tl){ tl.style.background = isLogin ? 'var(--acc)' : 'transparent'; tl.style.color = isLogin ? 'var(--bg)' : 'var(--text2)'; }
+  if(ts){ ts.style.background = isLogin ? 'transparent' : 'var(--acc)'; ts.style.color = isLogin ? 'var(--text2)' : 'var(--bg)'; }
+  if(sb) sb.textContent = isLogin ? 'SE CONNECTER' : "S'INSCRIRE";
+  if(fn) fn.style.display = isLogin ? 'none' : 'block';
+  if(er) er.style.display = 'none';
 };
 
-// ── Submit email/password ──
 window.fbSubmit = async function() {
-  var email    = (document.getElementById('fb-email').value    || '').trim();
-  var password = (document.getElementById('fb-password').value || '').trim();
-  var isSignup = document.getElementById('fb-submit-btn').textContent.indexOf('INSCRIRE') > -1;
+  var email    = (document.getElementById('fb-email').value    ||'').trim();
+  var password = (document.getElementById('fb-password').value ||'').trim();
+  var isSignup = (document.getElementById('fb-submit-btn').textContent||'').indexOf('INSCRIRE') > -1;
   var errEl    = document.getElementById('fb-error');
   var btn      = document.getElementById('fb-submit-btn');
   errEl.style.display = 'none';
-  if (!email || !password) { errEl.textContent = 'Email et mot de passe requis.'; errEl.style.display = 'block'; return; }
+  if (!email || !password) { errEl.textContent='Email et mot de passe requis.'; errEl.style.display='block'; return; }
   btn.disabled = true; btn.textContent = '...';
   try {
     if (isSignup) {
@@ -1841,69 +1819,68 @@ window.fbSubmit = async function() {
     } else {
       await window._fbSignInEmail(window._fbAuth, email, password);
     }
-    // onAuthStateChanged prend la suite
   } catch(err) {
     var msgs = {
-      'auth/user-not-found':       'Compte introuvable.',
-      'auth/wrong-password':       'Mot de passe incorrect.',
+      'auth/user-not-found':      'Compte introuvable.',
+      'auth/wrong-password':      'Mot de passe incorrect.',
       'auth/email-already-in-use':'Email déjà utilisé — connecte-toi.',
-      'auth/invalid-email':        'Email invalide.',
-      'auth/weak-password':        'Mot de passe trop faible (6 caractères min).',
-      'auth/invalid-credential':   'Email ou mot de passe incorrect.',
-      'auth/too-many-requests':    'Trop de tentatives. Réessaie plus tard.'
+      'auth/invalid-email':       'Email invalide.',
+      'auth/weak-password':       'Mot de passe trop faible (6 car. min).',
+      'auth/invalid-credential':  'Email ou mot de passe incorrect.',
+      'auth/too-many-requests':   'Trop de tentatives. Réessaie plus tard.'
     };
     errEl.textContent = msgs[err.code] || 'Erreur : ' + err.message;
     errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = isSignup ? "S'INSCRIRE" : 'SE CONNECTER';
   }
-  btn.disabled = false;
-  btn.textContent = isSignup ? "S'INSCRIRE" : 'SE CONNECTER';
 };
 
-// ── Google login ──
 window.fbGoogleLogin = async function() {
   var errEl = document.getElementById('fb-error');
+  if (errEl) errEl.style.display = 'none';
   try {
     await window._fbSignInPopup(window._fbAuth, window._fbGoogleProvider);
   } catch(err) {
-    errEl.textContent = 'Connexion Google annulée ou bloquée.';
-    errEl.style.display = 'block';
+    if (errEl) { errEl.textContent = 'Connexion Google annulée ou bloquée.'; errEl.style.display = 'block'; }
   }
 };
 
-// ── Logout ──
+window.fbContinueWithoutAccount = function() {
+  window._fbSkipLogin = true;
+  var ls = document.getElementById('fb-login-screen');
+  if (ls) ls.style.display = 'none';
+  if (typeof initMenu === 'function') initMenu();
+  var sm = document.getElementById('screen-menu');
+  if (sm) { document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');}); sm.classList.add('active'); }
+};
+
 window.fbLogout = async function() {
   if (confirm('Se déconnecter ?')) {
-    await window.fbSaveUserData();
+    if (window.fbSaveUserData) await window.fbSaveUserData();
     await window._fbSignOut(window._fbAuth);
     window._fbSkipLogin = false;
-    window.fbShowLogin();
+    window._fbUser = null;
+    var ls = document.getElementById('fb-login-screen');
+    if (ls) ls.style.display = 'flex';
+    document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
   }
 };
 
-// ── Enter key sur les champs ──
+// Enter key sur les champs
 document.addEventListener('DOMContentLoaded', function() {
   ['fb-email','fb-password','fb-name'].forEach(function(id) {
     var el2 = document.getElementById(id);
-    if (el2) el2.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') window.fbSubmit();
-    });
+    if (el2) el2.addEventListener('keydown', function(e){ if(e.key==='Enter') window.fbSubmit(); });
   });
-  // Afficher écran login au démarrage (Firebase résoudra ou l'user skip)
-  setTimeout(function() {
-    if (!window._fbUser && !window._fbSkipLogin) {
-      window.fbShowLogin();
-    }
-  }, 600);
-});
-
-// Sauvegarder à la fermeture si connecté
-window.addEventListener('beforeunload', function() {
-  if (window._fbUser && window.fbSaveUserData) window.fbSaveUserData();
+  // Afficher l'écran login immédiatement — Firebase onAuthStateChanged le masquera si déjà connecté
+  var ls = document.getElementById('fb-login-screen');
+  if (ls) ls.style.display = 'flex';
 });
 </script>
 
 <!-- MENU -->
-<div id="screen-menu" class="screen active">
+<div id="screen-menu" class="screen">
   <div class="logo"><h1 id="logo">📚 TSSR QUIZ</h1><div class="sub">Basé sur ton Notion · 375 questions · 13 mécaniques</div></div>
   
   <div class="ui-switcher" id="ui-switcher">
@@ -2552,8 +2529,8 @@ window.addEventListener('beforeunload', function() {
   <div class="side-footer">
     <div id="fb-auth-section">
       <div id="fb-user-info"></div>
-      <button id="fb-login-btn" onclick="fbShowLogin()" style="display:flex;">🔐 SE CONNECTER</button>
-      <button id="fb-logout-btn" onclick="fbLogout()">↩ SE DÉCONNECTER</button>
+      <button id="fb-login-btn" onclick="window._fbSkipLogin=false;var ls=document.getElementById('fb-login-screen');if(ls)ls.style.display='flex';document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');})" style="display:flex;">🔐 SE CONNECTER</button>
+      <button id="fb-logout-btn" onclick="window.fbLogout&&window.fbLogout()">↩ SE DÉCONNECTER</button>
       <div id="fb-sync-status">
         <div class="fb-sync-dot"></div>
         <span id="fb-sync-text">Synchro active</span>
