@@ -2,13 +2,12 @@ name: Deploy to Firebase Hosting
 on:
   push:
     branches:
-      - main  # L'action se lance quand tu push sur la branche main
+      - main
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci && npm run build # Installe les dépendances et compile ton projet
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: "${{ secrets.GITHUB_TOKEN }}"
