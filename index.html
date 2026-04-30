@@ -36,7 +36,10 @@
   <div class="fb-login-box">
     <div style="text-align:center;margin-bottom:24px;">
       <div style="font-size:32px;margin-bottom:8px;">📚</div>
-      <div style="font-family:monospace;font-size:13px;color:var(--acc);letter-spacing:1px;">TSSR QUIZ</div>
+      <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
+        <span style="font-size:20px;filter:drop-shadow(0 0 8px var(--acc));">📡</span>
+        <span style="font-family:monospace;font-size:18px;font-weight:900;color:var(--text);letter-spacing:2px;">TSSR</span><span style="font-family:monospace;font-size:15px;color:var(--acc);font-weight:700;">·quiz</span>
+      </div>
       <div style="font-family:monospace;font-size:8px;color:var(--text2);margin-top:4px;letter-spacing:1px;">Connecte-toi pour retrouver ta progression</div>
     </div>
 
@@ -210,10 +213,10 @@ document.addEventListener('DOMContentLoaded', function() {
       </button>
     </div>
     <div class="menu-topbar-center">
-      <div class="menu-logo-small">📚 TSSR QUIZ</div>
+      <div class="menu-logo-small"><span style="font-size:13px;">📡</span> <span style="font-weight:900;color:var(--text);">TSSR</span><span style="color:var(--acc);">·quiz</span></div>
     </div>
     <div class="menu-topbar-right">
-      <button class="menu-profile-btn" onclick="showScreen('profile');loadProfileScreen()" title="Profil">
+      <button class="menu-profile-btn" onclick="openOverlay('profile')" title="Profil">
         <span id="menu-avatar-top">👤</span>
         <span id="menu-username-top" class="menu-username-label"></span>
       </button>
@@ -266,6 +269,14 @@ document.addEventListener('DOMContentLoaded', function() {
       <span class="mac-icon">🏆</span>
       <span class="mac-label">Classement</span>
     </button>
+    <button class="menu-action-card" onclick="openOverlay('profile')">
+      <span class="mac-icon">👤</span>
+      <span class="mac-label">Profil</span>
+    </button>
+    <button class="menu-action-card" onclick="openOverlay('settings')">
+      <span class="mac-icon">⚙️</span>
+      <span class="mac-label">Réglages</span>
+    </button>
   </div>
 
   <!-- BADGES -->
@@ -287,15 +298,15 @@ document.addEventListener('DOMContentLoaded', function() {
   <button class="main-menu-btn" onclick="closeMainMenu();showSRSScreen()">🎯 Révision ciblée</button>
   <button class="main-menu-btn" onclick="closeMainMenu();launchRPGDirect()">🎭 Tickets (RPG)</button>
   <div class="main-menu-section-lbl">MON ESPACE</div>
-  <button class="main-menu-btn" onclick="closeMainMenu();showScreen('profile');loadProfileScreen()">👤 Profil</button>
+  <button class="main-menu-btn" onclick="closeMainMenu();openOverlay('profile')">👤 Profil</button>
   <button class="main-menu-btn" onclick="closeMainMenu();showStatsScreen()">📊 Statistiques</button>
   <button class="main-menu-btn" onclick="closeMainMenu();showQuestsScreen()">🎯 Objectifs</button>
-  <button class="main-menu-btn" onclick="closeMainMenu();showLeaderboard()">🏆 Classement</button>
+  <button class="main-menu-btn" onclick="closeMainMenu();openOverlay('leaderboard')">🏆 Classement</button>
   <div class="main-menu-section-lbl">PROMO</div>
   <button class="main-menu-btn" onclick="closeMainMenu();openCreatePromo()">➕ Créer ma promo</button>
   <button class="main-menu-btn" onclick="closeMainMenu();openJoinPromo()">🔗 Rejoindre une promo</button>
   <div class="main-menu-section-lbl">PARAMÈTRES</div>
-  <button class="main-menu-btn" onclick="closeMainMenu();openSettingsScreen()">⚙️ Réglages</button>
+  <button class="main-menu-btn" onclick="closeMainMenu();openOverlay('settings')">⚙️ Réglages</button>
   <div class="main-menu-footer">
     <button id="mm-login-btn" onclick="closeMainMenu();window._fbSkipLogin=false;var ls=document.getElementById('fb-login-screen');if(ls)ls.style.display='flex';document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');})" style="display:flex;">🔐 Se connecter</button>
     <button id="mm-logout-btn" onclick="closeMainMenu();window.fbLogout&&window.fbLogout()" style="display:none;">↩ Se déconnecter</button>
@@ -1189,3 +1200,5 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="js/srs.js"></script>
 <script src="js/profile.js"></script>
 <script src="js/game.js"></script>
+<!-- VERSION BADGE -->
+<div id="version-badge" style="position:fixed;bottom:10px;right:10px;z-index:100;font-family:monospace;font-size:7px;color:var(--dim);background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:3px 7px;opacity:.5;pointer-events:none;letter-spacing:.5px;">v6 · 30/04/2026 13:08</div>
