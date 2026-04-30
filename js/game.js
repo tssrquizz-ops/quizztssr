@@ -7,6 +7,10 @@ var soundOn=false, jokersEnabled=true, currentUI='ui-arcade';
 var session=[], idx=0, correct=0, lives=5, combo=1, maxCombo=1;
 var errors=[], answered=false, timerInt=null, timeLeft=20, paused=false;
 var betOn=false, bonusStreak=0;
+var jokers=3, isBonus=false;
+var orderItems=[], reviewBank=[];
+var sStats={cat:'',mode:'',maxCombo:0,mechs:new Set(),streak:0};
+var qTimes=[], rpgPoints=0;
 
 // ─── Constantes modes & couleurs ───
 var MODE_COLORS={
@@ -34,6 +38,19 @@ var MODES={
 };
 var DS=['','FACILE ★','MOYEN ★★','DIFFICILE ★★★'];
 var DS_COLORS=['','#4ade80','#ff9800','#f87171'];
+var MECH_INFO={qcm:{label:'QCM',cls:'mp-qcm',hint:'A·B·C·D / Espace'},match:{label:'ASSOCIER',cls:'mp-word',hint:'Clique gauche puis droite'},tf:{label:'VRAI / FAUX',cls:'mp-tf',hint:'← Vrai  /  Faux →'},fill:{label:'COMPLÉTER',cls:'mp-fill',hint:'Clique sur la réponse'},order:{label:'REMETTRE EN ORDRE',cls:'mp-order',hint:'▲▼ ou glisse puis VALIDER'},calc:{label:'CALCUL',cls:'mp-calc',hint:'Clique sur ta réponse'},debug:{label:'TROUVER L\'ERREUR',cls:'mp-debug',hint:'A·B·C·D / Espace'},word:{label:'SÉLECTIONNER',cls:'mp-word',hint:'Clique les bons mots puis VALIDER'},type:{label:'SAISIE LIBRE',cls:'mp-fill',hint:'Tape ta réponse + Entrée'},slider:{label:'CURSEUR',cls:'mp-calc',hint:'Glisse le curseur puis confirme'},scramble:{label:'ANAGRAMME',cls:'mp-order',hint:'Clique les tuiles dans l\'ordre'},multiblank:{label:'MULTI-TROUS',cls:'mp-fill',hint:'Remplis chaque blanc'},categorize:{label:'CATÉGORISER',cls:'mp-word',hint:'Clique chip → colonne'},hotspot:{label:'SCHÉMA RÉSEAU',cls:'mp-calc',hint:'Identifie les zones'}};
+
+// ─── Constantes discussion / CONF ───
+var CONF_GOOD_ANSWER=['Exactement !','Parfait !','Très bien !','Correct !','Bonne réponse !','Oui, c\'est ça !','Tu as raison.','Absolument !'];
+var CONF_BAD_ANSWER=['Non, pas tout à fait.','Ce n\'est pas ça.','Raté !','Incorrect.','Pas exactement.','Non, désolé.','Mauvaise réponse.'];
+var CONF_GOOD_ACTION=['Super !','Bien joué !','Parfait !','Continue comme ça !','Excellent !'];
+var CONF_NEUTRAL=['Hmm…','Intéressant.','Je vois.','D\'accord.','Notons ça.'];
+var CONF_BAD_PISTE=['Mauvaise piste !','Pas dans cette direction.','Essaie encore.','Non, ce n\'est pas là.'];
+var BONNE_PISTE=['Tu chauffes !','Bonne direction !','Continue !','Tu y es presque !'];
+var MAUVAISE_PISTE=['Tu refroidis.','Mauvaise piste.','Cherche ailleurs.'];
+var MECH_TIMERS={qcm:20,tf:15,fill:25,order:30,calc:20,debug:25,word:25,type:30,slider:20,scramble:30,multiblank:35,categorize:30,hotspot:25};
+var MECH_MIN_TIMER=8;
+
 
 
 
@@ -178,7 +195,7 @@ function shuffle(a){
 // Track shown questions to avoid repetition within a session
 var _shownQids={};
 // Variables globales nouvelles features
-var rpgPoints=0,qTimes=[],matchMatched=[],lofiOn=false,lofiNodes=[],srElapsed=0,betOn=false;
+var matchMatched=[],lofiOn=false,lofiNodes=[],srElapsed=0;
 function freshShuffle(pool){
   // Prefer questions not seen recently
   var unseen=pool.filter(function(q){return !_shownQids[q.q];});
@@ -5394,6 +5411,458 @@ document.addEventListener('keydown',function(e){
 });
 
 if(el('nextbtn')) el('nextbtn').addEventListener('click',next);
+
+
+// ─── Constantes RPG / Chaos / Lexique ───
+var BET_CHANCE=0.25; // 25% de chance de pari proposé
+var betOn=false;
+
+function maybeShowBet(){
+  betOn=false;
+  var bar=document.getElementById('bet-bar');
+  if(!bar) return;
+  if(selMode==='chill'||selMode==='speed'||selMode==='survie'){
+    if(Math.random()<BET_CHANCE&&idx>0){
+      bar.style.display='flex';
+    } else {
+      bar.style.display='none';
+    }
+  } else {
+    bar.style.display='none';
+  }
+}
+
+var EVENT_CHANCE=0.12; // 12% par question
+var activeEvent=null;
+var eventTimerMult=1;
+
+var EVENTS=[
+  {id:'panne',cls:'panne',icon:'📡',text:'PANNE RÉSEAU — Timer x2 !',effect:function(){eventTimerMult=2;},clear:function(){eventTimerMult=1;}},
+  {id:'maintenance',cls:'maintenance',icon:'🔧',text:'MAINTENANCE — Question gratuite !',effect:function(){if(!answered){answered=true;var qm=session[idx];if(qm)resolveCommon(true,qm);}},clear:function(){}},
+  {id:'bonus',cls:'maintenance',icon:'⭐',text:'BOOST — Combo x3 !',effect:function(){combo=Math.max(combo,3);},clear:function(){}},
+  {id:'joker_event',cls:'maintenance',icon:'💡',text:'CHANCE — Joker offert !',effect:function(){jokers=Math.min(jokers+1,5);var jc=document.getElementById('jcount');if(jc)jc.textContent=jokers;},clear:function(){}},
+];
+
+var CHAOS_CHANCE=0.07; // 7% par question
+var chaosActive=false, chaosInt=null;
+
+function maybeChaos(){
+  if(chaosActive||Math.random()>CHAOS_CHANCE) return;
+  chaosActive=true;
+  document.body.classList.add('chaos-mode');
+  var badge=document.getElementById('chaos-badge');
+  if(badge) badge.style.display='block';
+  // Timer instable
+  var origTimer=timeLeft;
+  chaosInt=setInterval(function(){
+    if(!chaosActive) return;
+    timeLeft+=Math.random()<0.4?-2:1;
+    timeLeft=Math.max(1,Math.min(timeLeft,30));
+  },300);
+  // Points bonus x2 pendant chaos
+  combo=Math.max(combo,2);
+  // Fin chaos après 8s ou question suivante
+  setTimeout(endChaos,8000);
+}
+
+var RPG_TICKETS=[
+  {id:'easy',cls:'easy',diff:1,label:'FACILE ★',reward:10,risk:'Pas de pénalité',mechFilter:['qcm','tf']},
+  {id:'medium',cls:'medium',diff:2,label:'MOYEN ★★',reward:25,risk:'-1 vie si faux',mechFilter:['qcm','fill','debug']},
+  {id:'hard',cls:'hard',diff:3,label:'DIFFICILE ★★★',reward:50,risk:'-2 vies si faux',mechFilter:['qcm','debug','calc','word']},
+];
+
+var CHAOS_EVENTS=[
+  {icon:'🌀',title:'TIMER RÉDUIT !',desc:'Tu as 8 secondes par question.',effect:function(){window._chaosTimerOverride=8;}},
+  {icon:'🔀',title:'OPTIONS MÉLANGÉES !',desc:'Les choix changent de position.',effect:function(){window._chaosShuffleExtra=true;}},
+  {icon:'⚡',title:'DOUBLE OU RIEN !',desc:'Bonne réponse = +2 points. Fausse = -1 vie.',effect:function(){window._chaosDouble=true;}},
+  {icon:'🌑',title:'QUESTION CACHÉE !',desc:'La question apparaît en 3... 2... 1...',effect:function(){window._chaosBlind=true;}},
+  {icon:'💥',title:'DERNIÈRE CHANCE !',desc:'1 vie restante. Bonne chance.',effect:function(){if(lives>1)lives=1;updLives();}},
+  {icon:'🎁',title:'BONUS !',desc:'Question gratuite offerte !',effect:function(){window._chaosFree=true;}},
+];
+
+var RPG_QUESTIONS = {
+
+  winrm_port: {
+    q: "Quel port WinRM utilise-t-il par défaut pour les connexions HTTP ?",
+    opts: ["Port 443","Port 5985","Port 3389","Port 8080"],
+    a: 1,
+    x: "WinRM utilise le port 5985 (HTTP) et 5986 (HTTPS). Le pare-feu doit autoriser ce port pour que PowerShell Remoting fonctionne."
+  },
+  winrm_trustedhosts: {
+    q: "Quelle commande configure les TrustedHosts WinRM sur le client ?",
+    opts: [
+      "Set-Item WSMan:\\\\localhost\\\\Client\\\\TrustedHosts -Value 'SRV-PROD'",
+      "Add-WinRMHost -Name SRV-PROD",
+      "New-PSSession -TrustHost SRV-PROD",
+      "Enable-WSManCredSSP -Role Client -DelegateComputer SRV-PROD"
+    ],
+    a: 0,
+    x: "En workgroup, le client doit déclarer les hôtes distants dans TrustedHosts. Cette commande est nécessaire car sans domaine AD, il n'y a pas de Kerberos pour l'authentification mutuelle."
+  },
+  winrm_enable: {
+    q: "Que fait la commande Enable-PSRemoting -Force ?",
+    opts: [
+      "Active uniquement le service WinRM",
+      "Configure WinRM, crée les listeners et les règles pare-feu",
+      "Ouvre une session PowerShell distante",
+      "Ajoute l'hôte dans TrustedHosts"
+    ],
+    a: 1,
+    x: "Enable-PSRemoting fait tout en une commande : démarre WinRM, configure les listeners HTTP/HTTPS et crée les règles de pare-feu Windows nécessaires."
+  },
+  dns_service_restart: {
+    q: "Comment redémarrer le service DNS Server en PowerShell ?",
+    opts: [
+      "Restart-Service DNS",
+      "Start-Service -Name 'dns-server'",
+      "Restart-Service -Name 'DNS'",
+      "Invoke-Command {Start DNS}"
+    ],
+    a: 2,
+    x: "Restart-Service -Name 'DNS' redémarre le service DNS Server Windows. Le nom exact du service est 'DNS'. Alternatives : net stop DNS && net start DNS, ou via la console DNS."
+  },
+  dns_soa: {
+    q: "Que contient un enregistrement SOA (Start Of Authority) ?",
+    opts: [
+      "Uniquement les adresses IP des hôtes",
+      "Le serveur de noms primaire, le TTL, le numéro de série et les délais de réplication",
+      "Les enregistrements MX et CNAME uniquement",
+      "La liste des serveurs secondaires autorisés"
+    ],
+    a: 1,
+    x: "Le SOA contient : serveur DNS primaire, email de l'administrateur, numéro de série (incrémenté à chaque modif), TTL, durée de refresh/retry/expire. C'est la carte d'identité de la zone."
+  },
+  vlan_svi: {
+    q: "Comment activer une SVI Vlan20 qui est en 'down' ?",
+    opts: [
+      "interface vlan 20 → ip address ... → shutdown",
+      "vlan 20 → state active",
+      "interface vlan 20 → no shutdown",
+      "switchport mode access vlan 20"
+    ],
+    a: 2,
+    x: "Une SVI désactivée se réactive avec 'no shutdown' dans le mode interface Vlan. Il faut aussi s'assurer que le VLAN existe dans la base de données VLAN (show vlan brief)."
+  },
+  vlan_ip_routing: {
+    q: "Quelle commande active le routage inter-VLAN sur un switch L3 Cisco ?",
+    opts: [
+      "router ospf 1",
+      "ip routing",
+      "routing enable",
+      "switchport mode trunk"
+    ],
+    a: 1,
+    x: "La commande 'ip routing' en mode config global active le moteur de routage IP sur le switch L3. Sans elle, les SVIs ont des IPs mais le switch ne route pas entre elles."
+  },
+  vlan_trunk: {
+    q: "Comment ajouter le VLAN 20 à la liste des VLANs autorisés sur un trunk ?",
+    opts: [
+      "switchport trunk allowed vlan add 20",
+      "vlan 20 allowed trunk",
+      "switchport access vlan 20",
+      "trunk vlan 20 permit"
+    ],
+    a: 0,
+    x: "La commande 'switchport trunk allowed vlan add 20' AJOUTE le VLAN 20 sans supprimer les autres. Sans le mot-clé 'add', la commande remplace toute la liste."
+  },
+  hyperv_snapshot: {
+    q: "Que faut-il faire avec des snapshots Hyper-V corrompus ou orphelins ?",
+    opts: [
+      "Les supprimer directement depuis l'Explorateur Windows",
+      "Les fusionner ou supprimer depuis le Gestionnaire Hyper-V",
+      "Recréer la VM pour éviter les problèmes",
+      "Les déplacer dans un autre dossier"
+    ],
+    a: 1,
+    x: "Les snapshots Hyper-V (.avhdx) doivent être gérés depuis le Gestionnaire Hyper-V. La fusion (merge) intègre les changements dans le VHDX parent. Ne jamais les supprimer manuellement."
+  },
+  hyperv_disk_path: {
+    q: "Comment modifier le chemin dun disque dur dans une VM Hyper-V ?",
+    opts: [
+      "Modifier directement le fichier .vmcx avec un éditeur texte",
+      "Via Paramètres VM → Contrôleur SCSI → Disque dur → Modifier le chemin",
+      "Set-VM -DiskPath 'nouveau chemin'",
+      "Déplacer le VHDX puis redémarrer"
+    ],
+    a: 1,
+    x: "Dans le Gestionnaire Hyper-V, Paramètres de la VM → sélectionner le disque dur → modifier le chemin. En PowerShell : Set-VMHardDiskDrive avec le paramètre -Path."
+  },
+  ntfs_deny: {
+    q: "Dans les permissions NTFS, quelle règle s'applique en cas de conflit Allow/Deny ?",
+    opts: [
+      "Allow est prioritaire sur Deny",
+      "La permission la plus récente gagne",
+      "Deny est toujours prioritaire sur Allow",
+      "L'héritage prend toujours le dessus"
+    ],
+    a: 2,
+    x: "Deny est TOUJOURS prioritaire sur Allow dans les ACL NTFS, quelle que soit l'origine (directe ou héritée). C'est pourquoi un Deny explicite sur un compte écrase tous les Allow de ses groupes."
+  },
+  ntfs_group_deny: {
+    q: "Un utilisateur est dans GRP-RH (Allow Lecture) et GRP-STAGIAIRES (Deny Lecture). Que se passe-t-il ?",
+    opts: [
+      "Il peut lire car GRP-RH lui donne Allow",
+      "Il ne peut pas lire car le Deny de GRP-STAGIAIRES prime",
+      "Les deux permissions s'annulent — accès bloqué par défaut",
+      "Cela dépend de l'ordre des groupes dans l'AD"
+    ],
+    a: 1,
+    x: "Deny prime toujours. Même si GRP-RH accorde Allow, le Deny de GRP-STAGIAIRES l'emporte. Solution : retirer l'utilisateur de GRP-STAGIAIRES ou supprimer le Deny explicite."
+  },
+  stp_portfast: {
+    q: "Que fait PortFast sur un port Cisco et sur quel type de port l'utiliser ?",
+    opts: [
+      "Accélère STP pour les ports trunk uniquement",
+      "Passe le port directement en Forwarding — à utiliser sur les ports d'extrémité (PC, serveurs)",
+      "Désactive STP sur le port complètement",
+      "Force le port en Root Port"
+    ],
+    a: 1,
+    x: "PortFast fait passer le port directement en Forwarding sans passer par Listening/Learning (30s économisées). À réserver aux ports d'extrémité. Sur un port trunk vers un switch, PortFast peut causer des boucles."
+  },
+  stp_bpduguard: {
+    q: "Que fait BPDU Guard et pourquoi l'activer avec PortFast ?",
+    opts: [
+      "Il bloque tous les VLANs sur le port",
+      "Il désactive le port (err-disabled) si une BPDU est reçue — protège contre les switches non autorisés",
+      "Il force le port à rester en Blocking",
+      "Il prévient les boucles en augmentant la priorité STP"
+    ],
+    a: 1,
+    x: "BPDU Guard passe le port en err-disabled dès qu'une BPDU est reçue. Couplé à PortFast, il protège contre la connexion dun switch non autorisé sur un port d'accès."
+  },
+  dhcp_scope: {
+    q: "Quelle action immédiate pour résoudre un pool DHCP épuisé ?",
+    opts: [
+      "Redémarrer le serveur DHCP",
+      "Étendre la plage d'adresses du scope ou créer un nouveau scope",
+      "Supprimer tous les baux et recommencer",
+      "Passer en adressage statique"
+    ],
+    a: 1,
+    x: "Pour un pool épuisé : étendre la plage existante (si adresses disponibles), supprimer les baux obsolètes, ou créer un superscope. La suppression des baux fantômes libère aussi des adresses rapidement."
+  },
+  dhcp_lease: {
+    q: "Comment voir les baux actifs DHCP en PowerShell ?",
+    opts: [
+      "Get-DHCPServerv4Lease -ScopeId 192.168.1.0",
+      "Show-DHCPLeases -Scope all",
+      "Get-NetIPAddress -DHCPEnabled $true",
+      "ipconfig /showclassid"
+    ],
+    a: 0,
+    x: "Get-DhcpServerv4Lease -ScopeId permet de lister tous les baux dun scope. Avec | Where-Object {$_.AddressState -eq 'ActiveReservation'} pour filtrer les baux actifs."
+  },
+  cisco_ssh_rsa: {
+    q: "Quelle séquence est nécessaire pour générer des clés RSA pour SSH sur Cisco ?",
+    opts: [
+      "Juste : crypto key generate rsa",
+      "hostname → ip domain-name → crypto key generate rsa modulus 2048",
+      "enable secret → crypto key generate",
+      "ip ssh version 2 → crypto key generate rsa"
+    ],
+    a: 1,
+    x: "L'ordre est crucial : 1) hostname (nom unique requis), 2) ip domain-name (requis pour nommer la clé), 3) crypto key generate rsa modulus 2048 (min 768 bits pour SSHv2)."
+  },
+  cisco_ssh_vty: {
+    q: "Comment autoriser uniquement SSH (pas Telnet) sur les lignes VTY ?",
+    opts: [
+      "transport input ssh only",
+      "transport input ssh",
+      "no transport input telnet → transport input ssh",
+      "line vty 0 4 → ssh enable"
+    ],
+    a: 1,
+    x: "La commande 'transport input ssh' sur les lignes VTY nautorise que SSH. Si une commande 'transport input telnet' vient après, elle écrase la précédente — l'ordre dans la config est important."
+  },
+  cisco_acl: {
+    q: "Une ACL bloque le port 22. Quelle commande retire une entrée dune ACL nommée ?",
+    opts: [
+      "no ip access-list extended MGMT deny tcp any any eq 22",
+      "ip access-list extended MGMT → no [numéro de séquence]",
+      "delete acl MGMT rule 22",
+      "ip access-list remove MGMT deny 22"
+    ],
+    a: 1,
+    x: "Dans une ACL nommée, on entre dans son mode config (ip access-list extended NOM) puis on supprime l'entrée par son numéro de séquence (visible avec 'show ip access-lists'). C'est plus précis que de recréer toute l'ACL."
+  },
+  cisco_ssh_domain: {
+    q: "Sans ip domain-name, que se passe-t-il si on essaie de générer des clés RSA ?",
+    opts: [
+      "Les clés sont générées avec un nom par défaut",
+      "L'erreur 'You must specify a key name' apparaît",
+      "SSH fonctionne quand même sans domaine",
+      "Cisco utilise l'hostname comme nom de clé automatiquement"
+    ],
+    a: 1,
+    x: "Sans ip domain-name, Cisco ne peut pas nommer les clés RSA (le nom est hostname.domaine). La commande crypto key generate rsa échoue avec une erreur. Il faut configurer ip domain-name avant."
+  },
+};
+
+var RPG_BONUS_DEFS = [
+  {
+    id:'tech_call',icon:'📞',
+    name:'Appeler un collegue',
+    desc:'Un collegue elimine 2 mauvaises actions de ce ticket.',
+    effect: function(){
+      var sc=rpgN.currentTicket; if(!sc) return;
+      var bad=sc.actions.filter(function(a){return a.type!=='BONNE_PISTE';});
+      var toHide=shuffle(bad).slice(0,2);
+      toHide.forEach(function(a){
+        if(!rpgN.triedActions[sc.id]) rpgN.triedActions[sc.id]=[];
+        if(rpgN.triedActions[sc.id].indexOf(a.id)===-1) rpgN.triedActions[sc.id].push(a.id);
+      });
+      rpgRenderActions(sc);
+      rpgShowBonusNarrative('Un collegue a jete un oeil. Ces pistes semblent inutiles: '+toHide.map(function(a){return a.label;}).join(', '));
+    }
+  },
+  {
+    id:'lexique',icon:'📖',
+    name:'Lexique technique',
+    desc:'Un lexique des termes cles du ticket apparait en bas.',
+    effect: function(){var sc=rpgN.currentTicket; if(!sc) return; rpgShowLexique(sc);}
+  },
+  {
+    id:'historique',icon:'📋',
+    name:'Consulter historique',
+    desc:'Tu accedes aux logs — une indication sur la derniere modification.',
+    effect: function(){
+      var sc=rpgN.currentTicket; if(!sc) return;
+      var hint=sc.history_hint||'Les logs montrent une modification de configuration recente sur ce service.';
+      rpgShowBonusNarrative(hint);
+    }
+  },
+  {
+    id:'escalade',icon:'⬆️',
+    name:'Escalader au chef',
+    desc:'+20 confiance immediat. Le chef resout le ticket mais tu ne gagnes rien.',
+    effect: function(){
+      rpgChangeConf(20);
+      rpgShowBonusNarrative('Ton chef prend en main le ticket. Confiance +20 mais tu passes au suivant sans apprendre.');
+      setTimeout(function(){rpgN.ticketIdx++;rpgN.questionAnswered=false;rpgShowTicket();},2500);
+    }
+  },
+  {
+    id:'documentation',icon:'📄',
+    name:'Consulter la doc',
+    desc:'Revele quelle categorie de commande resout ce ticket.',
+    effect: function(){
+      var sc=rpgN.currentTicket; if(!sc) return;
+      var catHints={
+        winrm:'La doc WinRM: verifier les listeners et les hotes de confiance.',
+        dns:'La doc DNS: verifier le statut du service avant toute modification de zone.',
+        vlan:'Le guide Cisco: le routage inter-VLAN necessite les SVIs ET la commande ip routing.',
+        hyperv:'La doc Hyper-V: les problemes de demarrage sont souvent lies aux snapshots.',
+        ntfs:'La doc NTFS: les Deny explicites ecrasent tous les Allow.',
+        stp:'Le guide STP: identifier les boucles physiques avant toute action logicielle.',
+        dhcp:'La doc DHCP: verifier occupation du scope avant de modifier le service.',
+        cisco_ssh:'Le guide Cisco IOS: SSH necessite hostname, domain-name et cles RSA.'
+      };
+      rpgShowBonusNarrative(catHints[sc.id]||'La doc recommande de proceder par ordre: service, config, permissions.');
+    }
+  },
+];
+
+var RPG_BONUSES = [
+  {
+    id:'technicien',
+    icon:'📞',
+    name:'Appeler un technicien senior',
+    desc:'Il élimine la moitié des mauvaises réponses de la prochaine question.',
+    used:false,
+    narrative:'Tu décroches ton téléphone. "Salut Marc, t as une minute ?" Il regarde rapidement et te dit ce qui est clairement faux.',
+    effect:function(){rpgBonusHalfElim();}
+  },
+  {
+    id:'lexique',
+    icon:'📖',
+    name:'Consulter le lexique',
+    desc:'Tous les termes techniques de la page sont définis en bas de l écran.',
+    used:false,
+    narrative:'Tu ouvres ton classeur de notes. Les définitions des termes clés apparaissent.',
+    effect:function(){rpgBonusLexique();}
+  },
+  {
+    id:'log',
+    icon:'🔍',
+    name:'Consulter les logs système',
+    desc:'Une piste supplémentaire apparaît dans le ticket.',
+    used:false,
+    narrative:'Tu consultes les journaux d événements. Une ligne attire ton attention...',
+    effect:function(){rpgBonusLog();}
+  },
+  {
+    id:'doc',
+    icon:'📋',
+    name:'Consulter la documentation',
+    desc:'La bonne réponse est mise en surbrillance parmi les options.',
+    used:false,
+    narrative:'Tu ouvres la doc Microsoft. La commande correcte est là, en noir sur blanc.',
+    effect:function(){rpgBonusDoc();}
+  },
+];
+
+var LEXIQUE_COMPLET={
+  // Windows / Réseau
+  'WinRM':'Windows Remote Management. Protocole Microsoft permettant lexécution de commandes PowerShell à distance via le port 5985 (HTTP) ou 5986 (HTTPS).',
+  'PSRemoting':'PowerShell Remoting. Ensemble de fonctionnalités basées sur WinRM permettant lexécution de scripts sur des machines distantes avec Enable-PSRemoting.',
+  'TrustedHosts':'Liste blanche configurée côté client WinRM. En workgroup (sans domaine AD), il faut y déclarer explicitement les serveurs distants : Set-Item WSMan:\\localhost\\Client\\TrustedHosts.',
+  'RSAT':'Remote Server Administration Tools. Outils dadministration Windows installables sur un poste client pour gérer des serveurs distants (AD, DNS, DHCP, etc.) sans console directe.',
+  'WMI':'Windows Management Instrumentation. Infrastructure de gestion Windows permettant daccéder aux informations système et de les modifier via scripts.',
+  // DNS
+  'DNS':'Domain Name System. Système qui traduit les noms de domaine (ex: server.local) en adresses IP. Port 53 UDP/TCP.',
+  'SOA':'Start Of Authority. Enregistrement DNS obligatoire dans chaque zone. Contient: serveur primaire, email admin, numéro de série (incrémenté à chaque modification), TTL, délais refresh/retry/expire.',
+  'TTL':'Time To Live. Durée en secondes pendant laquelle un enregistrement DNS peut être mis en cache avant dêtre re-interrogé.',
+  'Forwarder':'Serveur DNS externe vers lequel les requêtes non résolues localement sont transmises (ex: 8.8.8.8 pour résoudre les noms publics).',
+  'Zone primaire':'Zone DNS modifiable, source faisant autorité. Les modifications se font ici puis se répliquent sur les zones secondaires.',
+  'Zone secondaire':'Copie en lecture seule dune zone primaire, récupérée par transfert de zone. Sert de redondance.',
+  // VLAN / Switch
+  'VLAN':'Virtual Local Area Network. Segmentation logique dun réseau physique. Les machines dun VLAN ne communiquent pas directement avec celles dun autre VLAN sans routeur ou switch L3.',
+  'SVI':'Switched Virtual Interface. Interface virtuelle sur un switch L3 représentant un VLAN. Elle a une adresse IP et permet le routage inter-VLAN. Commande: interface vlan [ID].',
+  'Trunk':'Port switch transportant plusieurs VLANs simultanément via des tags 802.1Q. Utilisé pour les liaisons switch-switch ou switch-routeur.',
+  '802.1Q':'Standard IEEE de trunking VLAN. Ajoute un tag de 4 octets dans la trame Ethernet pour identifier le VLAN dorigine.',
+  'VLAN natif':'VLAN dont les trames passent sur un trunk sans tag. VLAN 1 par défaut sur Cisco. Doit être le même des deux côtés du trunk.',
+  'ip routing':'Commande Cisco activant le moteur de routage IP sur un switch L3. Sans elle, les SVIs existent mais le switch ne route pas entre VLANs.',
+  'Access port':'Port switch configuré pour un seul VLAN. Les trames ny sont pas taguées. Utilisé pour connecter des postes ou serveurs.',
+  // STP
+  'STP':'Spanning Tree Protocol (IEEE 802.1D). Prévient les boucles réseau en plaçant certains ports en état Blocking. Convergence lente (~50s).',
+  'RSTP':'Rapid STP (802.1w). Version améliorée de STP avec convergence rapide (~1-2s). Compatibilité ascendante avec STP classique.',
+  'Root Bridge':'Switch élu comme racine de larbre STP. Tous les autres switches calculent leurs chemins depuis lui. Élu par la priorité la plus basse (défaut: 32768).',
+  'PortFast':'Optimisation STP Cisco. Passe immédiatement un port en état Forwarding sans passer par Listening/Learning. À utiliser UNIQUEMENT sur les ports dextrémité (PC, serveurs).',
+  'BPDU Guard':'Sécurité STP. Désactive (err-disabled) un port si une BPDU est reçue. Protège contre la connexion dun switch non autorisé sur un port access.',
+  'BPDU':'Bridge Protocol Data Unit. Trame échangée entre switches pour construire larbre STP. Contient: adresse MAC, priorité, coût de chemin, timers.',
+  'Broadcast storm':'Tempête de diffusion causée par une boucle réseau. Les trames broadcast se répliquent indéfiniment, saturant le réseau.',
+  // DHCP
+  'DHCP':'Dynamic Host Configuration Protocol. Attribue automatiquement des adresses IP, masque, passerelle et DNS. Port 67 (serveur) / 68 (client). Processus: DORA (Discover, Offer, Request, Acknowledge).',
+  'Scope DHCP':'Plage dadresses IP que le serveur DHCP peut distribuer (ex: 192.168.1.100-200). Peut inclure des exclusions et réservations.',
+  'Bail DHCP':'Durée pendant laquelle une adresse IP est attribuée à un client. Après expiration, le client doit la renouveler.',
+  'Relay agent':'Service ou équipement (souvent un routeur) qui relaie les requêtes DHCP entre des sous-réseaux différents. Commande Cisco: ip helper-address.',
+  '169.254.x.x':'Adresse APIPA (Automatic Private IP Addressing). Attribuée automatiquement quand le client DHCP ne trouve pas de serveur. Indique un problème DHCP.',
+  // Hyper-V
+  'VHDX':'Format de disque virtuel Hyper-V (successeur de VHD). Supporte jusquà 64 To, résilient aux coupures, avec journal décriture.',
+  'Snapshot':'Point de restauration dune VM (aussi appelé Checkpoint dans Hyper-V). Crée un fichier .avhdx différentiel. Ne remplace pas une sauvegarde complète.',
+  'Commutateur virtuel':'Switch logiciel Hyper-V gérant la connectivité réseau des VMs. Types: External (accès au réseau physique), Internal (host+VMs), Private (VMs uniquement).',
+  'Génération VM':'Hyper-V propose 2 générations. Gen 1: BIOS, compatibilité maximale. Gen 2: UEFI, Secure Boot, meilleures performances. Choix fait à la création, non modifiable.',
+  // NTFS / Permissions
+  'NTFS':'New Technology File System. Système de fichiers Windows avec gestion fine des permissions (ACL), journalisation, chiffrement (EFS), compression.',
+  'ACL':'Access Control List. Liste des entrées de contrôle daccès (ACE) définissant qui peut faire quoi sur un objet (fichier, dossier, clé de registre).',
+  'ACE':'Access Control Entry. Entrée individuelle dans une ACL définissant: utilisateur/groupe, permissions, Allow ou Deny.',
+  'Héritage NTFS':'Mécanisme par lequel les sous-dossiers reçoivent automatiquement les permissions du dossier parent. Peut être coupé manuellement.',
+  'Deny explicite':'Refus explicite daccès NTFS. Prioritaire sur tous les Allow, quelle que soit leur source (directe ou héritée).',
+  'SMB':'Server Message Block. Protocole de partage de fichiers Windows. SMB3 (Windows 8/2012+) apporte le chiffrement et la compression.',
+  // Cisco IOS / SSH
+  'RSA':'Algorithme de chiffrement asymétrique. Utilisé par SSH pour lauthentification. Sur Cisco: crypto key generate rsa modulus 2048.',
+  'SSH':'Secure Shell. Protocole de connexion distante sécurisé (port 22). Remplace Telnet. Nécessite: hostname + domain-name + clés RSA + ip ssh version 2.',
+  'Telnet':'Protocole de connexion distante non chiffré (port 23). À éviter en production — remplacé par SSH.',
+  'VTY':'Virtual TeletYpe. Lignes virtuelles sur un équipement Cisco permettant les connexions SSH/Telnet. Configuration: line vty 0 4.',
+  'ip domain-name':'Commande Cisco définissant le nom de domaine DNS de léquipement. Requis avant la génération des clés RSA pour SSH.',
+  'ACL étendue':'Access Control List Cisco filtrant le trafic sur critères source/destination IP et ports. Placée au plus près de la source.',
+  // PowerShell
+  'Cmdlet':'Commande PowerShell suivant la convention Verbe-Nom (ex: Get-Service, Set-ADUser). Chaque cmdlet fait une chose précise.',
+  'Pipeline':'Mécanisme PowerShell transmettant les objets dune cmdlet à la suivante via le symbole |. Ex: Get-Service | Where-Object {$_.Status -eq "Running"}',
+  'WMI/CIM':'Windows Management Instrumentation / Common Information Model. APIs PowerShell pour accéder aux informations système. Get-WmiObject (legacy) ou Get-CimInstance (moderne).',
+};
+
 
 // INIT
 // Les préférences sont chargées ici, mais l'affichage de l'écran
