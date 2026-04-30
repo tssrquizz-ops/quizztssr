@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <!-- ACTIONS SECONDAIRES -->
   <div class="menu-actions-row">
-    <button class="menu-action-card" onclick="showQuestsScreen()">
+    <button class="menu-action-card" onclick="openOverlay('quests')">
       <span class="mac-icon">🎯</span>
       <span class="mac-label">Objectifs</span>
     </button>
@@ -262,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <span class="mac-icon">📊</span>
       <span class="mac-label">Stats</span>
     </button>
-    <button class="menu-action-card" onclick="showLeaderboard()">
+    <button class="menu-action-card" onclick="openOverlay('leaderboard')">
       <span class="mac-icon">🏆</span>
       <span class="mac-label">Classement</span>
     </button>
@@ -940,110 +940,242 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <!-- ===== RÉGLAGES ===== -->
-<div id="screen-settings" class="screen">
-  <div style="text-align:center;margin-bottom:20px;">
-    <div style="font-family:monospace;font-size:12px;color:var(--acc);">⚙️ RÉGLAGES</div>
+
+<!-- ===== PROFIL ===== -->
+
+
+<!-- ===== OBJECTIFS ===== -->
+
+<!-- ===== FLASHCARDS ===== -->
+<div id="screen-flash" class="screen" style="min-height:100vh;display:none;flex-direction:column;background:var(--bg);">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:16px 16px 0;">
+    <button onclick="goMenu()" style="background:none;border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:7px;padding:7px 9px;border-radius:4px;cursor:pointer;">◀</button>
+    <span style="font-family:monospace;font-size:8px;color:var(--text2);flex:1;text-align:center;" id="flash-prog">0 / 0</span>
   </div>
-  <div style="max-width:500px;margin:0 auto;">
-    <div class="settings-section">
-      <span class="settings-section-title">🎨 Thème</span>
-      <div class="settings-theme-grid">
-        <button class="settings-theme-btn" data-vt="vt-dark"     onclick="pickVTSettings(this)"><div class="settings-theme-dot" style="background:linear-gradient(135deg,#0d0e14,#38bdf8)"></div>DARK</button>
-        <button class="settings-theme-btn" data-vt="vt-light"    onclick="pickVTSettings(this)"><div class="settings-theme-dot" style="background:linear-gradient(135deg,#f0eeea,#0284c7)"></div>LIGHT</button>
-        <button class="settings-theme-btn" data-vt="vt-slate"    onclick="pickVTSettings(this)"><div class="settings-theme-dot" style="background:linear-gradient(135deg,#1a2035,#4488ff)"></div>SLATE</button>
-        <button class="settings-theme-btn" data-vt="vt-paper"    onclick="pickVTSettings(this)"><div class="settings-theme-dot" style="background:linear-gradient(135deg,#f0ead8,#a07000)"></div>PAPER</button>
-        <button class="settings-theme-btn" data-vt="vt-midnight" onclick="pickVTSettings(this)"><div class="settings-theme-dot" style="background:linear-gradient(135deg,#080810,#8866ff)"></div>NIGHT</button>
-        <button class="settings-theme-btn" data-vt="vt-warm"     onclick="pickVTSettings(this)"><div class="settings-theme-dot" style="background:linear-gradient(135deg,#1a1210,#ff8860)"></div>WARM</button>
+  <div style="padding:0 16px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:10px;">
+    <div style="height:100%;background:var(--acc);border-radius:2px;transition:width .4s;" id="flash-pfill"></div>
+  </div>
+  <div style="display:flex;gap:16px;justify-content:center;margin-bottom:14px;padding:0 16px;">
+    <span style="font-family:monospace;font-size:9px;display:flex;align-items:center;gap:5px;">❌ <span id="fs-bad" style="color:#f87171;">0</span></span>
+    <span style="font-family:monospace;font-size:9px;display:flex;align-items:center;gap:5px;">🔄 <span id="fs-ok" style="color:#ff9800;">0</span></span>
+    <span style="font-family:monospace;font-size:9px;display:flex;align-items:center;gap:5px;">✅ <span id="fs-good" style="color:#4ade80;">0</span></span>
+  </div>
+  <div style="flex:1;padding:0 16px;display:flex;flex-direction:column;justify-content:center;">
+    <div id="flash-card" style="width:100%;display:flex;flex-direction:column;">
+      <div class="flash-front-side" onclick="flipCard()" style="background:var(--panel);border:2px solid var(--border2);border-radius:12px;cursor:pointer;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 20px;font-family:monospace;font-size:7px;letter-spacing:2px;background:var(--a2);color:var(--acc);border-bottom:2px solid var(--acc);">
+          <span id="flash-cat">CATÉGORIE</span><span>QUESTION</span>
+        </div>
+        <div style="padding:36px 30px 32px;min-height:140px;display:flex;align-items:center;justify-content:center;">
+          <div id="flash-q" style="font-size:16px;color:var(--text);line-height:1.8;font-weight:500;text-align:center;"></div>
+        </div>
+      </div>
+      <div class="flash-back-side" style="display:none;background:var(--panel);border:2px solid #00a85a;border-radius:12px;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 20px;font-family:monospace;font-size:7px;letter-spacing:2px;background:rgba(0,168,90,.12);color:#00a85a;border-bottom:2px solid #00a85a;">
+          <span id="flash-cat-b">CATÉGORIE</span><span>RÉPONSE</span>
+        </div>
+        <div style="padding:24px 28px;">
+          <div id="flash-ans" style="font-size:16px;color:#00a85a;line-height:1.6;font-weight:500;padding:14px 18px;background:rgba(0,168,90,.08);border-radius:6px;border-left:3px solid #00a85a;margin-bottom:12px;"></div>
+          <div id="flash-exp" style="font-size:12px;color:var(--text2);line-height:1.75;"></div>
+        </div>
       </div>
     </div>
-    <div class="settings-section">
-      <span class="settings-section-title">🔊 Audio</span>
-      <div class="settings-toggle-row" onclick="toggleSound()">
-        <div><div class="settings-toggle-label">Effets sonores</div><div class="settings-toggle-sub">Sons de validation, erreurs, combos</div></div>
+  </div>
+  <div id="flash-btns" style="display:none;flex-direction:column;gap:8px;padding:16px;margin-top:8px;">
+    <div style="display:flex;gap:8px;">
+      <button class="flash-btn flash-btn-bad" onclick="rateFlash(0)" style="flex:1;font-family:monospace;font-size:9px;padding:14px 0;border-radius:7px;cursor:pointer;background:rgba(220,38,38,.12);color:#dc2626;border:1.5px solid #dc2626;letter-spacing:1px;">❌ À revoir</button>
+      <button class="flash-btn flash-btn-ok" onclick="rateFlash(1)" style="flex:1;font-family:monospace;font-size:9px;padding:14px 0;border-radius:7px;cursor:pointer;background:rgba(255,152,0,.12);color:#ff9800;border:1.5px solid #ff9800;letter-spacing:1px;">🔄 Hésitant</button>
+      <button class="flash-btn flash-btn-good" onclick="rateFlash(2)" style="flex:1;font-family:monospace;font-size:9px;padding:14px 0;border-radius:7px;cursor:pointer;background:rgba(0,168,90,.12);color:#00a85a;border:1.5px solid #00a85a;letter-spacing:1px;">✅ Maîtrisé</button>
+    </div>
+  </div>
+  <div style="text-align:center;padding:8px;font-family:monospace;font-size:9px;color:var(--dim);" id="flash-counter">Clique la carte pour voir la réponse</div>
+</div>
+
+<!-- ===== FLASHCARDS RÉSULTAT ===== -->
+<div id="screen-flash-result" class="screen" style="padding:40px 20px;text-align:center;">
+  <div style="font-family:monospace;font-size:12px;color:var(--acc);margin-bottom:20px;">SESSION TERMINÉE</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 auto 24px;max-width:420px;">
+    <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:8px;padding:16px 8px;"><span style="font-family:monospace;font-size:16px;color:#4ade80;display:block;margin-bottom:6px;" id="fr-good">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Maîtrisés</div></div>
+    <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:8px;padding:16px 8px;"><span style="font-family:monospace;font-size:16px;color:#ff9800;display:block;margin-bottom:6px;" id="fr-ok">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Hésitants</div></div>
+    <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:8px;padding:16px 8px;"><span style="font-family:monospace;font-size:16px;color:#f87171;display:block;margin-bottom:6px;" id="fr-bad">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">À revoir</div></div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+    <button onclick="startFlashRetry()" style="background:var(--acc);color:var(--bg);border:none;font-family:monospace;font-size:8px;padding:12px 18px;border-radius:5px;cursor:pointer;letter-spacing:1px;">↩ REVOIR RATÉES</button>
+    <button onclick="goMenu()" style="background:var(--panel);border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:8px;padding:12px 18px;border-radius:5px;cursor:pointer;letter-spacing:1px;">◀ MENU</button>
+  </div>
+</div>
+
+<!-- ===== ONLINE DUEL ===== -->
+<div id="screen-online-duel" class="screen">
+  <div class="online-duel-setup" id="online-setup-panel">
+    <div style="font-family:monospace;font-size:12px;color:var(--acc);margin-bottom:8px;">⚔️ DUEL EN LIGNE</div>
+    <div style="font-size:10px;color:var(--text2);margin-bottom:20px;">Joue contre un ami à distance</div>
+
+    <!-- Créer une session -->
+    <div id="online-create-section">
+      <div class="online-code-display" onclick="copyOnlineCode()" id="online-code-box" style="display:none;">
+        <div style="font-size:8px;color:var(--text2);font-family:monospace;letter-spacing:2px;margin-bottom:8px;">CODE DE SESSION</div>
+        <div class="online-code-num" id="online-code-num">······</div>
+        <div class="online-code-lbl">Partage ce code avec ton ami</div>
+        <div class="online-code-copied" id="online-copied">📋 Copié !</div>
+      </div>
+      <button onclick="createOnlineSession()" id="online-create-btn" style="width:100%;padding:14px;background:var(--acc);border:none;border-radius:7px;font-family:monospace;font-size:9px;color:var(--bg);cursor:pointer;letter-spacing:1px;margin-bottom:12px;">✚ CRÉER UNE SESSION</button>
+    </div>
+
+    <!-- Rejoindre -->
+    <div class="menu-divider">ou rejoindre</div>
+    <input class="online-join-input" id="online-join-input" placeholder="XXXXXX" maxlength="6" oninput="this.value=this.value.toUpperCase()">
+    <button onclick="joinOnlineSession()" style="width:100%;padding:13px;background:var(--panel);border:1.5px solid var(--border2);border-radius:7px;font-family:monospace;font-size:9px;color:var(--text2);cursor:pointer;letter-spacing:1px;margin-bottom:16px;">→ REJOINDRE</button>
+
+    <!-- Attente -->
+    <div class="online-waiting" id="online-waiting" style="display:none;">
+      <div style="font-family:monospace;font-size:10px;color:var(--acc);">En attente de l'adversaire...</div>
+      <div class="online-waiting-dots">
+        <div class="online-waiting-dot"></div>
+        <div class="online-waiting-dot"></div>
+        <div class="online-waiting-dot"></div>
+      </div>
+      <button onclick="cancelOnlineSession()" style="background:none;border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:8px;padding:8px 14px;border-radius:5px;cursor:pointer;">ANNULER</button>
+    </div>
+
+    <div id="online-error" style="display:none;padding:10px;background:rgba(220,38,38,.1);border:1px solid #dc2626;border-radius:6px;font-family:monospace;font-size:9px;color:#dc2626;text-align:center;margin-bottom:10px;"></div>
+    <button onclick="goMenu()" style="width:100%;padding:10px;background:none;border:1.5px solid var(--border);color:var(--text2);font-family:monospace;font-size:8px;border-radius:5px;cursor:pointer;">◀ RETOUR</button>
+  </div>
+
+  <!-- En jeu -->
+  <div id="online-game-panel" style="display:none;">
+    <div class="online-duel-hud">
+      <div class="online-player" id="op-me">
+        <span class="online-player-name" id="op-my-name">Moi</span>
+        <span class="online-player-score" id="op-my-score">0</span>
+        <div class="online-player-bar"><div class="online-player-fill" id="op-my-bar" style="width:0%"></div></div>
+      </div>
+      <div style="font-family:monospace;font-size:11px;color:var(--dim);display:flex;align-items:center;">VS</div>
+      <div class="online-player" id="op-them">
+        <span class="online-player-name" id="op-their-name">Adversaire</span>
+        <span class="online-player-score" id="op-their-score">0</span>
+        <div class="online-player-bar"><div class="online-player-fill" id="op-their-bar" style="width:0%;background:#f472b6"></div></div>
+      </div>
+    </div>
+    <div id="online-question-area"></div>
+  </div>
+</div>
+
+
+<!-- ===== OVERLAYS (profil, classement, objectifs, réglages) ===== -->
+
+<!-- PROFIL OVERLAY -->
+<div class="overlay-panel" id="overlay-profile" onclick="if(event.target===this||event.target.classList.contains('overlay-panel-bg'))closeOverlay('profile')">
+  <div class="overlay-panel-bg"></div>
+  <div class="overlay-panel-box">
+    <div class="overlay-panel-handle"></div>
+    <button class="overlay-close-btn" onclick="closeOverlay('profile')">✕ FERMER</button>
+    <!-- Avatar picker -->
+    <div id="avatar-picker" style="display:none;position:fixed;inset:0;z-index:9900;background:rgba(0,0,0,.7);align-items:center;justify-content:center;" onclick="if(event.target===this)closeAvatarPicker()">
+      <div style="background:var(--panel);border:1.5px solid var(--border2);border-radius:12px;padding:20px;max-width:340px;width:100%;">
+        <div style="font-family:monospace;font-size:9px;color:var(--acc);text-align:center;margin-bottom:14px;">CHOISIR TON AVATAR</div>
+        <div class="avatar-grid" id="avatar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:14px;"></div>
+        <button onclick="closeAvatarPicker()" style="width:100%;padding:10px;background:var(--panel);border:1.5px solid var(--border2);border-radius:6px;font-family:monospace;font-size:8px;color:var(--text2);cursor:pointer;">FERMER</button>
+      </div>
+    </div>
+    <!-- Card profil -->
+    <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;">
+      <div style="height:70px;background:linear-gradient(135deg,var(--acc),var(--a2));" id="profile-banner"></div>
+      <div style="position:relative;margin:-30px 0 0 16px;width:58px;height:58px;background:var(--panel);border:3px solid var(--panel);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;" id="profile-avatar-display" onclick="openAvatarPicker()">😊</div>
+      <div style="padding:8px 16px 14px;">
+        <div style="font-family:monospace;font-size:13px;color:var(--text);font-weight:bold;margin-bottom:2px;" id="profile-name-display">—</div>
+        <div style="display:inline-block;font-family:monospace;font-size:7px;padding:2px 9px;border-radius:12px;border:1.5px solid var(--acc);color:var(--acc);background:var(--a2);margin-bottom:4px;" id="profile-title-display">DÉBUTANT</div>
+        <div style="font-family:monospace;font-size:9px;color:var(--text2);" id="profile-promo-display"></div>
+      </div>
+    </div>
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+      <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:7px;padding:10px 8px;text-align:center;"><span style="font-family:monospace;font-size:14px;display:block;margin-bottom:3px;color:#4ade80;" id="prof-mastered">0</span><div style="font-size:8px;color:var(--dim);">MAÎTRISÉS</div></div>
+      <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:7px;padding:10px 8px;text-align:center;"><span style="font-family:monospace;font-size:14px;display:block;margin-bottom:3px;color:#fb923c;" id="prof-streak">0</span><div style="font-size:8px;color:var(--dim);">STREAK</div></div>
+      <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:7px;padding:10px 8px;text-align:center;"><span style="font-family:monospace;font-size:14px;display:block;margin-bottom:3px;color:var(--acc);" id="prof-badges">0</span><div style="font-size:8px;color:var(--dim);">BADGES</div></div>
+    </div>
+    <!-- Formulaire -->
+    <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:8px;padding:16px;">
+      <div style="font-family:monospace;font-size:8px;color:var(--acc);margin-bottom:14px;letter-spacing:1px;">✏️ MODIFIER MON PROFIL</div>
+      <div style="font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px;">Pseudo</div>
+      <input style="width:100%;background:var(--bg2);border:1.5px solid var(--border2);border-radius:6px;padding:10px 13px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text);outline:none;margin-bottom:11px;box-sizing:border-box;" id="prof-pseudo-input" type="text" maxlength="20" placeholder="Ton pseudo...">
+      <div style="font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px;">Promo / Groupe</div>
+      <input style="width:100%;background:var(--bg2);border:1.5px solid var(--border2);border-radius:6px;padding:10px 13px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text);outline:none;margin-bottom:11px;box-sizing:border-box;" id="prof-promo-input" type="text" maxlength="30" placeholder="Ex: TSSR B2 — AFPA Niort">
+      <button onclick="saveProfile()" style="width:100%;padding:12px;background:var(--acc);border:none;border-radius:6px;font-family:monospace;font-size:9px;color:var(--bg);cursor:pointer;letter-spacing:1px;">💾 SAUVEGARDER</button>
+      <div id="prof-save-msg" style="display:none;text-align:center;font-family:monospace;font-size:9px;color:#4ade80;margin-top:8px;">✅ Profil sauvegardé !</div>
+    </div>
+  </div>
+</div>
+
+<!-- LEADERBOARD OVERLAY -->
+<div class="overlay-panel" id="overlay-leaderboard" onclick="if(event.target===this||event.target.classList.contains('overlay-panel-bg'))closeOverlay('leaderboard')">
+  <div class="overlay-panel-bg"></div>
+  <div class="overlay-panel-box">
+    <div class="overlay-panel-handle"></div>
+    <button class="overlay-close-btn" onclick="closeOverlay('leaderboard')">✕</button>
+    <div class="overlay-panel-title">🏆 CLASSEMENT DE PROMO</div>
+    <div id="lb-my-rank-banner"></div>
+    <div style="display:flex;gap:4px;margin-bottom:14px;background:var(--bg2);border-radius:6px;padding:3px;">
+      <button class="lb-tab active" id="lb-tab-mastered" onclick="lbSwitchTab('mastered')">⭐ MAÎTRISÉS</button>
+      <button class="lb-tab" id="lb-tab-streak" onclick="lbSwitchTab('streak')">🔥 STREAK</button>
+      <button class="lb-tab" id="lb-tab-badges" onclick="lbSwitchTab('badges')">🏅 BADGES</button>
+    </div>
+    <div class="lb-list" id="lb-list"><div style="text-align:center;padding:24px;font-family:monospace;font-size:9px;color:var(--text2);">⏳ Chargement...</div></div>
+    <button onclick="loadLeaderboard()" style="width:100%;padding:10px;background:var(--a2);border:1.5px solid var(--acc);color:var(--acc);font-family:monospace;font-size:8px;border-radius:5px;cursor:pointer;letter-spacing:1px;">🔄 ACTUALISER</button>
+  </div>
+</div>
+
+<!-- OBJECTIFS OVERLAY -->
+<div class="overlay-panel" id="overlay-quests" onclick="if(event.target===this||event.target.classList.contains('overlay-panel-bg'))closeOverlay('quests')">
+  <div class="overlay-panel-bg"></div>
+  <div class="overlay-panel-box">
+    <div class="overlay-panel-handle"></div>
+    <button class="overlay-close-btn" onclick="closeOverlay('quests')">✕</button>
+    <div class="overlay-panel-title">🎯 OBJECTIFS</div>
+    <div id="quests-content"></div>
+  </div>
+</div>
+
+<!-- RÉGLAGES OVERLAY -->
+<div class="overlay-panel" id="overlay-settings" onclick="if(event.target===this||event.target.classList.contains('overlay-panel-bg'))closeOverlay('settings')">
+  <div class="overlay-panel-bg"></div>
+  <div class="overlay-panel-box">
+    <div class="overlay-panel-handle"></div>
+    <button class="overlay-close-btn" onclick="closeOverlay('settings')">✕</button>
+    <div class="overlay-panel-title">⚙️ RÉGLAGES</div>
+
+    <div style="margin-bottom:18px;">
+      <div style="font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;">🎨 THÈME</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+        <button class="settings-theme-btn" data-vt="vt-dark"     onclick="pickVTSettings(this)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0d0e14,#38bdf8);margin-bottom:5px;"></div>DARK</button>
+        <button class="settings-theme-btn" data-vt="vt-light"    onclick="pickVTSettings(this)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#f0eeea,#0284c7);margin-bottom:5px;"></div>LIGHT</button>
+        <button class="settings-theme-btn" data-vt="vt-slate"    onclick="pickVTSettings(this)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#1a2035,#4488ff);margin-bottom:5px;"></div>SLATE</button>
+        <button class="settings-theme-btn" data-vt="vt-paper"    onclick="pickVTSettings(this)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#f0ead8,#a07000);margin-bottom:5px;"></div>PAPER</button>
+        <button class="settings-theme-btn" data-vt="vt-midnight" onclick="pickVTSettings(this)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#080810,#8866ff);margin-bottom:5px;"></div>NIGHT</button>
+        <button class="settings-theme-btn" data-vt="vt-warm"     onclick="pickVTSettings(this)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#1a1210,#ff8860);margin-bottom:5px;"></div>WARM</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom:18px;">
+      <div style="font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;">🔊 AUDIO</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1.5px solid var(--border);border-radius:8px;padding:13px 16px;margin-bottom:8px;cursor:pointer;" onclick="toggleSound()">
+        <div><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--text);">Effets sonores</div><div style="font-size:9px;color:var(--text2);margin-top:2px;">Sons de validation, erreurs, combos</div></div>
         <div class="tbox" id="stoggle-settings"></div>
       </div>
-      <div class="settings-toggle-row" onclick="toggleLofi()">
-        <div><div class="settings-toggle-label">🎵 Musique Lo-Fi</div><div class="settings-toggle-sub">Ambiance musicale pendant le quiz</div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1.5px solid var(--border);border-radius:8px;padding:13px 16px;cursor:pointer;" onclick="toggleLofi()">
+        <div><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--text);">🎵 Musique Lo-Fi</div><div style="font-size:9px;color:var(--text2);margin-top:2px;">Ambiance musicale</div></div>
         <button id="lofi-btn-settings" style="background:none;border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:7px;padding:5px 10px;border-radius:4px;cursor:pointer;">OFF</button>
       </div>
     </div>
-    <div class="settings-section">
-      <span class="settings-section-title">👤 Compte</span>
-      <div class="settings-toggle-row">
-        <div><div class="settings-toggle-label" id="settings-email-display">—</div><div class="settings-toggle-sub">Compte connecté</div></div>
+
+    <div>
+      <div style="font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;">👤 COMPTE</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1.5px solid var(--border);border-radius:8px;padding:13px 16px;">
+        <div><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--text);" id="settings-email-display">—</div><div style="font-size:9px;color:var(--text2);margin-top:2px;">Compte connecté</div></div>
         <button onclick="fbLogout()" style="background:rgba(220,38,38,.1);border:1.5px solid #dc2626;color:#dc2626;font-family:monospace;font-size:7px;padding:7px 12px;border-radius:4px;cursor:pointer;">DÉCO</button>
       </div>
     </div>
-    <div style="text-align:center;"><button onclick="goMenu()" style="background:var(--panel);border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:8px;padding:12px 20px;border-radius:5px;cursor:pointer;">◀ MENU</button></div>
   </div>
-</div>
-
-<!-- ===== PROFIL ===== -->
-<div id="screen-profile" class="screen">
-  <div class="avatar-picker" id="avatar-picker" onclick="if(event.target===this)closeAvatarPicker()">
-    <div class="avatar-picker-box">
-      <div style="font-family:monospace;font-size:9px;color:var(--acc);text-align:center;margin-bottom:14px;">CHOISIR TON AVATAR</div>
-      <div class="avatar-grid" id="avatar-grid"></div>
-      <button onclick="closeAvatarPicker()" style="width:100%;padding:10px;background:var(--panel);border:1.5px solid var(--border2);border-radius:6px;font-family:monospace;font-size:8px;color:var(--text2);cursor:pointer;">FERMER</button>
-    </div>
-  </div>
-  <div style="max-width:500px;margin:0 auto;padding:0 4px;">
-    <div class="profile-card">
-      <div class="profile-banner" id="profile-banner"></div>
-      <div class="profile-avatar-wrap" id="profile-avatar-display" onclick="openAvatarPicker()">😊</div>
-      <div class="profile-info">
-        <div class="profile-name" id="profile-name-display">—</div>
-        <div class="profile-title-badge" id="profile-title-display">DÉBUTANT</div>
-        <div class="profile-promo" id="profile-promo-display"></div>
-      </div>
-    </div>
-    <div class="profile-stats-row">
-      <div class="profile-stat"><span class="profile-stat-val" id="prof-mastered" style="color:#4ade80">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Maîtrisés</div></div>
-      <div class="profile-stat"><span class="profile-stat-val" id="prof-streak" style="color:#fb923c">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Streak</div></div>
-      <div class="profile-stat"><span class="profile-stat-val" id="prof-badges" style="color:var(--acc)">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Badges</div></div>
-    </div>
-    <div class="profile-form">
-      <div style="font-family:monospace;font-size:9px;color:var(--acc);margin-bottom:16px;">✏️ MODIFIER MON PROFIL</div>
-      <span class="profile-form-lbl">Pseudo</span>
-      <input class="profile-input" id="prof-pseudo-input" type="text" maxlength="20" placeholder="Ton pseudo...">
-      <span class="profile-form-lbl">Promo / Groupe</span>
-      <input class="profile-input" id="prof-promo-input" type="text" maxlength="30" placeholder="Ex: TSSR B2 — AFPA Niort">
-      <span class="profile-form-lbl">Thème</span>
-      <div id="prof-theme-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
-      <button class="profile-save-btn" onclick="saveProfile()">💾 SAUVEGARDER</button>
-      <div id="prof-save-msg" style="display:none;text-align:center;font-family:monospace;font-size:9px;color:#4ade80;margin-top:8px;">✅ Profil sauvegardé !</div>
-    </div>
-    <div style="text-align:center;margin-top:16px;"><button onclick="goMenu()" style="background:var(--panel);border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:8px;padding:12px 20px;border-radius:5px;cursor:pointer;">◀ MENU</button></div>
-  </div>
-</div>
-
-<!-- ===== LEADERBOARD ===== -->
-<div id="screen-leaderboard" class="screen">
-  <div style="text-align:center;margin-bottom:16px;">
-    <div style="font-family:monospace;font-size:12px;color:var(--acc);margin-bottom:4px;">🏆 LEADERBOARD</div>
-    <div style="font-size:9px;color:var(--text2);">Ta promo en temps réel</div>
-  </div>
-  <div id="lb-my-rank-banner"></div>
-  <div class="lb-tabs">
-    <button class="lb-tab active" id="lb-tab-mastered" onclick="lbSwitchTab('mastered')">⭐ MAÎTRISÉS</button>
-    <button class="lb-tab" id="lb-tab-streak" onclick="lbSwitchTab('streak')">🔥 STREAK</button>
-    <button class="lb-tab" id="lb-tab-badges" onclick="lbSwitchTab('badges')">🏅 BADGES</button>
-  </div>
-  <div class="lb-list" id="lb-list"><div style="text-align:center;padding:32px;font-family:monospace;font-size:9px;color:var(--text2);">⏳ Chargement...</div></div>
-  <div style="display:flex;gap:8px;justify-content:center;">
-    <button onclick="loadLeaderboard()" style="background:var(--a2);border:1.5px solid var(--acc);color:var(--acc);font-family:monospace;font-size:8px;padding:10px 16px;border-radius:5px;cursor:pointer;">🔄 ACTUALISER</button>
-    <button onclick="goMenu()" style="background:var(--panel);border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:8px;padding:10px 16px;border-radius:5px;cursor:pointer;">◀ MENU</button>
-  </div>
-</div>
-
-<!-- ===== OBJECTIFS ===== -->
-<div id="screen-quests" class="screen">
-  <div style="text-align:center;margin-bottom:16px;">
-    <div style="font-family:monospace;font-size:12px;color:var(--acc);margin-bottom:4px;">🎯 OBJECTIFS</div>
-    <div style="font-size:9px;color:var(--text2);">Défis quotidiens et hebdomadaires</div>
-  </div>
-  <div id="quests-content"></div>
-  <div style="text-align:center;margin-top:8px;"><button onclick="goMenu()" style="background:var(--panel);border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:8px;padding:12px 20px;border-radius:5px;cursor:pointer;">◀ MENU</button></div>
 </div>
 
 <div class="flash" id="flash"></div>

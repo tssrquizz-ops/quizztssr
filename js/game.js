@@ -243,7 +243,7 @@ function getQTimer(q,baseTimer){
 // RÉGLAGES
 // ============================================================
 function openSettingsScreen(){
-  showScreen('settings');
+  openOverlay('settings');
   var ss=document.getElementById('stoggle-settings'); if(ss) ss.classList.toggle('on',soundOn);
   var ls=document.getElementById('lofi-btn-settings'); if(ls) ls.textContent=lofiOn?'ON':'OFF';
   document.querySelectorAll('.settings-theme-btn').forEach(function(b){
@@ -440,7 +440,7 @@ function renderLeaderboard(){
   }).join('');
 }
 
-function showLeaderboard(){ showScreen('leaderboard'); loadLeaderboard(); }
+function showLeaderboard(){ openOverlay('leaderboard'); loadLeaderboard(); }
 
 // ============================================================
 // OBJECTIFS
@@ -504,13 +504,390 @@ function buildQuestsScreen(){
     '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin:16px 0 8px;">📆 CETTE SEMAINE ('+doneW+'/'+WEEKLY.length+')</div>'+
     WEEKLY.map(renderQ).join('');
 }
-function showQuestsScreen(){buildQuestsScreen();showScreen('quests');}
+function showQuestsScreen(){buildQuestsScreen();openOverlay('quests');}
+
+
+// ============================================================
+// SYSTÈME OVERLAY PANELS
+// ============================================================
+function openOverlay(name){
+  var el2=document.getElementById('overlay-'+name);
+  if(!el2) return;
+  el2.classList.add('show');
+  // Charger les données
+  if(name==='profile') loadProfileScreen();
+  if(name==='leaderboard') loadLeaderboard();
+  if(name==='quests') buildQuestsScreen();
+  if(name==='settings') openSettingsScreen();
+  // Empêcher scroll background
+  document.body.style.overflow='hidden';
+}
+
+function closeOverlay(name){
+  var el2=document.getElementById('overlay-'+name);
+  if(el2) el2.classList.remove('show');
+  document.body.style.overflow='';
+}
+
+function openSettingsScreen(){
+  var ss=document.getElementById('stoggle-settings'); if(ss) ss.classList.toggle('on',soundOn);
+  var ls=document.getElementById('lofi-btn-settings'); if(ls) ls.textContent=lofiOn?'ON':'OFF';
+  document.querySelectorAll('.settings-theme-btn').forEach(function(b){
+    b.classList.toggle('sel',b.getAttribute('data-vt')===vTheme);
+  });
+  var em=document.getElementById('settings-email-display');
+  if(em&&window._fbUser) em.textContent=window._fbUser.email||'—';
+}
+
+function pickVTSettings(btn){
+  if(typeof playThemeChange==='function') playThemeChange();
+  document.querySelectorAll('.settings-theme-btn').forEach(function(b){b.classList.remove('sel');});
+  btn.classList.add('sel');
+  vTheme=btn.getAttribute('data-vt');
+  lsSet('tssr5_vt',vTheme);
+  applyBody();
+  if(window.fbSaveUserData) setTimeout(window.fbSaveUserData,500);
+}
+
+// Override toggleSound pour syncer settings overlay
+function toggleSound(){
+  soundOn=!soundOn;
+  lsSet('tssr5_sound',soundOn);
+  ['stoggle','stoggle-menu','stoggle-settings'].forEach(function(id){
+    var t=document.getElementById(id); if(t) t.classList.toggle('on',soundOn);
+  });
+  if(window.fbSaveUserData) setTimeout(window.fbSaveUserData,500);
+}
+
+// ============================================================
+// SKIP QUESTION — bouton de secours
+// ============================================================
+function skipQuestion(){
+  if(answered) return;
+  clearInterval(timerInt);
+  answered=true;
+  updDot(idx,'pdot');
+  var fbk=el('fbk');
+  fbk.className='fbk show';
+  fbk.style.cssText='border:1.5px solid #ff9800;background:rgba(255,152,0,.08);color:#cc7700;display:block;';
+  fbk.innerHTML='⏭ Question passée.';
+  el('nextbtn').className='next-btn show';
+}
+
+// ============================================================
+// TIMER ADAPTATIF
+// ============================================================
+var MECH_TIMERS={qcm:1.0,tf:0.6,fill:1.0,calc:1.5,debug:1.2,type:1.2,slider:1.0,word:1.8,scramble:2.0,order:3.5,match:3.0,multiblank:2.5,categorize:3.0,hotspot:4.0};
+var MECH_MIN_TIMER={order:30,match:25,categorize:30,hotspot:40,multiblank:20,word:18,scramble:15,calc:12,debug:12,type:12};
+function getQTimer(q,baseTimer){
+  if(!baseTimer||baseTimer===0)return 0;
+  var mult=MECH_TIMERS[q.t]||1.0;
+  var minT=MECH_MIN_TIMER[q.t]||0;
+  return Math.max(Math.round(baseTimer*mult),minT,baseTimer);
+}
+
+// ============================================================
+// DUEL EN LIGNE — Firebase Realtime (via Firestore)
+// ============================================================
+var onlineSession={
+  code:null, uid:null, role:null, // 'host' ou 'guest'
+  unsubscribe:null, score:{me:0,them:0}, target:7,
+  qIdx:0, sessionPool:[]
+};
+
+function genSessionCode(){
+  var chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code='';
+  for(var i=0;i<6;i++) code+=chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+async function createOnlineSession(){
+  if(!window._fbSetDoc||!window._fbUser){
+    showOnlineError('Tu dois être connecté pour jouer en ligne.');return;
+  }
+  var code=genSessionCode();
+  onlineSession.code=code;
+  onlineSession.role='host';
+  onlineSession.uid=window._fbUser.uid;
+
+  var profile=lsGet('tssr5_profile',{});
+  var pseudo=profile.pseudo||window._fbUser.email.split('@')[0];
+
+  try{
+    await window._fbSetDoc(window._fbDoc(window._fbDb,'duels',code),{
+      code:code,
+      host:{uid:window._fbUser.uid,pseudo:pseudo,score:0,ready:false},
+      guest:null,
+      status:'waiting',
+      qIdx:0,
+      currentQ:null,
+      createdAt:window._fbServerTs?window._fbServerTs():new Date().toISOString()
+    });
+    // Afficher le code
+    var box=document.getElementById('online-code-box');
+    var num=document.getElementById('online-code-num');
+    if(box) box.style.display='block';
+    if(num) num.textContent=code;
+    document.getElementById('online-create-btn').style.display='none';
+    document.getElementById('online-waiting').style.display='flex';
+    // Écouter les changements
+    listenOnlineSession(code);
+  }catch(err){showOnlineError('Erreur : '+err.message);}
+}
+
+async function joinOnlineSession(){
+  if(!window._fbUser){showOnlineError('Tu dois être connecté.');return;}
+  var inp=document.getElementById('online-join-input');
+  var code=(inp?inp.value:'').trim().toUpperCase();
+  if(code.length!==6){showOnlineError('Code invalide (6 caractères).');return;}
+
+  var profile=lsGet('tssr5_profile',{});
+  var pseudo=profile.pseudo||window._fbUser.email.split('@')[0];
+
+  try{
+    var docRef=window._fbDoc(window._fbDb,'duels',code);
+    var snap=await window._fbGetDoc(docRef);
+    if(!snap.exists()){showOnlineError('Session introuvable. Vérifie le code.');return;}
+    var data=snap.data();
+    if(data.status!=='waiting'){showOnlineError('Cette session a déjà commencé.');return;}
+    if(data.host.uid===window._fbUser.uid){showOnlineError('Tu ne peux pas jouer contre toi-même !');return;}
+
+    onlineSession.code=code;
+    onlineSession.role='guest';
+    onlineSession.uid=window._fbUser.uid;
+
+    await window._fbUpdateDoc(docRef,{
+      guest:{uid:window._fbUser.uid,pseudo:pseudo,score:0,ready:false},
+      status:'starting'
+    });
+    document.getElementById('online-waiting').style.display='flex';
+    listenOnlineSession(code);
+  }catch(err){showOnlineError('Erreur : '+err.message);}
+}
+
+function listenOnlineSession(code){
+  if(!window._fbDb||!window._fbDoc) return;
+  // Utiliser onSnapshot via un workaround (Firestore v10 modulaire)
+  // On poll toutes les 1.5s pour la compatibilité avec la version non-realtime
+  var pollInt=setInterval(async function(){
+    if(!onlineSession.code){clearInterval(pollInt);return;}
+    try{
+      var snap=await window._fbGetDoc(window._fbDoc(window._fbDb,'duels',code));
+      if(!snap.exists()){clearInterval(pollInt);return;}
+      handleOnlineSessionUpdate(snap.data(),clearInterval.bind(null,pollInt));
+    }catch(e){console.warn('poll error',e);}
+  },1500);
+  onlineSession.unsubscribe=function(){clearInterval(pollInt);};
+}
+
+function handleOnlineSessionUpdate(data,cancelPoll){
+  var isHost=onlineSession.role==='host';
+  var me=isHost?data.host:data.guest;
+  var them=isHost?data.guest:data.host;
+
+  // Mise à jour scores
+  if(me){
+    var myScore=document.getElementById('op-my-score');
+    var myName=document.getElementById('op-my-name');
+    if(myScore) myScore.textContent=me.score||0;
+    if(myName) myName.textContent=me.pseudo||'Moi';
+    var myBar=document.getElementById('op-my-bar');
+    if(myBar) myBar.style.width=Math.min(100,Math.round((me.score||0)/onlineSession.target*100))+'%';
+  }
+  if(them){
+    var thScore=document.getElementById('op-their-score');
+    var thName=document.getElementById('op-their-name');
+    if(thScore) thScore.textContent=them.score||0;
+    if(thName) thName.textContent=them.pseudo||'Adversaire';
+    var thBar=document.getElementById('op-their-bar');
+    if(thBar) thBar.style.width=Math.min(100,Math.round((them.score||0)/onlineSession.target*100))+'%';
+  }
+
+  if(data.status==='waiting') return;
+
+  // Les deux sont là → démarrer
+  if((data.status==='starting'||data.status==='playing')&&data.guest&&data.host){
+    document.getElementById('online-setup-panel').style.display='none';
+    document.getElementById('online-game-panel').style.display='block';
+
+    // Host choisit les questions au démarrage
+    if(isHost&&data.status==='starting'){
+      startOnlineGame(data);
+    } else if(!isHost&&data.status==='playing'&&data.currentQ){
+      renderOnlineQuestion(data.currentQ,data.qIdx);
+    }
+  }
+
+  // Vérifier victoire
+  var winner=null;
+  if(data.host&&data.host.score>=onlineSession.target) winner=data.host.pseudo;
+  if(data.guest&&data.guest.score>=onlineSession.target) winner=data.guest.pseudo;
+  if(winner){
+    cancelPoll&&cancelPoll();
+    onlineSession.code=null;
+    setTimeout(function(){showOnlineWinner(winner,data);},400);
+  }
+}
+
+async function startOnlineGame(data){
+  // Host prépare les questions et les envoie dans Firestore
+  var pool=CATS[selCat]?CATS[selCat].qs.filter(function(q){return q.t==='qcm'||q.t==='debug';}):[];
+  if(pool.length<10){
+    Object.keys(CATS).forEach(function(k){
+      if(k!=='mix') CATS[k].qs.forEach(function(q){if(q.t==='qcm') pool.push(q);});
+    });
+  }
+  pool=shuffle(pool).slice(0,30);
+  onlineSession.sessionPool=pool;
+
+  var q=pool[0];
+  var qData={
+    q:q.q, opts:q.opts||[], a:q.a, x:q.x||'',
+    idx:0, t:q.t||'qcm'
+  };
+  await window._fbUpdateDoc(window._fbDoc(window._fbDb,'duels',data.code||onlineSession.code),{
+    status:'playing', qIdx:0, currentQ:qData
+  });
+  renderOnlineQuestion(qData,0);
+}
+
+function renderOnlineQuestion(qData,qIdx){
+  onlineSession.qIdx=qIdx;
+  var area=document.getElementById('online-question-area');
+  if(!area) return;
+
+  var shuffled=shuffle((qData.opts||[]).map(function(t,i){return{t:t,i:i};}));
+  area.innerHTML=
+    '<div class="qcard" style="margin-bottom:10px;"><div class="qnum">Question '+(qIdx+1)+'</div>'+
+    '<div class="qtext">'+qData.q+'</div></div>'+
+    '<div class="opts">'+
+    shuffled.map(function(opt,ki){
+      var keys=['A','B','C','D'];
+      return '<button class="opt" data-orig="'+opt.i+'" onclick="submitOnlineAnswer('+opt.i+','+qData.a+',this)">'+
+             '<span class="okey">'+keys[ki]+'</span><span>'+opt.t+'</span></button>';
+    }).join('')+
+    '</div>';
+
+  // Timer 20s
+  var tb=el('tbar'); if(tb){tb.style.width='100%';tb.style.background='#00d87a';}
+  clearInterval(timerInt);
+  var tLeft=20;
+  timerInt=setInterval(function(){
+    tLeft-=0.1;
+    var p=(tLeft/20)*100;
+    if(tb){tb.style.width=p+'%';if(p<50)tb.style.background='#ff9800';if(p<20)tb.style.background='#dc2626';}
+    if(tLeft<=0){clearInterval(timerInt);submitOnlineAnswer(-1,qData.a,null);}
+  },100);
+}
+
+async function submitOnlineAnswer(chosen,correct,btnEl){
+  clearInterval(timerInt);
+  // Disable all opts
+  var allOpts=document.querySelectorAll('#online-question-area .opt');
+  allOpts.forEach(function(b){
+    b.disabled=true;
+    if(+b.getAttribute('data-orig')===correct) b.classList.add('ok');
+  });
+  if(btnEl&&chosen!==correct) btnEl.classList.add('err');
+
+  var ok=(chosen===correct);
+  if(ok&&window._fbUser&&onlineSession.code){
+    // Incrémenter mon score dans Firestore
+    try{
+      var docRef=window._fbDoc(window._fbDb,'duels',onlineSession.code);
+      var snap=await window._fbGetDoc(docRef);
+      if(snap.exists()){
+        var d=snap.data();
+        var isHost=onlineSession.role==='host';
+        var myData=isHost?d.host:d.guest;
+        var newScore=(myData.score||0)+1;
+        var update={};
+        update[(isHost?'host':'guest')+'.score']=newScore;
+        await window._fbUpdateDoc(docRef,update);
+      }
+    }catch(e){console.warn('score update error',e);}
+  }
+
+  // Host avance à la prochaine question
+  if(onlineSession.role==='host'){
+    setTimeout(async function(){
+      var nextIdx=onlineSession.qIdx+1;
+      var pool=onlineSession.sessionPool;
+      if(nextIdx>=pool.length) return;
+      var q=pool[nextIdx];
+      var qData={q:q.q,opts:q.opts||[],a:q.a,x:q.x||'',idx:nextIdx,t:q.t||'qcm'};
+      try{
+        await window._fbUpdateDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code),{
+          qIdx:nextIdx,currentQ:qData
+        });
+        renderOnlineQuestion(qData,nextIdx);
+      }catch(e){console.warn('next q error',e);}
+    },1800);
+  }
+}
+
+function showOnlineWinner(winner,data){
+  var me=onlineSession.role==='host'?data.host:data.guest;
+  var them=onlineSession.role==='host'?data.guest:data.host;
+  var isWinner=me&&me.pseudo===winner;
+  // Réutiliser l'overlay duel-win existant
+  var win=document.getElementById('duel-win');
+  if(win){
+    win.classList.add('show');
+    var t=document.getElementById('dw-title');
+    if(t) t.textContent=(isWinner?'🏆 TU GAGNES !':winner+' GAGNE !');
+    var sc=document.getElementById('dw-scores');
+    if(sc) sc.innerHTML=
+      '<div class="duel-fs"><span class="duel-fs-name" style="color:var(--acc)">'+(me?me.pseudo:'Moi')+'</span>'+
+      '<span class="duel-fs-val" style="color:var(--acc)">'+(me?me.score:0)+'</span></div>'+
+      '<div class="duel-fs" style="font-size:24px;color:var(--dim)"> - </div>'+
+      '<div class="duel-fs"><span class="duel-fs-name" style="color:#f472b6">'+(them?them.pseudo:'Adversaire')+'</span>'+
+      '<span class="duel-fs-val" style="color:#f472b6">'+(them?them.score:0)+'</span></div>';
+  }
+  if(window.fbSaveUserData) window.fbSaveUserData();
+}
+
+function cancelOnlineSession(){
+  if(onlineSession.unsubscribe) onlineSession.unsubscribe();
+  if(onlineSession.code&&window._fbUpdateDoc){
+    window._fbUpdateDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code),{status:'cancelled'}).catch(function(){});
+  }
+  onlineSession={code:null,uid:null,role:null,unsubscribe:null,score:{me:0,them:0},target:7,qIdx:0,sessionPool:[]};
+  document.getElementById('online-waiting').style.display='none';
+  document.getElementById('online-code-box').style.display='none';
+  document.getElementById('online-create-btn').style.display='block';
+  document.getElementById('online-setup-panel').style.display='block';
+  document.getElementById('online-game-panel').style.display='none';
+}
+
+function copyOnlineCode(){
+  var code=document.getElementById('online-code-num');
+  if(!code) return;
+  navigator.clipboard&&navigator.clipboard.writeText(code.textContent).then(function(){
+    var el2=document.getElementById('online-copied');
+    if(el2){el2.classList.add('show');setTimeout(function(){el2.classList.remove('show');},2000);}
+  });
+}
+
+function showOnlineError(msg){
+  var el2=document.getElementById('online-error');
+  if(el2){el2.textContent=msg;el2.style.display='block';setTimeout(function(){el2.style.display='none';},4000);}
+}
+
+// Adapter wizLaunch pour le mode online
+var _origWizLaunch=typeof wizLaunch==='function'?wizLaunch:null;
 
 function startGame(){
   if(selMode==='flash'){startFlash();return;}
   if(selMode==='duel'){showScreen('duel-setup');return;}
   if(selMode==='discussion'){showScreen('discussion');return;}
   if(selMode==='rpg'){startRPGNarrative();return;}
+  if(selMode==='online_duel'){
+    var ovl=document.getElementById('launch-ovl');if(ovl)ovl.classList.remove('open');
+    showScreen('online-duel');
+    return;
+  }
   if(selMode==='chaos'){startChaosMode();return;}
   updateStreak();
   if(selCat==='_multi'){return;} // pool already built by wizLaunch
@@ -4691,6 +5068,7 @@ function buildSheetModes(){
     {id:'flash',icon:'🃏',name:'FLASHCARD',desc:'Retourne les cartes',badge:''},
     {id:'duel',icon:'⚔️',name:'DUEL',desc:'2 joueurs',badge:'2P'},
     {id:'rpg',icon:'🎭',name:'RPG NARRATIF',desc:'Tickets incidents',badge:'RPG'},
+    {id:'online_duel',icon:'⚔️',name:'DUEL EN LIGNE',desc:'Contre un ami à distance',badge:'LIVE'},
     {id:'discussion',icon:'🖥️',name:'DISCUSSION',desc:'Mode projo',badge:'PROJO'},
   ];
   grid.innerHTML='';

@@ -1716,3 +1716,38 @@ body.rpg-mode::before { opacity:0 !important; }
 #mm-login-btn, #mm-logout-btn { width:100%; padding:10px; border-radius:6px; font-family:monospace; font-size:8px; cursor:pointer; letter-spacing:1px; border:1.5px solid var(--border2); background:var(--panel); color:var(--text); margin-bottom:4px; }
 #mm-logout-btn { border-color:#f87171; color:#f87171; }
 
+
+/* ===================== OVERLAYS PANELS ===================== */
+.overlay-panel{position:fixed;inset:0;z-index:8000;display:none;align-items:flex-end;justify-content:center;}
+.overlay-panel.show{display:flex;animation:fade-ovl .2s;}
+.overlay-panel-bg{position:absolute;inset:0;background:rgba(0,0,0,.6);}
+.overlay-panel-box{position:relative;z-index:1;background:var(--bg2);border-radius:16px 16px 0 0;border-top:1.5px solid var(--border2);width:100%;max-width:600px;max-height:92vh;overflow-y:auto;padding:16px 18px 40px;animation:sheet-up .25s cubic-bezier(.4,0,.2,1);}
+.overlay-panel-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px;}
+.overlay-panel-title{font-family:monospace;font-size:11px;color:var(--acc);text-align:center;margin-bottom:16px;letter-spacing:1px;}
+.overlay-close-btn{position:absolute;top:14px;right:14px;background:none;border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:8px;padding:5px 9px;border-radius:5px;cursor:pointer;}
+.overlay-close-btn:hover{border-color:var(--acc);color:var(--acc);}
+
+/* ===================== ONLINE DUEL ===================== */
+#screen-online-duel{padding:20px 0;}
+.online-duel-setup{max-width:420px;margin:0 auto;text-align:center;}
+.online-code-display{background:var(--panel);border:2px solid var(--acc);border-radius:10px;padding:24px;margin:16px 0;cursor:pointer;transition:all .15s;}
+.online-code-display:hover{transform:scale(1.02);}
+.online-code-num{font-family:monospace;font-size:42px;color:var(--acc);letter-spacing:8px;text-shadow:0 0 20px var(--acc);}
+.online-code-lbl{font-size:9px;color:var(--text2);margin-top:6px;font-family:monospace;letter-spacing:2px;}
+.online-code-copied{font-size:9px;color:#4ade80;margin-top:4px;font-family:monospace;opacity:0;transition:opacity .3s;}
+.online-code-copied.show{opacity:1;}
+.online-join-input{width:100%;background:var(--bg2);border:2px solid var(--border2);border-radius:8px;padding:14px;font-family:monospace;font-size:24px;color:var(--acc);text-align:center;letter-spacing:6px;outline:none;margin-bottom:12px;box-sizing:border-box;text-transform:uppercase;}
+.online-join-input:focus{border-color:var(--acc);}
+.online-waiting{display:flex;flex-direction:column;align-items:center;gap:12px;padding:24px;}
+.online-waiting-dots{display:flex;gap:8px;}
+.online-waiting-dot{width:10px;height:10px;border-radius:50%;background:var(--acc);animation:waiting-pulse 1.2s infinite;}
+.online-waiting-dot:nth-child(2){animation-delay:.2s;}
+.online-waiting-dot:nth-child(3){animation-delay:.4s;}
+@keyframes waiting-pulse{0%,80%,100%{opacity:.3;transform:scale(.8);}40%{opacity:1;transform:scale(1.2);}}
+.online-duel-hud{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;margin-bottom:12px;}
+.online-player{background:var(--panel);border:2px solid var(--border);border-radius:8px;padding:10px 8px;text-align:center;transition:all .2s;}
+.online-player.active{border-color:var(--acc);background:var(--a2);transform:scale(1.03);}
+.online-player-name{font-family:monospace;font-size:8px;display:block;margin-bottom:4px;color:var(--text2);}
+.online-player-score{font-family:monospace;font-size:22px;color:var(--text);}
+.online-player-bar{height:4px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden;}
+.online-player-fill{height:100%;border-radius:2px;background:var(--acc);transition:width .4s;}
