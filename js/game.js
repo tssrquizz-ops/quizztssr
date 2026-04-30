@@ -8,6 +8,34 @@ var session=[], idx=0, correct=0, lives=5, combo=1, maxCombo=1;
 var errors=[], answered=false, timerInt=null, timeLeft=20, paused=false;
 var betOn=false, bonusStreak=0;
 
+// ─── Constantes modes & couleurs ───
+var MODE_COLORS={
+  chill:'#38bdf8', speed:'#22d3ee', survie:'#fb923c', blitz:'#ef4444',
+  exam:'#a78bfa', erreurs:'#f472b6', chrono:'#fbbf24', mort:'#dc2626',
+  marathon:'#4ade80', inverse:'#c084fc', speedrun:'#fbbf24', boss:'#ef4444',
+  rpg:'#fbbf24', flash:'#34d399', duel:'#38bdf8', discussion:'#60a5fa',
+  mix:'#e879f9', chaos:'#c026d3'
+};
+var MODES={
+  chill:{timer:0,lives:5,tmax:0},
+  speed:{timer:20,lives:5,tmax:20},
+  survie:{timer:20,lives:3,tmax:20},
+  blitz:{timer:10,lives:1,tmax:10},
+  exam:{timer:0,lives:99,tmax:0,count:20},
+  erreurs:{timer:0,lives:5,tmax:0},
+  chrono:{timer:0,lives:99,tmax:0,timeLimit:180},
+  mort:{timer:0,lives:1,tmax:0},
+  marathon:{timer:0,lives:99,tmax:0,allQ:true},
+  inverse:{timer:0,lives:5,tmax:0},
+  speedrun:{timer:0,lives:99,tmax:0},
+  boss:{timer:0,lives:3,tmax:0,bossMode:true},
+  rpg:{timer:0,lives:5,tmax:0,rpgMode:true},
+  chaos:{timer:15,lives:3,tmax:15,chaosMode:true}
+};
+var DS=['','FACILE ★','MOYEN ★★','DIFFICILE ★★★'];
+var DS_COLORS=['','#4ade80','#ff9800','#f87171'];
+
+
 
 var hsD=lsGet('tssr5_hs',{}),stD=lsGet('tssr5_stats',{}),xpD=lsGet('tssr5_xp',{total:0,level:1}),bdD=lsGet('tssr5_badges',[]);
 var streakD=lsGet('tssr5_streak',{current:0,best:0,lastDate:''});
