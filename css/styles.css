@@ -1659,3 +1659,60 @@ body.rpg-mode::before { opacity:0 !important; }
 @keyframes rpg-toast {from{opacity:0;transform:translateX(-50%) translateY(10px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
 
 @keyframes rpg-toast{from{opacity:0;transform:translateX(-50%) translateY(8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+
+/* ============================================================
+   MENU PRINCIPAL — REFONTE
+   ============================================================ */
+
+/* Max-width PC plus large + meilleure utilisation */
+#app { max-width: 860px; padding: 0 24px 80px; }
+@media (min-width: 860px) {
+  #app { padding: 0 48px 80px; }
+  #screen-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 0 32px; align-items: start; }
+  #screen-menu .menu-topbar,
+  #screen-menu #streak-bar,
+  #screen-menu #daily-widget,
+  #screen-menu .start-btn-main,
+  #screen-menu .menu-actions-row,
+  #screen-menu .slbl,
+  #screen-menu #badges-row,
+  #screen-menu #quick-stats { grid-column: 1 / -1; }
+  #screen-menu .hero-cards { grid-column: 1 / -1; }
+}
+
+/* TOP BAR */
+.menu-topbar { display:flex; align-items:center; justify-content:space-between; padding:12px 0 16px; }
+.menu-topbar-center { flex:1; text-align:center; }
+.menu-logo-small { font-family:monospace; font-size:13px; color:var(--acc); letter-spacing:2px; text-shadow:0 0 12px var(--acc); }
+.menu-ham-btn { background:none; border:1.5px solid var(--border2); border-radius:8px; padding:8px 10px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:border-color .15s; }
+.menu-ham-btn span { display:block; width:18px; height:2px; background:var(--text2); border-radius:2px; transition:all .2s; }
+.menu-ham-btn:hover { border-color:var(--acc); }
+.menu-ham-btn:hover span { background:var(--acc); }
+.menu-profile-btn { background:none; border:1.5px solid var(--border2); border-radius:8px; padding:6px 10px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:border-color .15s; color:var(--text2); font-family:monospace; font-size:16px; }
+.menu-profile-btn:hover { border-color:var(--acc); }
+.menu-username-label { font-family:monospace; font-size:8px; color:var(--text2); max-width:70px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* CTA PRINCIPAL */
+.start-btn-main { width:100%; margin:16px 0 14px; padding:18px; background:var(--acc); border:none; border-radius:10px; font-family:monospace; font-size:12px; color:var(--bg); cursor:pointer; letter-spacing:2px; transition:all .18s; box-shadow:0 6px 28px var(--sh); font-weight:700; }
+.start-btn-main:hover { filter:brightness(1.12); transform:translateY(-3px); box-shadow:0 10px 36px var(--sh); }
+
+/* ACTIONS SECONDAIRES */
+.menu-actions-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:6px; }
+.menu-action-card { background:var(--panel); border:1.5px solid var(--border2); border-radius:10px; padding:14px 8px; cursor:pointer; transition:all .15s; display:flex; flex-direction:column; align-items:center; gap:6px; }
+.menu-action-card:hover { border-color:var(--acc); transform:translateY(-2px); }
+.mac-icon { font-size:22px; line-height:1; }
+.mac-label { font-family:monospace; font-size:8px; color:var(--text2); letter-spacing:1px; }
+
+/* MAIN MENU OVERLAY */
+.main-menu-ovl { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:8000; backdrop-filter:blur(3px); }
+.main-menu-ovl.open { display:block; }
+.main-menu-panel { position:fixed; top:0; left:0; width:280px; max-width:85vw; height:100%; background:var(--bg2); border-right:1.5px solid var(--border2); z-index:8001; transform:translateX(-100%); transition:transform .28s cubic-bezier(.4,0,.2,1); display:flex; flex-direction:column; overflow-y:auto; padding-bottom:40px; }
+.main-menu-panel.open { transform:translateX(0); }
+.main-menu-header { display:flex; align-items:center; justify-content:space-between; padding:20px 18px 12px; border-bottom:1px solid var(--border); }
+.main-menu-section-lbl { font-family:monospace; font-size:7px; color:var(--dim); letter-spacing:2px; padding:14px 18px 6px; }
+.main-menu-btn { width:100%; text-align:left; background:none; border:none; border-bottom:1px solid var(--border); padding:13px 18px; font-family:monospace; font-size:10px; color:var(--text); cursor:pointer; transition:background .12s, color .12s; letter-spacing:.5px; }
+.main-menu-btn:hover { background:var(--panel); color:var(--acc); }
+.main-menu-footer { margin-top:auto; padding:16px 18px; border-top:1px solid var(--border); }
+#mm-login-btn, #mm-logout-btn { width:100%; padding:10px; border-radius:6px; font-family:monospace; font-size:8px; cursor:pointer; letter-spacing:1px; border:1.5px solid var(--border2); background:var(--panel); color:var(--text); margin-bottom:4px; }
+#mm-logout-btn { border-color:#f87171; color:#f87171; }
+

@@ -156,6 +156,7 @@ function initMenu(){
   applyUI(); // applique le thème UI (arcade/paper/terminal/minimal)
   buildDailyWidget();
   buildQuickStats();
+  if(typeof updateMenuTopbar==='function') updateMenuTopbar();
 }
 
 function pickVT(e){document.querySelectorAll('.vtbtn').forEach(function(x){x.classList.remove('sel');});e.classList.add('sel');vTheme=e.getAttribute('data-vt');lsSet('tssr5_vt',vTheme);applyBody();}
@@ -5863,6 +5864,53 @@ var LEXIQUE_COMPLET={
   'WMI/CIM':'Windows Management Instrumentation / Common Information Model. APIs PowerShell pour accéder aux informations système. Get-WmiObject (legacy) ou Get-CimInstance (moderne).',
 };
 
+
+// ── Menu principal (hamburger) ──
+function openMainMenu(){
+  var o=document.getElementById('main-menu-ovl');
+  var p=document.getElementById('main-menu-panel');
+  if(o) o.classList.add('open');
+  if(p) p.classList.add('open');
+}
+function closeMainMenu(){
+  var o=document.getElementById('main-menu-ovl');
+  var p=document.getElementById('main-menu-panel');
+  if(o) o.classList.remove('open');
+  if(p) p.classList.remove('open');
+}
+
+// ── Mise à jour avatar/username dans topbar ──
+function updateMenuTopbar(){
+  var user=window._fbUser;
+  var avatarEl=document.getElementById('menu-avatar-top');
+  var nameEl=document.getElementById('menu-username-top');
+  var mmLogin=document.getElementById('mm-login-btn');
+  var mmLogout=document.getElementById('mm-logout-btn');
+  var mmUser=document.getElementById('mm-user-info');
+  var profile={}; try{profile=JSON.parse(localStorage.getItem('tssr5_profile')||'{}');}catch(e){}
+  if(user){
+    if(avatarEl) avatarEl.textContent=profile.avatar||'👤';
+    if(nameEl) nameEl.textContent=profile.name||user.displayName||user.email.split('@')[0]||'';
+    if(mmLogin) mmLogin.style.display='none';
+    if(mmLogout) mmLogout.style.display='block';
+    if(mmUser) mmUser.textContent=user.email||'';
+  } else {
+    if(avatarEl) avatarEl.textContent=profile.avatar||'👤';
+    if(nameEl) nameEl.textContent=profile.name||'';
+    if(mmLogin) mmLogin.style.display='block';
+    if(mmLogout) mmLogout.style.display='none';
+    if(mmUser) mmUser.textContent='';
+  }
+}
+
+// ── Promo ──
+function openCreatePromo(){
+  alert('Fonctionnalité promo en cours de développement.\nTu pourras créer ta promo et inviter tes camarades bientôt !');
+}
+function openJoinPromo(){
+  var code=prompt('Entrez le code promo :');
+  if(code) alert('Rejoindre la promo "'+code.trim()+'" — fonctionnalité bientôt disponible !');
+}
 
 // INIT
 // Les préférences sont chargées ici, mais l'affichage de l'écran
