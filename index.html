@@ -1409,7 +1409,11 @@ abe:{label:"ABE & Partages",icon:"🔍",desc:"Access-Based Enumeration, SMB, DFS
 {t:'qcm',q:"Sur quel protocole ABE s\'applique-t-il ?",opts:["FTP","RDP (bureau à distance)","SMB (partages réseau)","NFS uniquement"],a:2,d:1,x:"ABE ne fonctionne que sur les accès via SMB (Server Message Block — les partages réseau Windows). L\'accès local (bureau de la machine) ou via RDP ne déclenche PAS le filtrage ABE."},
 {t:'qcm',q:"Combien de droits NTFS minimum sont requis pour qu\'un objet soit VISIBLE avec ABE ?",opts:["1 seul (Read)","2 (Read + Execute)","4 droits spécifiques","Contrôle total obligatoire"],a:2,d:2,x:"ABE vérifie 4 droits : List Folder/Read Data + Read Attributes + Read Extended Attributes + Read Permissions. Si UN seul manque → l\'objet est caché. Ce n\'est pas juste un droit \"Lecture\" global."},
 {t:'tf',q:"ABE met en cache les résultats de filtrage pour améliorer les performances.",a:false,d:2,x:"Faux. ABE ne cache PAS les résultats. Chaque requête QUERY_DIRECTORY déclenche un nouveau calcul complet — même utilisateur, même dossier, 2 requêtes = 2 calculs complets. C\'est son principal impact sur le CPU."},
-{t:'tf',q:"Un utilisateur qui connaît le chemin UNC d\'un dossier caché par ABE peut quand même y accéder.",a:true,d:2,x:"Vrai. ABE masque uniquement lors de l\'ENUMERATION (listage). Il ne bloque pas l\'accès direct. Si tu tapes \\\\serveur\\partage\\DossierCaché directement, les permissions NTFS s\'appliquent <script src="js/data.js"></script>
+{t:'tf',q:"Un utilisateur qui connaît le chemin UNC d\'un dossier caché par ABE peut quand même y accéder.",a:true,d:2,x:"Vrai. ABE masque uniquement lors de l\'ENUMERATION (listage). Il ne bloque pas l\'accès direct. Si tu tapes \\\\serveur\\partage\\DossierCaché directement, les permissions NTFS s\'appliquent normalement."},
+];
+
+</script>
+<script src="js/data.js"></script>
 <script src="js/mechanics.js"></script>
 <script src="js/srs.js"></script>
 <script src="js/profile.js"></script>

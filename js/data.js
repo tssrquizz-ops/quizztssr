@@ -1,3 +1,17 @@
+// ─── Badges ───
+var BDEFS=[
+{id:'perfect',icon:'💎',name:'PERFECTIONNISTE',desc:'10/10 sans erreur',chk:function(s,e,c,tot){return c===tot&&e.length===0;}},
+{id:'survivor',icon:'💀',name:'SURVIVANT',desc:'Finir le mode Survie',chk:function(s,e,c,tot,m){return m==='survie'&&c>=7;}},
+{id:'blitz_win',icon:'🔥',name:'KAMIKAZE',desc:'Finir le mode Blitz',chk:function(s,e,c,tot,m){return m==='blitz'&&c>=5;}},
+{id:'exam_ace',icon:'📝',name:'MAJOR DE PROMO',desc:'18/20 ou + en mode Examen',chk:function(s,e,c,tot,m){return m==='exam'&&c>=18;}},
+{id:'combo10',icon:'⚡',name:'COMBO KING',desc:'Atteindre un combo x10',chk:function(s,e,c,tot,m){return s.maxCombo>=10;}},
+{id:'no_errors',icon:'🎯',name:'SNIPER',desc:'0 erreur en mode Speed',chk:function(s,e,c,tot,m){return m==='speed'&&e.length===0;}},
+{id:'mix_win',icon:'🎲',name:'TOUCHE-A-TOUT',desc:'Finir le mode Mix avec 7/10 minimum',chk:function(s,e,c,tot,m){return s.cat==='mix'&&c>=7;}},
+{id:'mechs',icon:'🔧',name:'MULTI-TALENT',desc:'Jouer les 7 mécaniques différentes',chk:function(s,e,c,tot,m){return s.mechs&&s.mechs.size>=7;}},
+{id:'streak5',icon:'🔥',name:'EN FEU',desc:'5 jours de streak quotidien',chk:function(s,e,c,tot,m){return s.streak>=5;}},
+{id:'cisco_king',icon:'🔵',name:'CISCO KING',desc:'10/10 en Cisco IOS',chk:function(s,e,c,tot,m){return s.cat==='cisco'&&c===10&&e.length===0;}}
+];
+
 // ─── data.js — Banques de questions TSSR ───
 var CATS={
 reseau:{label:"Présentation Réseau",icon:"🌐",desc:"OSI, TCP/IP, équipements, adressage",cat:"cat-reseau",qs:[

@@ -1,6 +1,14 @@
 // ─── game.js — Moteur de jeu, state, scoring, modes ───
 function lsGet(k,d){try{var v=localStorage.getItem(k);return v!==null?JSON.parse(v):d;}catch(e){return d;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));if(window._fbUser&&window.fbSaveUserData){clearTimeout(window._fbSaveTimer);window._fbSaveTimer=setTimeout(window.fbSaveUserData,2000);}}catch(e){}}
+// ─── Variables globales d'état ───
+var vTheme='vt-dark', selCat='reseau', selMode='chill', selDiff='all';
+var soundOn=false, jokersEnabled=true, currentUI='ui-arcade';
+var session=[], idx=0, correct=0, lives=5, combo=1, maxCombo=1;
+var errors=[], answered=false, timerInt=null, timeLeft=20, paused=false;
+var betOn=false, bonusStreak=0;
+
+
 var hsD=lsGet('tssr5_hs',{}),stD=lsGet('tssr5_stats',{}),xpD=lsGet('tssr5_xp',{total:0,level:1}),bdD=lsGet('tssr5_badges',[]);
 var streakD=lsGet('tssr5_streak',{current:0,best:0,lastDate:''});
 var savedVT=lsGet('tssr5_vt','vt-dark');
@@ -1078,7 +1086,8 @@ function endFlash(){
 
 // keyboard for flashcards
 document.addEventListener('keydown',function(e){
-  if(!document.getElementById('screen-flash').classList.contains('active')) return;
+  var _sf=document.getElementById('screen-flash');
+  if(!_sf||!_sf.classList.contains('active')) return;
   if(e.key===' '||e.key==='Enter'){e.preventDefault();
     if(!flashFlipped) flipCard();
   }
