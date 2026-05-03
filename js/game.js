@@ -3,7 +3,7 @@ function lsGet(k,d){try{var v=localStorage.getItem(k);return v!==null?JSON.parse
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));if(window._fbUser&&window.fbSaveUserData){clearTimeout(window._fbSaveTimer);window._fbSaveTimer=setTimeout(window.fbSaveUserData,2000);}}catch(e){}}
 // ─── Variables globales d'état ───
 var vTheme='vt-dark', selCat='reseau', selMode='chill', selDiff='all';
-var soundOn=false, jokersEnabled=true, currentUI='ui-arcade';
+var soundOn=true, jokersEnabled=true, currentUI='ui-neon';
 var session=[], idx=0, correct=0, lives=5, combo=1, maxCombo=1;
 var errors=[], answered=false, timerInt=null, timeLeft=20, paused=false;
 var betOn=false, bonusStreak=0;
@@ -105,7 +105,8 @@ function updateStreak(){
 
 function applyBody(){
   var catCls=CATS[selCat]?CATS[selCat].cat:'cat-mix';
-  document.body.className=vTheme+' '+catCls;
+  var uiCls=window.uiStyle||'ui-neon';
+  document.body.className=vTheme+' '+catCls+' '+uiCls;
   // Override --acc avec la couleur du mode si en jeu
   var modeCol=selMode&&MODE_COLORS[selMode]?MODE_COLORS[selMode]:null;
   if(modeCol&&document.getElementById('screen-game')&&document.getElementById('screen-game').classList.contains('active')){
@@ -137,10 +138,10 @@ function buildBadges(){
 
 function initMenu(){
   vTheme=lsGet('tssr5_vt','vt-dark');
-  soundOn=lsGet('tssr5_sound',false);
+  soundOn=lsGet('tssr5_sound',true);
   jokersEnabled=lsGet('tssr5_jokers',true);
   selQCount=lsGet('tssr5_qcount',10);
-  currentUI=lsGet('tssr5_ui','ui-arcade');
+  currentUI=lsGet('tssr5_ui','ui-neon');
 
   // Streak
   var sn=el('streak-num'); if(sn) sn.textContent=streakD.current+' jour'+(streakD.current!==1?'s':'');
@@ -170,7 +171,18 @@ function toggleSound(){
 }
 function toggleJokers(){jokersEnabled=!jokersEnabled;el('jtoggle').classList.toggle('on',jokersEnabled);lsSet('tssr5_jokers',jokersEnabled);}
 function pickQCount(e){selQCount=parseInt(e.getAttribute('data-n'));lsSet('tssr5_qcount',selQCount);document.querySelectorAll('.qcbtn').forEach(function(b){b.classList.remove('sel');});e.classList.add('sel');}
-function showScreen(n){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});el('screen-'+n).classList.add('active');}
+function showScreen(n){
+  document.querySelectorAll('.screen').forEach(function(s){
+    s.classList.remove('active');
+    s.style.display='none';
+  });
+  var target=el('screen-'+n);
+  if(target){
+    target.classList.add('active');
+    target.style.display='flex';
+  }
+  try{window.scrollTo(0,0);}catch(e){}
+}
 function goMenu(){
   clearInterval(timerInt);paused=false;el('povl').classList.remove('show');
   var sh=el('score-hud'); if(sh) sh.style.display='grid';
@@ -535,9 +547,24 @@ function openSettingsScreen(){
   document.querySelectorAll('.settings-theme-btn').forEach(function(b){
     b.classList.toggle('sel',b.getAttribute('data-vt')===vTheme);
   });
+  var curUI=currentUI||lsGet('tssr5_ui','ui-neon')||'ui-neon';
+  document.querySelectorAll('.settings-da-btn').forEach(function(b){
+    b.classList.toggle('sel',b.getAttribute('data-ui')===curUI);
+  });
   var em=document.getElementById('settings-email-display');
   if(em&&window._fbUser) em.textContent=window._fbUser.email||'—';
 }
+
+function pickUISettings(btn){
+  if(typeof playThemeChange==='function') playThemeChange();
+  document.querySelectorAll('.settings-da-btn').forEach(function(b){b.classList.remove('sel');});
+  btn.classList.add('sel');
+  var ui=btn.getAttribute('data-ui');
+  if(typeof switchUI==='function'){ switchUI(ui); }
+  else { window.uiStyle=ui; lsSet('tssr5_ui',ui); applyBody(); }
+  if(window.fbSaveUserData) setTimeout(window.fbSaveUserData,500);
+}
+window.pickUISettings=pickUISettings;
 
 function pickVTSettings(btn){
   if(typeof playThemeChange==='function') playThemeChange();
@@ -587,19 +614,38 @@ function getQTimer(q,baseTimer){
 }
 
 // ============================================================
-// DUEL EN LIGNE — Firebase Realtime (via Firestore)
+// DUEL EN LIGNE V2 — Vote + Rounds + Speed bonus + Visuel propre
 // ============================================================
 var onlineSession={
   code:null, uid:null, role:null, // 'host' ou 'guest'
-  unsubscribe:null, score:{me:0,them:0}, target:7,
-  qIdx:0, sessionPool:[]
+  unsubscribe:null,
+  config:null,            // { mode, qPerRound, totalRounds, target, speedBonus }
+  qIdx:0,                 // index global dans la pool
+  roundIdx:0,
+  questionsPool:[],       // chez le host
+  qStartTs:0,             // timestamp local start question
+  myAnswered:false,       // bool
+  revealing:false,        // bool guard
+  perRoundScores:[]       // [[host_round1, host_round2,...], [guest_round1,...]]
 };
+
+var ONLINE_MODES={
+  rounds:  { label:'🏁 ROUNDS',     desc:'5 questions × 3 rounds. Dernier round caché ! 🔥' },
+  course:  { label:'⚡ COURSE',     desc:'Premier à atteindre l\'objectif gagne' },
+  qbq:     { label:'🎯 QUESTION/QUESTION', desc:'Plus rapide gagne, attente entre chaque' }
+};
+var ONLINE_COUNTS=[5,7,10,15];
 
 function genSessionCode(){
   var chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   var code='';
   for(var i=0;i<6;i++) code+=chars[Math.floor(Math.random()*chars.length)];
   return code;
+}
+
+function _onlineUpdate(payload){
+  if(!onlineSession.code) return Promise.resolve();
+  return window._fbUpdateDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code),payload);
 }
 
 async function createOnlineSession(){
@@ -617,23 +663,29 @@ async function createOnlineSession(){
   try{
     await window._fbSetDoc(window._fbDoc(window._fbDb,'duels',code),{
       code:code,
-      host:{uid:window._fbUser.uid,pseudo:pseudo,score:0,ready:false},
+      host:{ uid:window._fbUser.uid, pseudo:pseudo, score:0, ready:false,
+             vote:null, answer:null },
       guest:null,
       status:'waiting',
-      qIdx:0,
+      qIdx:0, roundIdx:0,
       currentQ:null,
+      config:null,
+      reveal:false,
+      cat:selCat||'mix',
       createdAt:window._fbServerTs?window._fbServerTs():new Date().toISOString()
     });
-    // Afficher le code
     var box=document.getElementById('online-code-box');
     var num=document.getElementById('online-code-num');
     if(box) box.style.display='block';
     if(num) num.textContent=code;
     document.getElementById('online-create-btn').style.display='none';
     document.getElementById('online-waiting').style.display='flex';
-    // Écouter les changements
     listenOnlineSession(code);
-  }catch(err){showOnlineError('Erreur : '+err.message);}
+  }catch(err){
+    var c=err.code||err.message||'';
+    if((c+'').indexOf('permission')>-1) showOnlineError('⚠️ Règles Firestore non déployées. Voir /FIRESTORE_SETUP.md');
+    else showOnlineError('Erreur : '+(err.message||err));
+  }
 }
 
 async function joinOnlineSession(){
@@ -658,207 +710,586 @@ async function joinOnlineSession(){
     onlineSession.uid=window._fbUser.uid;
 
     await window._fbUpdateDoc(docRef,{
-      guest:{uid:window._fbUser.uid,pseudo:pseudo,score:0,ready:false},
-      status:'starting'
+      guest:{ uid:window._fbUser.uid, pseudo:pseudo, score:0, ready:false,
+              vote:null, answer:null },
+      status:'voting'
     });
-    document.getElementById('online-waiting').style.display='flex';
     listenOnlineSession(code);
-  }catch(err){showOnlineError('Erreur : '+err.message);}
+  }catch(err){
+    var c=err.code||err.message||'';
+    if((c+'').indexOf('permission')>-1) showOnlineError('⚠️ Règles Firestore non déployées. Voir /FIRESTORE_SETUP.md');
+    else showOnlineError('Erreur : '+(err.message||err));
+  }
 }
 
 function listenOnlineSession(code){
   if(!window._fbDb||!window._fbDoc) return;
-  // Utiliser onSnapshot via un workaround (Firestore v10 modulaire)
-  // On poll toutes les 1.5s pour la compatibilité avec la version non-realtime
+  if(typeof window._fbOnSnapshot==='function'){
+    var ref=window._fbDoc(window._fbDb,'duels',code);
+    var unsub=window._fbOnSnapshot(ref, function(snap){
+      if(!onlineSession.code){ if(unsub) unsub(); return; }
+      if(!snap.exists()){ if(unsub) unsub(); return; }
+      handleOnlineSessionUpdate(snap.data());
+    }, function(err){
+      console.warn('onSnapshot error',err);
+      showOnlineError('Connexion : '+(err.message||err.code||'erreur'));
+    });
+    onlineSession.unsubscribe=function(){ if(unsub) unsub(); };
+    return;
+  }
   var pollInt=setInterval(async function(){
     if(!onlineSession.code){clearInterval(pollInt);return;}
     try{
       var snap=await window._fbGetDoc(window._fbDoc(window._fbDb,'duels',code));
       if(!snap.exists()){clearInterval(pollInt);return;}
-      handleOnlineSessionUpdate(snap.data(),clearInterval.bind(null,pollInt));
+      handleOnlineSessionUpdate(snap.data());
     }catch(e){console.warn('poll error',e);}
   },1500);
   onlineSession.unsubscribe=function(){clearInterval(pollInt);};
 }
 
-function handleOnlineSessionUpdate(data,cancelPoll){
+function _showOnlinePanel(name){
+  ['setup','vote','round','game','finish'].forEach(function(p){
+    var el2=document.getElementById('online-'+p+'-panel');
+    if(el2) el2.style.display=(p===name)?'':'none';
+  });
+}
+
+function handleOnlineSessionUpdate(data){
   var isHost=onlineSession.role==='host';
   var me=isHost?data.host:data.guest;
   var them=isHost?data.guest:data.host;
 
-  // Mise à jour scores
-  if(me){
-    var myScore=document.getElementById('op-my-score');
-    var myName=document.getElementById('op-my-name');
-    if(myScore) myScore.textContent=me.score||0;
-    if(myName) myName.textContent=me.pseudo||'Moi';
-    var myBar=document.getElementById('op-my-bar');
-    if(myBar) myBar.style.width=Math.min(100,Math.round((me.score||0)/onlineSession.target*100))+'%';
-  }
-  if(them){
-    var thScore=document.getElementById('op-their-score');
-    var thName=document.getElementById('op-their-name');
-    if(thScore) thScore.textContent=them.score||0;
-    if(thName) thName.textContent=them.pseudo||'Adversaire';
-    var thBar=document.getElementById('op-their-bar');
-    if(thBar) thBar.style.width=Math.min(100,Math.round((them.score||0)/onlineSession.target*100))+'%';
-  }
+  // 1. WAITING
+  if(data.status==='waiting'){ _showOnlinePanel('setup'); return; }
 
-  if(data.status==='waiting') return;
-
-  // Les deux sont là → démarrer
-  if((data.status==='starting'||data.status==='playing')&&data.guest&&data.host){
-    document.getElementById('online-setup-panel').style.display='none';
-    document.getElementById('online-game-panel').style.display='block';
-
-    // Host choisit les questions au démarrage
-    if(isHost&&data.status==='starting'){
-      startOnlineGame(data);
-    } else if(!isHost&&data.status==='playing'&&data.currentQ){
-      renderOnlineQuestion(data.currentQ,data.qIdx);
+  // 2. VOTING — guest joined, both vote for mode/count
+  if(data.status==='voting'){
+    _showOnlinePanel('vote');
+    renderVotePanel(data, me, them, isHost);
+    // host applique la config quand les deux ont voté
+    if(isHost && data.host && data.host.vote && data.guest && data.guest.vote){
+      computeAndStartConfig(data);
     }
+    return;
   }
 
-  // Vérifier victoire
-  var winner=null;
-  if(data.host&&data.host.score>=onlineSession.target) winner=data.host.pseudo;
-  if(data.guest&&data.guest.score>=onlineSession.target) winner=data.guest.pseudo;
-  if(winner){
-    cancelPoll&&cancelPoll();
-    onlineSession.code=null;
-    setTimeout(function(){showOnlineWinner(winner,data);},400);
+  // 3. STARTING — host génère la pool de questions
+  if(data.status==='starting'){
+    _showOnlinePanel('round');
+    renderRoundRecap(data, true /*starting*/);
+    if(isHost){ hostGenerateQuestionsAndStart(data); }
+    return;
+  }
+
+  // 4. ROUND_END — recap entre rounds
+  if(data.status==='round_end'){
+    _showOnlinePanel('round');
+    renderRoundRecap(data, false);
+    return;
+  }
+
+  // 5. PLAYING
+  if(data.status==='playing'){
+    _showOnlinePanel('game');
+    onlineSession.config=data.config;
+    onlineSession.qIdx=data.qIdx||0;
+    onlineSession.roundIdx=data.roundIdx||0;
+    renderOnlineHUD(data, me, them, isHost);
+    // Render new question if it changed
+    var curQ=data.currentQ;
+    var needRerender = !window._lastRenderedQ || window._lastRenderedQ.idx !== (curQ&&curQ.idx);
+    if(curQ && needRerender){
+      window._lastRenderedQ = curQ;
+      onlineSession.qStartTs = Date.now();
+      onlineSession.myAnswered=false;
+      onlineSession.revealing=false;
+      renderOnlineQuestion(curQ);
+    }
+    // Reveal phase : both answered ou data.reveal=true
+    var bothAnswered = (data.host && data.host.answer != null) && (data.guest && data.guest.answer != null);
+    if((bothAnswered || data.reveal) && !onlineSession.revealing){
+      onlineSession.revealing=true;
+      revealOnlineQuestion(data);
+      // host advance after reveal pause
+      if(isHost){
+        setTimeout(function(){ hostAdvance(data); }, 2800);
+      }
+    }
+    return;
+  }
+
+  // 6. FINISHED
+  if(data.status==='finished'){
+    _showOnlinePanel('finish');
+    showOnlineFinish(data);
+    return;
   }
 }
 
-async function startOnlineGame(data){
-  // Host prépare les questions et les envoie dans Firestore
-  var pool=CATS[selCat]?CATS[selCat].qs.filter(function(q){return q.t==='qcm'||q.t==='debug';}):[];
-  if(pool.length<10){
-    Object.keys(CATS).forEach(function(k){
-      if(k!=='mix') CATS[k].qs.forEach(function(q){if(q.t==='qcm') pool.push(q);});
-    });
-  }
-  pool=shuffle(pool).slice(0,30);
-  onlineSession.sessionPool=pool;
+// ---------- VOTE PANEL ----------
+function renderVotePanel(data, me, them, isHost){
+  var area=document.getElementById('online-vote-area');
+  if(!area) return;
+  var myVote=me&&me.vote||{};
+  var theirVote=them&&them.vote||{};
+  var theirReady = !!(them&&them.vote&&them.vote.mode&&them.vote.count);
 
-  var q=pool[0];
-  var qData={
-    q:q.q, opts:q.opts||[], a:q.a, x:q.x||'',
-    idx:0, t:q.t||'qcm'
-  };
-  await window._fbUpdateDoc(window._fbDoc(window._fbDb,'duels',data.code||onlineSession.code),{
-    status:'playing', qIdx:0, currentQ:qData
+  var modeBtns=Object.keys(ONLINE_MODES).map(function(k){
+    var sel=myVote.mode===k?'sel':'';
+    return '<button class="ovote-btn '+sel+'" onclick="onlineVoteMode(\''+k+'\')" data-testid="online-vote-'+k+'">'+
+      '<div class="ovote-btn-title">'+ONLINE_MODES[k].label+'</div>'+
+      '<div class="ovote-btn-desc">'+ONLINE_MODES[k].desc+'</div></button>';
+  }).join('');
+
+  var cntBtns=ONLINE_COUNTS.map(function(n){
+    var sel=myVote.count===n?'sel':'';
+    return '<button class="ovote-cnt '+sel+'" onclick="onlineVoteCount('+n+')">'+n+'</button>';
+  }).join('');
+
+  var speedSel = myVote.speedBonus===false ? '' : 'sel';
+
+  area.innerHTML=
+    '<div class="ovote-header">'+
+      '<div class="ovote-vs">'+
+        '<div class="ovote-player ovote-me"><span class="ovote-pname">'+(me&&me.pseudo||'Moi')+'</span><span class="ovote-pstatus">'+(myVote.mode?'✓ Voté':'À toi')+'</span></div>'+
+        '<div class="ovote-vs-mid">VS</div>'+
+        '<div class="ovote-player ovote-them"><span class="ovote-pname">'+(them&&them.pseudo||'Adversaire')+'</span><span class="ovote-pstatus">'+(theirReady?'✓ A voté':'En attente…')+'</span></div>'+
+      '</div>'+
+      '<h2 class="ovote-h">📊 Votez ensemble la config</h2>'+
+      '<p class="ovote-sub">Si vos votes diffèrent, on tire au hasard parmi les choix.</p>'+
+    '</div>'+
+    '<div class="ovote-section"><div class="ovote-lbl">MODE DE JEU</div>'+
+      '<div class="ovote-modes">'+modeBtns+'</div></div>'+
+    '<div class="ovote-section"><div class="ovote-lbl">NOMBRE DE QUESTIONS / OBJECTIF</div>'+
+      '<div class="ovote-counts">'+cntBtns+'</div></div>'+
+    '<div class="ovote-section"><label class="ovote-toggle '+speedSel+'" onclick="onlineVoteSpeed()" data-testid="online-vote-speed">'+
+      '<div class="ovote-tbox"></div><span><strong>Bonus de vitesse</strong> : +1 point pour le plus rapide à chaque question correcte 🚀</span></label></div>'+
+    '<button class="ovote-cancel" onclick="cancelOnlineSession()">Annuler</button>';
+}
+
+window.onlineVoteMode = async function(mode){
+  if(window.playClickSoft) window.playClickSoft();
+  var key = onlineSession.role==='host'?'host':'guest';
+  var snap = await window._fbGetDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code));
+  if(!snap.exists()) return;
+  var d = snap.data();
+  var prev = (d[key]&&d[key].vote) || {speedBonus:true};
+  prev.mode = mode;
+  var u={}; u[key+'.vote']=prev;
+  _onlineUpdate(u);
+};
+
+window.onlineVoteCount = async function(n){
+  if(window.playClickSoft) window.playClickSoft();
+  var key = onlineSession.role==='host'?'host':'guest';
+  var snap = await window._fbGetDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code));
+  if(!snap.exists()) return;
+  var d = snap.data();
+  var prev = (d[key]&&d[key].vote) || {speedBonus:true};
+  prev.count = n;
+  var u={}; u[key+'.vote']=prev;
+  _onlineUpdate(u);
+};
+
+window.onlineVoteSpeed = async function(){
+  if(window.playClickSoft) window.playClickSoft();
+  var key = onlineSession.role==='host'?'host':'guest';
+  var snap = await window._fbGetDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code));
+  if(!snap.exists()) return;
+  var d = snap.data();
+  var prev = (d[key]&&d[key].vote) || {speedBonus:true};
+  prev.speedBonus = !(prev.speedBonus===false?false:true); // flip
+  var u={}; u[key+'.vote']=prev;
+  _onlineUpdate(u);
+};
+
+async function computeAndStartConfig(data){
+  // Choose the agreed config (random if they disagree)
+  var hv=data.host.vote||{}, gv=data.guest.vote||{};
+  var mode = (hv.mode===gv.mode) ? hv.mode : (Math.random()<0.5?hv.mode:gv.mode);
+  if(!mode) mode='rounds';
+  var count = (hv.count===gv.count) ? hv.count : (Math.random()<0.5?(hv.count||7):(gv.count||7));
+  if(!count) count=7;
+  var speedBonus = !(hv.speedBonus===false || gv.speedBonus===false); // OFF si l'un des deux a OFF
+
+  var config;
+  if(mode==='rounds'){
+    config={mode:'rounds', qPerRound:5, totalRounds:Math.max(1,Math.round(count/5))||3, target:0, speedBonus:speedBonus};
+    config.totalRounds = Math.max(2, Math.min(5, Math.round(count/5)));
+    config.qPerRound = Math.max(3, Math.round(count/config.totalRounds));
+  } else if(mode==='course'){
+    config={mode:'course', qPerRound:0, totalRounds:1, target:count, speedBonus:speedBonus};
+  } else {
+    config={mode:'qbq', qPerRound:1, totalRounds:count, target:0, speedBonus:speedBonus};
+  }
+
+  await _onlineUpdate({status:'starting', config:config, qIdx:0, roundIdx:0});
+}
+
+// ---------- ROUND RECAP ----------
+function renderRoundRecap(data, isStart){
+  var area=document.getElementById('online-round-area');
+  if(!area) return;
+  var cfg=data.config||{};
+  var hostName = data.host&&data.host.pseudo || 'Host';
+  var guestName= data.guest&&data.guest.pseudo|| 'Guest';
+  var hScore = data.host&&data.host.score || 0;
+  var gScore = data.guest&&data.guest.score || 0;
+  var hideScores = (cfg.mode==='rounds') && (data.roundIdx===cfg.totalRounds-1) && !isStart;
+
+  var label;
+  if(isStart) label='🚀 Match prêt — '+(ONLINE_MODES[cfg.mode]?ONLINE_MODES[cfg.mode].label:'');
+  else if(data.status==='round_end' && data.roundIdx<cfg.totalRounds-1) label='Round '+(data.roundIdx+1)+'/'+cfg.totalRounds+' terminé';
+  else label='Dernier round — scores cachés 🤐';
+
+  area.innerHTML=
+    '<div class="oround-pulse">'+label+'</div>'+
+    '<div class="oround-vs">'+
+      '<div class="oround-side"><div class="oround-name">'+hostName+'</div>'+
+        '<div class="oround-score'+(hideScores?' hide':'')+'">'+(hideScores?'??':hScore)+'</div></div>'+
+      '<div class="oround-mid">VS</div>'+
+      '<div class="oround-side"><div class="oround-name">'+guestName+'</div>'+
+        '<div class="oround-score'+(hideScores?' hide':'')+'">'+(hideScores?'??':gScore)+'</div></div>'+
+    '</div>'+
+    (cfg.mode==='rounds'?'<div class="oround-meta">'+cfg.qPerRound+' questions × '+cfg.totalRounds+' rounds'+(cfg.speedBonus?' · ⚡ bonus vitesse':'')+'</div>':
+     cfg.mode==='course'?'<div class="oround-meta">Premier à '+cfg.target+' bonnes réponses'+(cfg.speedBonus?' · ⚡ bonus vitesse':'')+'</div>':
+     '<div class="oround-meta">'+cfg.totalRounds+' questions · plus rapide gagne'+(cfg.speedBonus?' · ⚡ bonus vitesse':'')+'</div>')+
+    '<div class="oround-cd" id="oround-cd">3</div>';
+
+  // Countdown 3 → 2 → 1
+  var cd=3;
+  var cdEl=document.getElementById('oround-cd');
+  clearInterval(window._oroundCd);
+  window._oroundCd=setInterval(function(){
+    cd--;
+    if(cdEl) cdEl.textContent=cd>0?cd:'GO !';
+    if(cd<=0){
+      clearInterval(window._oroundCd);
+      // host advance to playing
+      if(onlineSession.role==='host'){
+        setTimeout(function(){
+          if(data.status==='starting'||data.status==='round_end'){
+            // already host action, no-op for guest
+          }
+        },200);
+      }
+    }
+  },900);
+}
+
+// ---------- HOST GENERATE POOL ----------
+async function hostGenerateQuestionsAndStart(data){
+  if(window._lastGenForCode===onlineSession.code) return; // single shot
+  window._lastGenForCode=onlineSession.code;
+  var cfg=data.config;
+  var totalQ = (cfg.mode==='course') ? cfg.target+10 : (cfg.qPerRound*cfg.totalRounds || cfg.totalRounds);
+  totalQ=Math.max(5, totalQ);
+
+  var pool=[];
+  var cat = data.cat || selCat || 'mix';
+  var src = (cat && CATS[cat] && cat!=='mix') ? CATS[cat].qs : (function(){
+    var all=[]; Object.keys(CATS).forEach(function(k){ if(k==='mix') return;
+      CATS[k].qs.forEach(function(q){ all.push(Object.assign({},q,{_cat:CATS[k].label})); });
+    }); return all;
+  })();
+  pool = src.filter(function(q){ return q.t==='qcm' || q.t==='debug' || q.t==='tf'; });
+  if(pool.length<totalQ){ pool=src.slice(); }
+  pool=shuffle(pool).slice(0,totalQ);
+  onlineSession.questionsPool=pool;
+
+  // Send first question
+  var first=pool[0];
+  var qData={ idx:0, q:first.q, opts:first.opts||[], a:first.a, x:first.x||'', t:first.t||'qcm',
+              shuffleSeed:Math.floor(Math.random()*999999) };
+  await new Promise(function(r){setTimeout(r,3000);}); // wait for countdown
+  await _onlineUpdate({
+    status:'playing', qIdx:0, roundIdx:0, currentQ:qData, reveal:false,
+    'host.answer': null, 'guest.answer': null,
+    questionsPoolSize: pool.length
   });
-  renderOnlineQuestion(qData,0);
 }
 
-function renderOnlineQuestion(qData,qIdx){
-  onlineSession.qIdx=qIdx;
+// ---------- RENDER QUESTION ----------
+function renderOnlineQuestion(qData){
   var area=document.getElementById('online-question-area');
   if(!area) return;
+  // Use qcard look
+  var seed = qData.shuffleSeed||0;
+  var rng=(function(s){return function(){ s=(s*9301+49297)%233280; return s/233280;};})(seed);
+  var pairs = (qData.opts||[]).map(function(t,i){return {t:t,i:i};});
+  // shuffle deterministic
+  for(var i=pairs.length-1;i>0;i--){ var j=Math.floor(rng()*(i+1)); var tmp=pairs[i];pairs[i]=pairs[j];pairs[j]=tmp; }
 
-  var shuffled=shuffle((qData.opts||[]).map(function(t,i){return{t:t,i:i};}));
-  area.innerHTML=
-    '<div class="qcard" style="margin-bottom:10px;"><div class="qnum">Question '+(qIdx+1)+'</div>'+
-    '<div class="qtext">'+qData.q+'</div></div>'+
-    '<div class="opts">'+
-    shuffled.map(function(opt,ki){
-      var keys=['A','B','C','D'];
-      return '<button class="opt" data-orig="'+opt.i+'" onclick="submitOnlineAnswer('+opt.i+','+qData.a+',this)">'+
-             '<span class="okey">'+keys[ki]+'</span><span>'+opt.t+'</span></button>';
-    }).join('')+
-    '</div>';
+  var keys=['A','B','C','D'];
+  var optsHtml=pairs.map(function(opt,ki){
+    return '<button class="opt online-opt" data-orig="'+opt.i+'" data-correct="'+qData.a+'" '+
+           'onclick="submitOnlineAnswer('+opt.i+',this)">'+
+           '<span class="okey">'+keys[ki]+'</span><span>'+opt.t+'</span></button>';
+  }).join('');
 
-  // Timer 20s
-  var tb=el('tbar'); if(tb){tb.style.width='100%';tb.style.background='#00d87a';}
+  area.innerHTML =
+    '<div class="qcard online-qcard"><div class="qnum">Question '+((qData.idx||0)+1)+'</div>'+
+      '<div class="qtext">'+qData.q+'</div></div>'+
+    '<div class="opts">'+optsHtml+'</div>'+
+    '<div id="online-feedback" class="online-feedback"></div>';
+
+  // Timer 25s shared
+  // Timer visuel dans le panel online
+  var tbWrap=document.querySelector('#online-game-panel .tbarwrap');
+  if(tbWrap) tbWrap.innerHTML='<div id="tbar-od" class="tbar" style="width:100%;background:#00d87a;height:4px;border-radius:2px;transition:none;"></div>';
+  var tb=document.getElementById('tbar-od');
   clearInterval(timerInt);
-  var tLeft=20;
+  var TOT=25, tLeft=TOT;
   timerInt=setInterval(function(){
     tLeft-=0.1;
-    var p=(tLeft/20)*100;
+    var p=Math.max(0,(tLeft/TOT)*100);
     if(tb){tb.style.width=p+'%';if(p<50)tb.style.background='#ff9800';if(p<20)tb.style.background='#dc2626';}
-    if(tLeft<=0){clearInterval(timerInt);submitOnlineAnswer(-1,qData.a,null);}
+    if(tLeft<=0){
+      clearInterval(timerInt);
+      if(!onlineSession.myAnswered) submitOnlineAnswer(-1,null);
+    }
   },100);
 }
 
-async function submitOnlineAnswer(chosen,correct,btnEl){
+window.submitOnlineAnswer = async function(chosen, btnEl){
+  if(onlineSession.myAnswered) return;
+  onlineSession.myAnswered=true;
   clearInterval(timerInt);
+  if(window.playClick) window.playClick();
+  var elapsed = (Date.now() - onlineSession.qStartTs) / 1000;
   // Disable all opts
-  var allOpts=document.querySelectorAll('#online-question-area .opt');
-  allOpts.forEach(function(b){
+  document.querySelectorAll('.online-opt').forEach(function(b){ b.disabled=true; });
+  if(btnEl) btnEl.classList.add('chosen');
+
+  var key = onlineSession.role==='host'?'host':'guest';
+  try{
+    var u={};
+    u[key+'.answer'] = { choice:chosen, time:elapsed, ts: Date.now() };
+    await _onlineUpdate(u);
+    var fb=document.getElementById('online-feedback');
+    if(fb) fb.innerHTML='<div class="ofeed-wait">⏳ En attente de l\'adversaire…</div>';
+  }catch(e){ console.warn('submit answer error',e); }
+};
+
+function revealOnlineQuestion(data){
+  clearInterval(timerInt);
+  var curQ=data.currentQ;
+  var correct = curQ&&curQ.a;
+  // Show correct + my error
+  document.querySelectorAll('.online-opt').forEach(function(b){
     b.disabled=true;
     if(+b.getAttribute('data-orig')===correct) b.classList.add('ok');
   });
-  if(btnEl&&chosen!==correct) btnEl.classList.add('err');
-
-  var ok=(chosen===correct);
-  if(ok&&window._fbUser&&onlineSession.code){
-    // Incrémenter mon score dans Firestore
-    try{
-      var docRef=window._fbDoc(window._fbDb,'duels',onlineSession.code);
-      var snap=await window._fbGetDoc(docRef);
-      if(snap.exists()){
-        var d=snap.data();
-        var isHost=onlineSession.role==='host';
-        var myData=isHost?d.host:d.guest;
-        var newScore=(myData.score||0)+1;
-        var update={};
-        update[(isHost?'host':'guest')+'.score']=newScore;
-        await window._fbUpdateDoc(docRef,update);
-      }
-    }catch(e){console.warn('score update error',e);}
+  // Show their answer marker (if available)
+  var key = onlineSession.role==='host'?'guest':'host';
+  var their = data[key]&&data[key].answer;
+  if(their && their.choice!=null && their.choice!==correct){
+    document.querySelectorAll('.online-opt').forEach(function(b){
+      if(+b.getAttribute('data-orig')===their.choice) b.classList.add('them-err');
+    });
   }
+  // Feedback
+  var hostA = data.host&&data.host.answer;
+  var guestA= data.guest&&data.guest.answer;
+  var myA   = onlineSession.role==='host'?hostA:guestA;
+  var theirA= onlineSession.role==='host'?guestA:hostA;
+  var meOk  = myA && myA.choice===correct;
+  var themOk= theirA && theirA.choice===correct;
 
-  // Host avance à la prochaine question
-  if(onlineSession.role==='host'){
-    setTimeout(async function(){
-      var nextIdx=onlineSession.qIdx+1;
-      var pool=onlineSession.sessionPool;
-      if(nextIdx>=pool.length) return;
-      var q=pool[nextIdx];
-      var qData={q:q.q,opts:q.opts||[],a:q.a,x:q.x||'',idx:nextIdx,t:q.t||'qcm'};
-      try{
-        await window._fbUpdateDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code),{
-          qIdx:nextIdx,currentQ:qData
-        });
-        renderOnlineQuestion(qData,nextIdx);
-      }catch(e){console.warn('next q error',e);}
-    },1800);
-  }
+  var msg='';
+  if(meOk && themOk){
+    var faster = (myA.time<=theirA.time);
+    msg = faster ? '✅ Tu es le plus rapide ! '+(data.config&&data.config.speedBonus?'+ Bonus ⚡':'')
+                 : '✅ Bonne réponse, mais ton adversaire a été plus rapide';
+  } else if(meOk){ msg='✅ Bonne réponse !'; }
+  else if(themOk){ msg='❌ Raté — adversaire a trouvé.'; }
+  else { msg='❌ Personne n\'a trouvé. Bonne réponse en vert.'; }
+  var fb=document.getElementById('online-feedback');
+  if(fb) fb.innerHTML='<div class="ofeed-result">'+msg+'</div>'+
+                     (curQ.x?'<div class="ofeed-exp">'+curQ.x+'</div>':'');
 }
 
-function showOnlineWinner(winner,data){
-  var me=onlineSession.role==='host'?data.host:data.guest;
-  var them=onlineSession.role==='host'?data.guest:data.host;
-  var isWinner=me&&me.pseudo===winner;
-  // Réutiliser l'overlay duel-win existant
-  var win=document.getElementById('duel-win');
-  if(win){
-    win.classList.add('show');
-    var t=document.getElementById('dw-title');
-    if(t) t.textContent=(isWinner?'🏆 TU GAGNES !':winner+' GAGNE !');
-    var sc=document.getElementById('dw-scores');
-    if(sc) sc.innerHTML=
-      '<div class="duel-fs"><span class="duel-fs-name" style="color:var(--acc)">'+(me?me.pseudo:'Moi')+'</span>'+
-      '<span class="duel-fs-val" style="color:var(--acc)">'+(me?me.score:0)+'</span></div>'+
-      '<div class="duel-fs" style="font-size:24px;color:var(--dim)"> - </div>'+
-      '<div class="duel-fs"><span class="duel-fs-name" style="color:#f472b6">'+(them?them.pseudo:'Adversaire')+'</span>'+
-      '<span class="duel-fs-val" style="color:#f472b6">'+(them?them.score:0)+'</span></div>';
+// ---------- HOST ADVANCE (compute scores + next q or round end or finish) ----------
+async function hostAdvance(data){
+  var cfg=data.config||{};
+  var curQ=data.currentQ||{};
+  var correct = curQ.a;
+  var hostA = data.host&&data.host.answer;
+  var guestA = data.guest&&data.guest.answer;
+  var hostOk = hostA && hostA.choice===correct;
+  var guestOk= guestA && guestA.choice===correct;
+
+  // Score computation
+  var hScore = data.host&&data.host.score || 0;
+  var gScore = data.guest&&data.guest.score || 0;
+  if(cfg.mode==='qbq'){
+    // Mode rapide : seul le plus rapide marque
+    if(hostOk && guestOk){
+      if(hostA.time<=guestA.time) hScore+=1; else gScore+=1;
+    } else if(hostOk){ hScore+=1; }
+    else if(guestOk){ gScore+=1; }
+  } else {
+    if(hostOk) hScore+=1;
+    if(guestOk) gScore+=1;
+    // Speed bonus
+    if(cfg.speedBonus && hostOk && guestOk){
+      if(hostA.time<guestA.time) hScore+=1;
+      else if(guestA.time<hostA.time) gScore+=1;
+    }
+  }
+
+  // Decide next state
+  var nextIdx = (data.qIdx||0) + 1;
+  var pool = onlineSession.questionsPool;
+  var roundIdx = data.roundIdx||0;
+  var newStatus='playing';
+  var newRoundIdx=roundIdx;
+  var doRoundEnd=false;
+  var doFinish=false;
+
+  if(cfg.mode==='course'){
+    if(hScore>=cfg.target || gScore>=cfg.target) doFinish=true;
+    if(nextIdx>=pool.length) doFinish=true;
+  } else if(cfg.mode==='qbq'){
+    if(nextIdx>=cfg.totalRounds) doFinish=true;
+  } else if(cfg.mode==='rounds'){
+    var qInRound = nextIdx % cfg.qPerRound;
+    if(qInRound===0){
+      newRoundIdx = roundIdx+1;
+      if(newRoundIdx>=cfg.totalRounds) doFinish=true;
+      else doRoundEnd=true;
+    }
+  }
+
+  if(doFinish){
+    await _onlineUpdate({
+      status:'finished',
+      'host.score':hScore, 'guest.score':gScore,
+      'host.answer':null,'guest.answer':null,
+      reveal:false
+    });
+    return;
+  }
+  if(doRoundEnd){
+    await _onlineUpdate({
+      status:'round_end',
+      roundIdx:newRoundIdx,
+      'host.score':hScore, 'guest.score':gScore,
+      'host.answer':null, 'guest.answer':null,
+      reveal:false
+    });
+    // Pause then move to next round
+    setTimeout(async function(){
+      if(!onlineSession.code) return;
+      var next = pool[nextIdx];
+      if(!next){ await _onlineUpdate({status:'finished'}); return; }
+      var qData={ idx:nextIdx, q:next.q, opts:next.opts||[], a:next.a, x:next.x||'', t:next.t||'qcm',
+                  shuffleSeed:Math.floor(Math.random()*999999) };
+      await _onlineUpdate({
+        status:'playing', qIdx:nextIdx, currentQ:qData, reveal:false,
+        'host.answer':null,'guest.answer':null
+      });
+    }, 4500);
+    return;
+  }
+  // Normal advance
+  var next = pool[nextIdx];
+  if(!next){
+    await _onlineUpdate({
+      status:'finished',
+      'host.score':hScore,'guest.score':gScore
+    });
+    return;
+  }
+  var qData={ idx:nextIdx, q:next.q, opts:next.opts||[], a:next.a, x:next.x||'', t:next.t||'qcm',
+              shuffleSeed:Math.floor(Math.random()*999999) };
+  await _onlineUpdate({
+    qIdx:nextIdx, currentQ:qData, reveal:false,
+    'host.score':hScore,'guest.score':gScore,
+    'host.answer':null,'guest.answer':null
+  });
+}
+
+// ---------- HUD ----------
+function renderOnlineHUD(data, me, them, isHost){
+  var hud=document.getElementById('online-hud');
+  if(!hud) return;
+  var cfg=data.config||{};
+  var hideScores = (cfg.mode==='rounds') && (data.roundIdx===cfg.totalRounds-1);
+  var meScore = me?me.score:0, themScore = them?them.score:0;
+  var meName = me?me.pseudo:'Moi', themName = them?them.pseudo:'Adv.';
+  var qIdx=(data.qIdx||0)+1, totalQ = onlineSession.questionsPool.length||data.questionsPoolSize||'?';
+
+  hud.innerHTML =
+    '<div class="ohud-side ohud-me">'+
+      '<span class="ohud-name">'+meName+'</span>'+
+      '<span class="ohud-score">'+(hideScores?'??':meScore)+'</span>'+
+      (me&&me.answer?'<span class="ohud-flag ok">✓</span>':'<span class="ohud-flag wait">…</span>')+
+    '</div>'+
+    '<div class="ohud-mid">'+
+      '<span class="ohud-mid-q">Q '+qIdx+(totalQ?' / '+totalQ:'')+'</span>'+
+      (cfg.mode==='rounds'?'<span class="ohud-mid-round">Round '+((data.roundIdx||0)+1)+'/'+cfg.totalRounds+'</span>':'')+
+    '</div>'+
+    '<div class="ohud-side ohud-them">'+
+      (them&&them.answer?'<span class="ohud-flag ok">✓</span>':'<span class="ohud-flag wait">…</span>')+
+      '<span class="ohud-score">'+(hideScores?'??':themScore)+'</span>'+
+      '<span class="ohud-name">'+themName+'</span>'+
+    '</div>';
+}
+
+// ---------- FINISH ----------
+function showOnlineFinish(data){
+  var area=document.getElementById('online-finish-area');
+  if(!area) return;
+  var hScore=data.host&&data.host.score||0;
+  var gScore=data.guest&&data.guest.score||0;
+  var hName=data.host&&data.host.pseudo||'Host';
+  var gName=data.guest&&data.guest.pseudo||'Guest';
+  var iAmHost=onlineSession.role==='host';
+  var meScore=iAmHost?hScore:gScore, themScore=iAmHost?gScore:hScore;
+  var meName=iAmHost?hName:gName, themName=iAmHost?gName:hName;
+  var iWin = meScore>themScore;
+  var draw = meScore===themScore;
+
+  area.innerHTML =
+    '<div class="ofin-emoji">'+(iWin?'🏆':draw?'🤝':'😢')+'</div>'+
+    '<div class="ofin-title">'+(iWin?'VICTOIRE !':draw?'ÉGALITÉ':'DÉFAITE')+'</div>'+
+    '<div class="ofin-vs">'+
+      '<div class="ofin-side '+(iWin?'win':draw?'':'lose')+'"><div class="ofin-name">'+meName+'</div><div class="ofin-score">'+meScore+'</div></div>'+
+      '<div class="ofin-mid">—</div>'+
+      '<div class="ofin-side '+(iWin?'lose':draw?'':'win')+'"><div class="ofin-name">'+themName+'</div><div class="ofin-score">'+themScore+'</div></div>'+
+    '</div>'+
+    '<div class="ofin-actions">'+
+      '<button class="sheet-launch-btn" onclick="goMenu()" data-testid="online-finish-menu">↩ MENU</button>'+
+    '</div>';
+
+  if(iWin){
+    setTimeout(function(){ if(window.launchConfetti) window.launchConfetti(); }, 300);
   }
   if(window.fbSaveUserData) window.fbSaveUserData();
+  // Cleanup session after a bit
+  setTimeout(function(){
+    if(onlineSession.unsubscribe) onlineSession.unsubscribe();
+    onlineSession.code=null;
+  }, 400);
 }
 
 function cancelOnlineSession(){
+  if(window.playClick) window.playClick();
   if(onlineSession.unsubscribe) onlineSession.unsubscribe();
   if(onlineSession.code&&window._fbUpdateDoc){
     window._fbUpdateDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code),{status:'cancelled'}).catch(function(){});
   }
-  onlineSession={code:null,uid:null,role:null,unsubscribe:null,score:{me:0,them:0},target:7,qIdx:0,sessionPool:[]};
-  document.getElementById('online-waiting').style.display='none';
-  document.getElementById('online-code-box').style.display='none';
-  document.getElementById('online-create-btn').style.display='block';
-  document.getElementById('online-setup-panel').style.display='block';
-  document.getElementById('online-game-panel').style.display='none';
+  onlineSession={code:null,uid:null,role:null,unsubscribe:null,config:null,qIdx:0,roundIdx:0,questionsPool:[],qStartTs:0,myAnswered:false,revealing:false,perRoundScores:[]};
+  var p=document.getElementById('online-setup-panel'); if(p) p.style.display='';
+  var w=document.getElementById('online-waiting'); if(w) w.style.display='none';
+  var box=document.getElementById('online-code-box'); if(box) box.style.display='none';
+  var b=document.getElementById('online-create-btn'); if(b) b.style.display='block';
+  ['vote','round','game','finish'].forEach(function(p){
+    var e=document.getElementById('online-'+p+'-panel'); if(e) e.style.display='none';
+  });
+  goMenu();
 }
 
 function copyOnlineCode(){
@@ -872,7 +1303,7 @@ function copyOnlineCode(){
 
 function showOnlineError(msg){
   var el2=document.getElementById('online-error');
-  if(el2){el2.textContent=msg;el2.style.display='block';setTimeout(function(){el2.style.display='none';},4000);}
+  if(el2){el2.textContent=msg;el2.style.display='block';setTimeout(function(){el2.style.display='none';},5000);}
 }
 
 // Adapter wizLaunch pour le mode online
@@ -1974,36 +2405,87 @@ function buildDailyWidget(){
   var done=dailyData[today];
 
   if(done){
-    widget.innerHTML='<div class="daily-card"><div class="daily-header"><span class="daily-icon">📅</span><span class="daily-title">DÉFI DU JOUR</span><span class="daily-date">'+new Date().toLocaleDateString('fr-FR')+'</span></div><div class="daily-done">'+(done.ok?'✅ Réussi !':'❌ Raté — mais tu le sauras demain !')+'<div class="daily-streak" style="margin-top:8px;font-size:9px;color:var(--text2);">'+q.x+'</div></div></div>';
+    widget.innerHTML='<div class="daily-card"><div class="daily-header"><span class="daily-icon">📅</span><span class="daily-title">DÉFI DU JOUR</span><span class="daily-date">'+new Date().toLocaleDateString('fr-FR')+'</span></div><div class="daily-done">'+(done.ok?'✅ Réussi aujourd\'hui !':'❌ Raté — retente demain !')+'<div class="daily-streak">Reviens demain pour un nouveau défi 🔥</div></div></div>';
     return;
   }
 
-  widget.innerHTML='<div class="daily-card" id="daily-q-card"><div class="daily-header"><span class="daily-icon">📅</span><span class="daily-title">DÉFI DU JOUR</span><span class="daily-date">'+new Date().toLocaleDateString('fr-FR')+'</span></div><div class="daily-body"><div class="daily-q">'+q.q+'</div><div id="daily-opts" class="opts"></div></div></div>';
+  // Carte cliquable qui ouvre l'écran dédié (PAS d'affichage inline de la question)
+  widget.innerHTML =
+    '<button class="daily-card daily-card-btn" onclick="openDailyScreen()" data-testid="daily-card-btn">'+
+      '<div class="daily-header">'+
+        '<span class="daily-icon">📅</span>'+
+        '<span class="daily-title">DÉFI DU JOUR</span>'+
+        '<span class="daily-date">'+new Date().toLocaleDateString('fr-FR')+'</span>'+
+      '</div>'+
+      '<div class="daily-teaser">'+
+        '<div class="daily-teaser-title">Une question corsée à résoudre 🎯</div>'+
+        '<div class="daily-teaser-sub">Tape pour relever le défi du jour</div>'+
+        '<div class="daily-teaser-cta">COMMENCER →</div>'+
+      '</div>'+
+    '</button>';
+}
 
+function openDailyScreen(){
+  var q=getDailyQuestion();
+  if(!q) return;
+  var today=new Date().toDateString();
+  if(dailyData[today]) return; // déjà fait
+  var scr=document.getElementById('screen-daily');
+  if(!scr){
+    scr=document.createElement('div');
+    scr.id='screen-daily';
+    scr.className='screen';
+    document.getElementById('app').appendChild(scr);
+  }
+  scr.innerHTML =
+    '<div class="daily-topbar">'+
+      '<button class="wiz-close" onclick="closeDailyScreen()" data-testid="daily-close-btn">✕</button>'+
+      '<div class="daily-topbar-title">📅 DÉFI DU JOUR</div>'+
+      '<div style="width:36px;"></div>'+
+    '</div>'+
+    '<div class="daily-page-body">'+
+      '<div class="daily-cat-pill">'+(q._cat||'')+' · ★★★</div>'+
+      '<h2 class="daily-page-q">'+q.q+'</h2>'+
+      '<div id="daily-opts" class="opts daily-opts-page"></div>'+
+      '<div id="daily-exp"></div>'+
+    '</div>';
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');s.style.display='none';});
+  scr.classList.add('active');
+  scr.style.display='flex';
+  try{window.scrollTo(0,0);}catch(e){}
   var shuffled=shuffle(q.opts.map(function(t,i){return{t:t,i:i};}));
   var optsDiv=document.getElementById('daily-opts');
   ['A','B','C','D'].forEach(function(k,i){
     if(!shuffled[i]) return;
     var b=document.createElement('button'); b.className='opt';
+    b.setAttribute('data-testid','daily-opt-'+k);
     b.innerHTML='<span class="okey">'+k+'</span><span>'+shuffled[i].t+'</span>';
     b.onclick=(function(opt){return function(){
-      // Disable all
       optsDiv.querySelectorAll('.opt').forEach(function(x){x.disabled=true;});
       optsDiv.querySelectorAll('.opt').forEach(function(x){if(+x.getAttribute('data-orig')===q.a)x.classList.add('ok');});
       var ok=opt.i===q.a;
       b.classList.add(ok?'ok':'err');
       dailyData[today]={ok:ok};lsSet('tssr5_daily',dailyData);
       if(ok){beep(784,.15,'sine',.2);}else{beep(200,.1,'sawtooth',.15);}
-      // Show explanation
-      var exp=document.createElement('div');
-      exp.style.cssText='font-size:11px;color:var(--text2);margin-top:10px;padding-top:8px;border-top:1px solid var(--border);line-height:1.7;';
-      exp.textContent=q.x;
-      document.querySelector('.daily-body').appendChild(exp);
+      var exp=document.getElementById('daily-exp');
+      exp.innerHTML='<div class="daily-exp-box"><div class="daily-exp-lbl">'+(ok?'✅ BRAVO !':'❌ Raté')+'</div><div class="daily-exp-txt">'+q.x+'</div><button class="sheet-launch-btn" onclick="closeDailyScreen();buildDailyWidget();" data-testid="daily-back-btn">↩ RETOUR AU MENU</button></div>';
     };})(shuffled[i]);
     b.setAttribute('data-orig',shuffled[i].i);
     optsDiv.appendChild(b);
   });
 }
+
+function closeDailyScreen(){
+  var scr=document.getElementById('screen-daily');
+  if(scr){scr.classList.remove('active');scr.style.display='none';}
+  var sm=document.getElementById('screen-menu');
+  if(sm){sm.classList.add('active');sm.style.display='flex';}
+  try{window.scrollTo(0,0);}catch(e){}
+  buildDailyWidget();
+}
+// Expose globally
+window.openDailyScreen=openDailyScreen;
+window.closeDailyScreen=closeDailyScreen;
 
 // =====================================================
 // SCORE PARTAGEABLE
@@ -2815,12 +3297,13 @@ function switchUI(ui){
 
 function applyUI(){
   // Remove all ui classes, keep others
-  document.body.classList.remove('ui-arcade','ui-paper','ui-terminal','ui-minimal');
-  document.body.classList.add(currentUI||'ui-arcade');
+  document.body.classList.remove('ui-arcade','ui-paper','ui-terminal','ui-minimal','ui-neon');
+  document.body.classList.add(currentUI||'ui-neon');
+  window.uiStyle=currentUI||'ui-neon';
 
   // Sync switcher buttons
-  document.querySelectorAll('.ui-sw-btn').forEach(function(b){
-    b.classList.toggle('sel', b.getAttribute('data-ui')===(currentUI||'ui-arcade'));
+  document.querySelectorAll('.ui-sw-btn, .settings-da-btn').forEach(function(b){
+    b.classList.toggle('sel', b.getAttribute('data-ui')===(currentUI||'ui-neon'));
   });
 
   // Logo adaptatif
@@ -2833,6 +3316,7 @@ function applyUI(){
       logo.textContent='DOSSIER N° '+num;
     }
     else if(currentUI==='ui-minimal') logo.textContent='TSSR Quiz';
+    else if(currentUI==='ui-neon') logo.textContent='TSSR·quiz';
     else logo.textContent='📚 TSSR QUIZ';
   }
 
@@ -2842,6 +3326,7 @@ function applyUI(){
     if(currentUI==='ui-terminal') sub.textContent='[SYSTÈME PRÊT] 282 questions chargées';
     else if(currentUI==='ui-paper') sub.textContent='FORMULAIRE DE RÉVISION — CONFIDENTIEL';
     else if(currentUI==='ui-minimal') sub.textContent='282 questions · 15 catégories';
+    else if(currentUI==='ui-neon') sub.textContent='Quiz Réseaux & Systèmes · 700 questions';
     else sub.textContent='Basé sur ton Notion · 282 questions';
   }
 }
@@ -4859,7 +5344,7 @@ function rpgUpdateBadge(){
 
 function rpgEndSession(fired,promoted){
   document.body.classList.remove('rpg-mode');
-  currentUI=lsGet('tssr5_ui','ui-arcade');
+  currentUI=lsGet('tssr5_ui','ui-neon');
   // Afficher l'écran de fin avec fond paper forcé via CSS inline
   document.querySelectorAll('.screen').forEach(function(s){s.style.display='none';s.classList.remove('active');});
   var endScreen=document.getElementById('screen-rpg-end');
@@ -4913,7 +5398,8 @@ function openLaunchSheet(){
 }
 
 function closeLaunchSheet(e){
-  if(e&&e.target!==document.getElementById('launch-ovl')) return;
+  // Accept any call: direct click on close btn OR backdrop click (in case old handler still around)
+  if(e && e.target && e.target!==document.getElementById('launch-ovl') && !(e.target.classList && e.target.classList.contains('wiz-close'))) return;
   var ovl=document.getElementById('launch-ovl');
   if(ovl) ovl.classList.remove('open');
 }
@@ -5598,23 +6084,63 @@ function getUiAC(){
   return _uiAC;
 }
 
+// Variation aléatoire des sons pour éviter la répétition
+var _clickPool = [
+  {type:'square', f1:800, f2:400, g:0.07},
+  {type:'square', f1:880, f2:440, g:0.07},
+  {type:'triangle', f1:720, f2:360, g:0.08},
+  {type:'sine', f1:700, f2:500, g:0.06},
+  {type:'square', f1:920, f2:520, g:0.06},
+  {type:'triangle', f1:640, f2:420, g:0.07}
+];
+var _clickIdx = 0;
 function playClick(){
   if(!soundOn) return;
   try{
     var ac=getUiAC();
+    // Rotation + petite variation aléatoire de pitch (±6%)
+    _clickIdx = (_clickIdx + 1 + Math.floor(Math.random()*2)) % _clickPool.length;
+    var c = _clickPool[_clickIdx];
+    var jitter = 0.94 + Math.random()*0.12;
     var o=ac.createOscillator();
     var g=ac.createGain();
     o.connect(g);g.connect(ac.destination);
-    o.type='square';
-    o.frequency.setValueAtTime(800,ac.currentTime);
-    o.frequency.exponentialRampToValueAtTime(400,ac.currentTime+0.04);
-    g.gain.setValueAtTime(0.08,ac.currentTime);
+    o.type=c.type;
+    o.frequency.setValueAtTime(c.f1*jitter,ac.currentTime);
+    o.frequency.exponentialRampToValueAtTime(c.f2*jitter,ac.currentTime+0.04);
+    g.gain.setValueAtTime(c.g,ac.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.06);
     o.start();o.stop(ac.currentTime+0.07);
   }catch(e){}
 }
 
+var _softPool = [
+  {type:'sine', f:600, g:0.05},
+  {type:'sine', f:520, g:0.05},
+  {type:'triangle', f:680, g:0.045},
+  {type:'sine', f:560, g:0.05}
+];
+var _softIdx = 0;
 function playClickSoft(){
+  if(!soundOn) return;
+  try{
+    var ac=getUiAC();
+    _softIdx = (_softIdx + 1 + Math.floor(Math.random()*2)) % _softPool.length;
+    var c = _softPool[_softIdx];
+    var jitter = 0.95 + Math.random()*0.1;
+    var o=ac.createOscillator();
+    var g=ac.createGain();
+    o.connect(g);g.connect(ac.destination);
+    o.type=c.type;
+    o.frequency.setValueAtTime(c.f*jitter,ac.currentTime);
+    g.gain.setValueAtTime(c.g,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.08);
+    o.start();o.stop(ac.currentTime+0.09);
+  }catch(e){}
+}
+
+// Hover subtil (peu fréquent, très discret)
+function playHover(){
   if(!soundOn) return;
   try{
     var ac=getUiAC();
@@ -5622,12 +6148,16 @@ function playClickSoft(){
     var g=ac.createGain();
     o.connect(g);g.connect(ac.destination);
     o.type='sine';
-    o.frequency.setValueAtTime(600,ac.currentTime);
-    g.gain.setValueAtTime(0.05,ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.08);
-    o.start();o.stop(ac.currentTime+0.09);
+    var f = 900 + Math.random()*200;
+    o.frequency.value=f;
+    g.gain.setValueAtTime(0.015,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.05);
+    o.start();o.stop(ac.currentTime+0.06);
   }catch(e){}
 }
+window.playClick = playClick;
+window.playClickSoft = playClickSoft;
+window.playHover = playHover;
 
 function playThemeChange(){
   if(!soundOn) return;
@@ -6296,7 +6826,7 @@ function openJoinPromo(){
 (function(){
   function doInit(){
     vTheme=lsGet('tssr5_vt','vt-dark');
-    soundOn=lsGet('tssr5_sound',false);
+    soundOn=lsGet('tssr5_sound',true);
     jokersEnabled=lsGet('tssr5_jokers',true);
     selQCount=lsGet('tssr5_qcount',10);
     applyBody(); // applique le thème sans afficher de screen
@@ -6308,3 +6838,59 @@ function openJoinPromo(){
     doInit();
   }
 })();
+
+// =====================================================
+// SONS GLOBAUX — clicks variés sur tous les boutons
+// =====================================================
+(function attachGlobalClickSounds(){
+  function isClickable(el){
+    if(!el) return false;
+    var tag = (el.tagName||'').toLowerCase();
+    if(tag==='button' || tag==='a') return true;
+    if(el.getAttribute && (el.getAttribute('role')==='button' || el.hasAttribute('onclick'))) return true;
+    if(el.classList && (el.classList.contains('ccard') || el.classList.contains('mcard') ||
+       el.classList.contains('sheet-cat') || el.classList.contains('sheet-mode') ||
+       el.classList.contains('sheet-pill') || el.classList.contains('opt') ||
+       el.classList.contains('menu-action-card') || el.classList.contains('hero-card') ||
+       el.classList.contains('settings-da-btn') || el.classList.contains('settings-theme-btn') ||
+       el.classList.contains('daily-card-btn') || el.classList.contains('main-menu-btn'))) return true;
+    return false;
+  }
+  function findClickable(el){
+    for(var i=0;i<5 && el;i++){
+      if(isClickable(el)) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+  document.addEventListener('click', function(e){
+    var t = findClickable(e.target);
+    if(!t) return;
+    if(t.disabled) return;
+    // Différents types de sons selon le rôle
+    if(t.classList.contains('opt')){ return; } // le son opt est déjà géré par answer handler
+    if(t.classList.contains('sheet-launch-btn') || t.classList.contains('start-btn-main')){
+      if(window.playModeStart) window.playModeStart(); else if(window.playClick) window.playClick();
+      return;
+    }
+    if(t.classList.contains('hero-card') || t.classList.contains('menu-action-card') ||
+       t.classList.contains('sheet-cat') || t.classList.contains('sheet-mode') ||
+       t.classList.contains('settings-da-btn') || t.classList.contains('daily-card-btn')){
+      if(window.playClickSoft) window.playClickSoft();
+      return;
+    }
+    if(window.playClick) window.playClick();
+  }, true);
+
+  // Hover très discret
+  var lastHover = 0;
+  document.addEventListener('pointerover', function(e){
+    var t = findClickable(e.target);
+    if(!t) return;
+    var now = Date.now();
+    if(now - lastHover < 80) return;  // throttle
+    lastHover = now;
+    if(Math.random() < 0.35 && window.playHover) window.playHover();
+  }, true);
+})();
+

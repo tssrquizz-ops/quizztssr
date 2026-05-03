@@ -4,8 +4,8 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword,
          createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
          signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp,
-         collection, getDocs, query, orderBy, limit }
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp,
+         collection, getDocs, query, where, orderBy, limit }
          from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const FIREBASE_CONFIG = {
@@ -29,6 +29,8 @@ window._fbDoc            = doc;
 window._fbGetDoc         = getDoc;
 window._fbSetDoc         = setDoc;
 window._fbUpdateDoc      = updateDoc;
+window._fbDeleteDoc      = deleteDoc;
+window._fbOnSnapshot     = onSnapshot;
 window._fbServerTs       = serverTimestamp;
 window._fbGoogleProvider = gProvider;
 window._fbSignInEmail    = signInWithEmailAndPassword;
@@ -38,6 +40,7 @@ window._fbSignOut        = signOut;
 window._fbCollection   = collection;
 window._fbGetDocs      = getDocs;
 window._fbQuery        = query;
+window._fbWhere        = where;
 window._fbOrderBy      = orderBy;
 window._fbLimit        = limit;
 window._fbUser           = null;
