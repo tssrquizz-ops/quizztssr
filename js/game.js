@@ -1533,8 +1533,13 @@ function resolveTF(val,q,bT,bF){
 }
 
 function renderFill(q,area){
-  var code=document.createElement('div');code.className='fill-code';
-  code.innerHTML=q.code.replace(q.blank,'<span class="fill-blank" id="fill-blank">'+q.blank+'</span>');
+  var code=document.createElement('pre');code.className='fill-code';
+  // Échapper HTML puis injecter le blank
+  function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  var safeCode=escHtml(q.code||'');
+  var safeBlank=escHtml(q.blank||'___');
+  var blankHtml='<span class="fill-blank" id="fill-blank">'+safeBlank+'</span>';
+  code.innerHTML=safeCode.replace(safeBlank,blankHtml);
   var opts=document.createElement('div');opts.className='fill-opts';
   var shuffled=shuffle(q.opts.map(function(t,i){return{t:t,i:i};}));
   shuffled.forEach(function(opt){
@@ -1622,11 +1627,16 @@ function resolveCalc(origIdx,btn,q,optsEl){
 }
 
 function renderDebug(q,area){
-  var code=document.createElement('div');code.className='debug-code';
-  var html='';q.code.split('\n').forEach(function(l){html+=l===q.errorLine?'<span class="error-line">'+l+'</span>\n':l+'\n';});
+  var code=document.createElement('pre');code.className='debug-code';
+  function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  var html='';
+  (q.code||'').split('\n').forEach(function(l){
+    var safe=escHtml(l);
+    html+=l===q.errorLine?'<span class="error-line">'+safe+'</span>\n':safe+'\n';
+  });
   code.innerHTML=html;
   area.appendChild(code);
-  renderQCM(q,area); // reuse QCM for options
+  renderQCM(q,area);
 }
 
 function renderWord(q,area){
