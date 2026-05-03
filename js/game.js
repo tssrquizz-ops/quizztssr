@@ -136,6 +136,232 @@ function buildBadges(){
   BDEFS.forEach(function(b){var u=bdD.indexOf(b.id)>=0;var d=document.createElement('div');d.className='bdg'+(u?'':' locked');d.title=b.desc;d.innerHTML='<span>'+b.icon+'</span><span class="bl">'+b.name+'</span>';row.appendChild(d);});
 }
 
+
+// Sérialise une question pour Firestore (gère qcm, tf, debug)
+function buildOnlineQData(q, idx2) {
+  var opts = q.opts ? q.opts.slice() : [];
+  if (q.t === 'tf') opts = ['VRAI', 'FAUX'];
+  return {
+    idx: idx2,
+    q: q.q,
+    opts: opts,
+    a: q.t === 'tf' ? (q.a === true ? 0 : 1) : q.a,
+    x: q.x || '',
+    t: q.t || 'qcm',
+    shuffleSeed: Math.floor(Math.random() * 999999)
+  };
+}
+
+// Menu principal
+function openMainMenu(){
+  var o=document.getElementById('main-menu-ovl');
+  var p=document.getElementById('main-menu-panel');
+  if(o) o.classList.add('open');
+  if(p) p.classList.add('open');
+}
+function closeMainMenu(){
+  var o=document.getElementById('main-menu-ovl');
+  var p=document.getElementById('main-menu-panel');
+  if(o) o.classList.remove('open');
+  if(p) p.classList.remove('open');
+}
+
+function updateMenuTopbar(){
+  var user=window._fbUser;
+  var avatarEl=document.getElementById('menu-avatar-top');
+  var nameEl=document.getElementById('menu-username-top');
+  var mmLogin=document.getElementById('mm-login-btn');
+  var mmLogout=document.getElementById('mm-logout-btn');
+  var mmUser=document.getElementById('mm-user-info');
+  var profile={}; try{profile=JSON.parse(localStorage.getItem('tssr5_profile')||'{}');}catch(e){}
+  if(user){
+    if(avatarEl) avatarEl.textContent=profile.avatar||'👤';
+    if(nameEl) nameEl.textContent=profile.pseudo||user.displayName||user.email.split('@')[0]||'';
+    if(mmLogin) mmLogin.style.display='none';
+    if(mmLogout) mmLogout.style.display='block';
+    if(mmUser) mmUser.textContent=user.email||'';
+  } else {
+    if(avatarEl) avatarEl.textContent=profile.avatar||'👤';
+    if(nameEl) nameEl.textContent=profile.pseudo||'';
+    if(mmLogin) mmLogin.style.display='block';
+    if(mmLogout) mmLogout.style.display='none';
+    if(mmUser) mmUser.textContent='';
+  }
+}
+
+// Promo
+function openCreatePromo(){ showScreen('promo'); setTimeout(function(){ var b=document.getElementById('promo-tab-create'); if(b) promoSwitchTab('create'); },100); }
+function openJoinPromo(){ showScreen('promo'); setTimeout(function(){ promoSwitchTab('join'); },100); }
+function promoSwitchTab(tab){
+  var isCreate = tab==='create';
+  var tc=document.getElementById('promo-tab-create'),tj=document.getElementById('promo-tab-join');
+  var pc=document.getElementById('promo-panel-create'),pj=document.getElementById('promo-panel-join');
+  if(tc){tc.style.background=isCreate?'var(--acc)':'transparent';tc.style.color=isCreate?'var(--bg)':'var(--text2)';}
+  if(tj){tj.style.background=isCreate?'transparent':'var(--acc)';tj.style.color=isCreate?'var(--text2)':'var(--bg)';}
+  if(pc) pc.style.display=isCreate?'block':'none';
+  if(pj) pj.style.display=isCreate?'none':'block';
+  if(!isCreate) loadPromoList();
+}
+function promoCreate(){
+  if(!window._fbUser){alert('Tu dois être connecté pour créer une promo.');return;}
+  var name=(document.getElementById('promo-create-name').value||'').trim();
+  if(!name){alert('Donne un nom à ta promo.');return;}
+  var code='';var chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  for(var i=0;i<6;i++) code+=chars[Math.floor(Math.random()*chars.length)];
+  var db=window._fbDb,doc2=window._fbDoc,setDoc2=window._fbSetDoc;
+  if(!db){alert('Firebase non connecté.');return;}
+  setDoc2(doc2(db,'promos',code),{
+    name:name,
+    school:(document.getElementById('promo-create-school').value||'').trim(),
+    ownerUid:window._fbUser.uid,
+    ownerEmail:window._fbUser.email,
+    members:[window._fbUser.uid],
+    createdAt:window._fbServerTs?window._fbServerTs():new Date().toISOString(),
+    code:code
+  }).then(function(){
+    var r=document.getElementById('promo-create-result');
+    var c=document.getElementById('promo-code-display');
+    if(c) c.textContent=code;
+    if(r) r.style.display='block';
+    var profile={}; try{profile=JSON.parse(localStorage.getItem('tssr5_profile')||'{}');}catch(e){}
+    profile.promo=name; profile.promoCode=code;
+    localStorage.setItem('tssr5_profile',JSON.stringify(profile));
+    if(window.fbSaveUserData) window.fbSaveUserData();
+  }).catch(function(e){ alert('Erreur: '+e.message); });
+}
+function promoCodeCopy(){
+  var code=document.getElementById('promo-code-display').textContent;
+  navigator.clipboard.writeText(code).then(function(){
+    var el2=document.getElementById('promo-copied'); if(el2){el2.style.opacity='1';setTimeout(function(){el2.style.opacity='0';},1500);}
+  });
+}
+function promoJoin(){
+  if(!window._fbUser){alert('Tu dois être connecté pour rejoindre une promo.');return;}
+  var code=(document.getElementById('promo-join-code').value||'').trim().toUpperCase();
+  if(code.length!==6){alert('Code invalide (6 caractères).');return;}
+  var db=window._fbDb,docFn=window._fbDoc,getDocFn=window._fbGetDoc,updateDocFn=window._fbUpdateDoc;
+  getDocFn(docFn(db,'promos',code)).then(function(snap){
+    if(!snap.exists()){
+      var r=document.getElementById('promo-join-result');
+      if(r){r.textContent='❌ Promo introuvable.';r.style.display='block';r.style.color='#f87171';}
+      return;
+    }
+    var data=snap.data();
+    var members=data.members||[];
+    if(members.indexOf(window._fbUser.uid)<0) members.push(window._fbUser.uid);
+    updateDocFn(docFn(db,'promos',code),{members:members}).then(function(){
+      var profile={}; try{profile=JSON.parse(localStorage.getItem('tssr5_profile')||'{}');}catch(e){}
+      profile.promo=data.name; profile.promoCode=code;
+      localStorage.setItem('tssr5_profile',JSON.stringify(profile));
+      if(window.fbSaveUserData) window.fbSaveUserData();
+      var r=document.getElementById('promo-join-result');
+      if(r){r.textContent='✅ Tu as rejoint "'+data.name+'" !';r.style.display='block';r.style.color='#4ade80';}
+    });
+  }).catch(function(e){
+    var r=document.getElementById('promo-join-result');
+    if(r){r.textContent='❌ Erreur: '+e.message;r.style.display='block';r.style.color='#f87171';}
+  });
+}
+async function loadPromoList(){
+  var list=document.getElementById('promo-list'); if(!list) return;
+  if(!window._fbGetDocs){list.innerHTML='<div style="font-family:monospace;font-size:9px;color:var(--text2);padding:10px;">Firebase non connecté</div>';return;}
+  list.innerHTML='<div style="font-family:monospace;font-size:9px;color:var(--text2);padding:10px;">⏳ Chargement...</div>';
+  try{
+    var snap=await window._fbGetDocs(window._fbQuery(window._fbCollection(window._fbDb,'promos'),window._fbLimit(20)));
+    var promos=[];
+    snap.forEach(function(d){ promos.push(Object.assign({id:d.id},d.data())); });
+    if(!promos.length){list.innerHTML='<div style="font-family:monospace;font-size:9px;color:var(--text2);padding:10px;">Aucune promo disponible pour l'instant</div>';return;}
+    list.innerHTML=promos.map(function(p){
+      return '<div style="background:var(--panel);border:1.5px solid var(--border2);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="document.getElementById('promo-join-code').value=''+p.code+'';promoJoin()">'+
+        '<div><div style="font-family:monospace;font-size:10px;color:var(--text);">'+p.name+'</div>'+
+        '<div style="font-family:monospace;font-size:8px;color:var(--text2);">'+(p.school||'')+'  ·  '+(p.members?p.members.length:1)+' membres</div></div>'+
+        '<div style="font-family:monospace;font-size:12px;color:var(--acc);letter-spacing:3px;">'+p.code+'</div>'+
+      '</div>';
+    }).join('');
+  }catch(e){list.innerHTML='<div style="font-family:monospace;font-size:9px;color:#f87171;padding:10px;">Erreur: '+e.message+'</div>';}
+}
+
+
+// ============================================================
+// LAUNCHER V2 — fonctions
+// ============================================================
+var wizSelCats = ['mix'];
+var wizTimer   = 0;
+var wizLives   = 5;
+
+function wizShowStep(name){
+  ['1','quiz','duel'].forEach(function(s){
+    var el2 = document.getElementById('wiz-step-'+s);
+    if(el2) el2.style.display = (s === String(name)) ? 'block' : 'none';
+  });
+}
+
+function wizPickMode(mode){
+  if(mode === 'srs'){ closeLaunchSheet(); showSRSScreen(); return; }
+  if(mode === 'rpg'){ closeLaunchSheet(); launchRPGDirect(); return; }
+  if(mode === 'duel'){ wizShowStep('duel'); return; }
+  wizSelCats = ['mix'];
+  wizShowStep('quiz');
+  buildSheetCats();
+  var jt = document.getElementById('jtoggle'); if(jt) jt.classList.toggle('on', jokersEnabled);
+  var st = document.getElementById('stoggle'); if(st) st.classList.toggle('on', soundOn);
+}
+
+function wizPickTimer(btn){
+  document.querySelectorAll('[data-timer]').forEach(function(b){ b.classList.remove('sel'); });
+  btn.classList.add('sel');
+  wizTimer = parseInt(btn.getAttribute('data-timer'));
+}
+
+function wizPickLives(btn){
+  document.querySelectorAll('[data-lives]').forEach(function(b){ b.classList.remove('sel'); });
+  btn.classList.add('sel');
+  wizLives = parseInt(btn.getAttribute('data-lives'));
+}
+
+function wizLaunchQuiz(){
+  var ovl = document.getElementById('launch-ovl');
+  if(ovl) ovl.classList.remove('open');
+  if(!wizSelCats || !wizSelCats.length) wizSelCats = ['mix'];
+  var pool = [];
+  if(wizSelCats.length > 1 || wizSelCats[0] === 'mix'){
+    selCat = 'mix';
+    Object.keys(CATS).forEach(function(k){
+      if(k !== 'mix' && (wizSelCats[0]==='mix' || wizSelCats.indexOf(k)>-1))
+        CATS[k].qs.forEach(function(q){ pool.push(Object.assign({},q,{_cat:CATS[k].label})); });
+    });
+  } else {
+    selCat = wizSelCats[0];
+    pool = (CATS[selCat] ? CATS[selCat].qs : []).map(function(q){ return Object.assign({},q); });
+  }
+  if(selDiff && selDiff !== 'all'){
+    var d = parseInt(selDiff);
+    pool = pool.filter(function(q){ return !q.d || q.d === d; });
+  }
+  if(!pool.length){ alert('Aucune question disponible.'); return; }
+  var count = selQCount === 9999 ? pool.length : Math.min(selQCount, pool.length);
+  session = freshShuffle(pool).slice(0, count);
+  markShown(session);
+  correct=0; combo=1; maxCombo=1; errors=[]; idx=0; paused=false;
+  bonusStreak=0; isBonus=false; qTimes=[]; rpgPoints=0; betOn=false;
+  lives = wizLives;
+  jokers = 3;
+  selMode = 'chill';
+  window._customTimer = wizTimer;
+  sStats = {cat:selCat, mode:'quiz', maxCombo:0, mechs:new Set(), streak:streakD.current};
+  updateStreak();
+  applyBody();
+  el('gbadge').textContent = '🎯 QUIZ · ' + (CATS[selCat]?CATS[selCat].label:'MIX').toUpperCase();
+  var sh = el('score-hud'); if(sh) sh.style.display = 'grid';
+  el('htotal').textContent = session.length;
+  el('jokers-row').style.display = 'flex';
+  el('jcount').textContent = jokers;
+  buildDots();
+  showScreen('game');
+  dynDiffStreak=0; dynDiffLevel=0;
+  showQ();
+}
+
 function initMenu(){
   vTheme=lsGet('tssr5_vt','vt-dark');
   soundOn=lsGet('tssr5_sound',true);
@@ -1481,11 +1707,13 @@ function showQ(){
     }
   }
 
-  // timer
+  // timer — support _customTimer depuis le launcher quiz
+  var _timerBase = (window._customTimer !== undefined && window._customTimer !== null) ? window._customTimer : cfg.timer;
+  var _tmaxBase  = (window._customTimer !== undefined && window._customTimer !== null) ? window._customTimer : cfg.tmax;
   clearInterval(timerInt);var tb=el('tbar');
-  if(cfg.timer===0){tb.style.width='100%';tb.style.background='#00d87a';}
+  if(_timerBase===0){tb.style.width='100%';tb.style.background='#00d87a';}
   else{
-    var adaptedTimer=(selMode==='chaos'&&window._chaosTimerOverride)?window._chaosTimerOverride:getQTimer(q,cfg.tmax);
+    var adaptedTimer=(selMode==='chaos'&&window._chaosTimerOverride)?window._chaosTimerOverride:getQTimer(q,_tmaxBase);
     timeLeft=adaptedTimer;tb.style.width='100%';tb.style.background='#00d87a';
     timerInt=setInterval(function(){if(paused)return;timeLeft-=0.1;var p=(timeLeft/adaptedTimer)*100;
       tb.style.width=p+'%';if(p<50)tb.style.background='#ff9800';if(p<20)tb.style.background='#dc2626';
@@ -5396,85 +5624,6 @@ function rpgNextTicket(){/* handled inline */}
 // =====================================================
 var wizSelCats=['mix'];
 var selDiff='all';
-
-function openLaunchSheet(){
-  var ovl=document.getElementById('launch-ovl');
-  if(!ovl) return;
-  selMode=selMode||'chill';
-  // Reset to step 1
-  wizShowStep(1);
-  buildSheetCats();
-  ovl.classList.add('open');
-}
-
-function closeLaunchSheet(e){
-  // Accept any call: direct click on close btn OR backdrop click (in case old handler still around)
-  if(e && e.target && e.target!==document.getElementById('launch-ovl') && !(e.target.classList && e.target.classList.contains('wiz-close'))) return;
-  var ovl=document.getElementById('launch-ovl');
-  if(ovl) ovl.classList.remove('open');
-}
-
-function wizShowStep(n){
-  [1,2,3].forEach(function(i){
-    var s=document.getElementById('wiz-step-'+i);
-    if(s) s.style.display=(i===n)?'block':'none';
-  });
-}
-
-function wizNext(step){
-  if(step===2){
-    if(!wizSelCats||!wizSelCats.length){wizSelCats=['mix'];}
-    buildSheetModes();
-  }
-  wizShowStep(step);
-}
-
-function wizLaunch(){
-  var ovl=document.getElementById('launch-ovl');
-  if(ovl) ovl.classList.remove('open');
-  // Sync seed
-  var seedInp=document.getElementById('seed-input');
-  if(seedInp) currentSeed=seedInp.value.trim().toUpperCase();
-  // Multi-cat
-  if(wizSelCats.length>1){
-    selCat='mix';
-    var pool=[];
-    wizSelCats.forEach(function(cid){
-      if(CATS[cid]) CATS[cid].qs.forEach(function(q){pool.push(Object.assign({},q,{_cat:CATS[cid].label}));});
-    });
-    var count=Math.min(selQCount===9999?9999:selQCount,pool.length);
-    if(currentSeed){var rng=seededRNG(currentSeed);session=seededShuffle(pool,rng).slice(0,count);}
-    else{session=freshShuffle(pool).slice(0,count);}
-    markShown(session);
-    correct=0;combo=1;maxCombo=1;errors=[];idx=0;paused=false;
-    bonusStreak=0;isBonus=false;qTimes=[];rpgPoints=0;betOn=false;
-    var cfg=MODES[selMode]||MODES['chill'];
-    lives=cfg.lives===99?99:(cfg.lives||5);
-    jokers=3;
-    sStats={cat:'mix',mode:selMode,maxCombo:0,mechs:new Set(),streak:streakD.current};
-    updateStreak();
-    applyBody();
-    el('gbadge').textContent='🎲 MIX · '+selMode.toUpperCase();
-    var sh=el('score-hud');if(sh)sh.style.display=(selMode==='duel'||selMode==='flash'||selMode==='discussion')?'none':'grid';
-    el('htotal').textContent=session.length;
-    buildDots();
-    showScreen('game');
-    if(selMode==='rpg'){startRPGNarrative();return;}
-    if(selMode==='chaos'){startChaosMode();return;}
-    if(selMode==='flash'){startFlash();return;}
-    if(selMode==='duel'){showScreen('duel-setup');return;}
-    if(selMode==='discussion'){showScreen('discussion');return;}
-    if(selMode==='speedrun') initSpeedrun();
-    if(selMode==='boss') session=initBoss(session);
-    var srHud=document.getElementById('speedrun-hud');if(srHud) srHud.style.display=selMode==='speedrun'?'flex':'none';
-    var bossWrap=document.getElementById('boss-bar-wrap');if(bossWrap) bossWrap.style.display=selMode==='boss'?'block':'none';
-    dynDiffStreak=0;dynDiffLevel=0;
-    showQ();
-  } else {
-    selCat=wizSelCats[0]||'mix';
-    startGame();
-  }
-}
 
 function buildSheetCats(){
   var grid=document.getElementById('sheet-cat-grid');

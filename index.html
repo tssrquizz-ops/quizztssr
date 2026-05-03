@@ -336,6 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <button id="mm-login-btn" onclick="closeMainMenu();window._fbSkipLogin=false;var ls=document.getElementById('fb-login-screen');if(ls)ls.style.display='flex';document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');})" style="display:flex;">🔐 Se connecter</button>
     <button id="mm-logout-btn" onclick="closeMainMenu();window.fbLogout&&window.fbLogout()" style="display:none;">↩ Se déconnecter</button>
     <div id="mm-user-info" style="font-family:monospace;font-size:8px;color:var(--acc);margin-top:6px;"></div>
+    <div style="font-family:monospace;font-size:7px;color:var(--dim);margin-top:12px;letter-spacing:1px;">v8 · 03/05/2026</div>
   </div>
 </div>
 
@@ -344,64 +345,114 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="launch-sheet" onclick="event.stopPropagation()">
     <div class="sheet-handle"></div>
 
-    <!-- STEP 1 : CATEGORIE -->
+    <!-- STEP 1 : CHOIX DU MODE -->
     <div id="wiz-step-1">
       <div class="wiz-header">
-        <div class="wiz-dots"><span class="wdot active"></span><span class="wdot"></span><span class="wdot"></span></div>
-        <div class="wiz-title">📖 Quelle catégorie ?</div>
+        <button class="wiz-close" onclick="closeLaunchSheet()">✕</button>
+        <div class="wiz-title">Que veux-tu faire ?</div>
       </div>
-      <div class="wiz-cat-hint">Plusieurs sélections possibles</div>
-      <div id="sheet-cat-grid" class="sheet-cat-grid"></div>
-      <button class="sheet-launch-btn" onclick="wizNext(2)">SUIVANT →</button>
+      <div class="mode-cards-grid">
+        <button class="mode-card mode-card-quiz" onclick="wizPickMode('quiz')">
+          <span class="mc-icon">🎯</span>
+          <span class="mc-name">QUIZ</span>
+          <span class="mc-desc">Questions libres · configure tout</span>
+        </button>
+        <button class="mode-card mode-card-srs" onclick="wizPickMode('srs')">
+          <span class="mc-icon">🔁</span>
+          <span class="mc-name">RÉVISION CIBLÉE</span>
+          <span class="mc-desc">S'adapte à tes erreurs</span>
+        </button>
+        <button class="mode-card mode-card-rpg" onclick="wizPickMode('rpg')">
+          <span class="mc-icon">🎭</span>
+          <span class="mc-name">TICKETS</span>
+          <span class="mc-desc">Incidents réels en situation</span>
+        </button>
+        <button class="mode-card mode-card-duel" onclick="wizPickMode('duel')">
+          <span class="mc-icon">⚔️</span>
+          <span class="mc-name">DUEL</span>
+          <span class="mc-desc">Local 2J ou en ligne</span>
+        </button>
+      </div>
     </div>
 
-    <!-- STEP 2 : MODE -->
-    <div id="wiz-step-2" style="display:none">
+    <!-- STEP 2a : OPTIONS QUIZ -->
+    <div id="wiz-step-quiz" style="display:none">
       <div class="wiz-header">
-        <button class="wiz-back" onclick="wizNext(1)">◀</button>
-        <div class="wiz-dots"><span class="wdot"></span><span class="wdot active"></span><span class="wdot"></span></div>
-        <div class="wiz-title">🎮 Quel mode ?</div>
+        <button class="wiz-back" onclick="wizShowStep('1')">◀</button>
+        <div class="wiz-title">🎯 Configure ta partie</div>
       </div>
-      <div id="sheet-mode-grid" class="sheet-mode-grid"></div>
-      <button class="sheet-launch-btn" onclick="wizNext(3)">SUIVANT →</button>
-    </div>
-
-    <!-- STEP 3 : REGLAGES -->
-    <div id="wiz-step-3" style="display:none">
-      <div class="wiz-header">
-        <button class="wiz-back" onclick="wizNext(2)">◀</button>
-        <div class="wiz-dots"><span class="wdot"></span><span class="wdot"></span><span class="wdot active"></span></div>
-        <div class="wiz-title">⚙️ Réglages</div>
+      <div class="sheet-section">
+        <span class="sheet-lbl">📖 Catégorie</span>
+        <div class="wiz-cat-hint">Plusieurs sélections possibles</div>
+        <div id="sheet-cat-grid" class="sheet-cat-grid"></div>
+      </div>
+      <div class="sheet-section">
+        <span class="sheet-lbl">⏱ Timer par question</span>
+        <div class="sheet-row">
+          <button class="sheet-pill sel" data-timer="0"  onclick="wizPickTimer(this)">OFF</button>
+          <button class="sheet-pill"     data-timer="10" onclick="wizPickTimer(this)">10s</button>
+          <button class="sheet-pill"     data-timer="15" onclick="wizPickTimer(this)">15s</button>
+          <button class="sheet-pill"     data-timer="20" onclick="wizPickTimer(this)">20s</button>
+          <button class="sheet-pill"     data-timer="30" onclick="wizPickTimer(this)">30s</button>
+        </div>
+      </div>
+      <div class="sheet-section">
+        <span class="sheet-lbl">❤️ Vies</span>
+        <div class="sheet-row">
+          <button class="sheet-pill"     data-lives="1"  onclick="wizPickLives(this)">1</button>
+          <button class="sheet-pill"     data-lives="3"  onclick="wizPickLives(this)">3</button>
+          <button class="sheet-pill sel" data-lives="5"  onclick="wizPickLives(this)">5</button>
+          <button class="sheet-pill"     data-lives="99" onclick="wizPickLives(this)">∞</button>
+        </div>
       </div>
       <div class="sheet-section">
         <span class="sheet-lbl">⭐ Difficulté</span>
         <div class="sheet-row">
-          <button class="sheet-pill sel" data-diff="all" onclick="sheetPickDiff(this)">TOUT ★★★</button>
-          <button class="sheet-pill" data-diff="1" onclick="sheetPickDiff(this)">FACILE ★</button>
-          <button class="sheet-pill" data-diff="2" onclick="sheetPickDiff(this)">MOYEN ★★</button>
-          <button class="sheet-pill" data-diff="3" onclick="sheetPickDiff(this)">DIFFICILE ★★★</button>
+          <button class="sheet-pill sel" data-diff="all" onclick="sheetPickDiff(this)">TOUT</button>
+          <button class="sheet-pill"     data-diff="1"   onclick="sheetPickDiff(this)">FACILE ★</button>
+          <button class="sheet-pill"     data-diff="2"   onclick="sheetPickDiff(this)">MOYEN ★★</button>
+          <button class="sheet-pill"     data-diff="3"   onclick="sheetPickDiff(this)">DIFFICILE ★★★</button>
         </div>
       </div>
       <div class="sheet-section">
         <span class="sheet-lbl">🔢 Nb de questions</span>
         <div class="sheet-row">
-          <button class="sheet-pill" data-n="5" onclick="sheetPickN(this)">5</button>
-          <button class="sheet-pill sel" data-n="10" onclick="sheetPickN(this)">10</button>
-          <button class="sheet-pill" data-n="15" onclick="sheetPickN(this)">15</button>
-          <button class="sheet-pill" data-n="20" onclick="sheetPickN(this)">20</button>
-          <button class="sheet-pill" data-n="30" onclick="sheetPickN(this)">30</button>
-          <button class="sheet-pill" data-n="9999" onclick="sheetPickN(this)">TOUT</button>
+          <button class="sheet-pill"     data-n="5"    onclick="sheetPickN(this)">5</button>
+          <button class="sheet-pill sel" data-n="10"   onclick="sheetPickN(this)">10</button>
+          <button class="sheet-pill"     data-n="15"   onclick="sheetPickN(this)">15</button>
+          <button class="sheet-pill"     data-n="20"   onclick="sheetPickN(this)">20</button>
+          <button class="sheet-pill"     data-n="30"   onclick="sheetPickN(this)">30</button>
+          <button class="sheet-pill"     data-n="9999" onclick="sheetPickN(this)">TOUT</button>
         </div>
       </div>
       <div class="sheet-section">
         <span class="sheet-lbl">⚙️ Options</span>
         <div class="sheet-toggles">
-          <label class="opt-toggle" onclick="toggleSound()"><div class="tbox" id="stoggle"></div><span>Sons</span></label>
           <label class="opt-toggle" onclick="toggleJokers()"><div class="tbox" id="jtoggle"></div><span>Jokers</span></label>
-          <button id="lofi-btn" onclick="toggleLofi()" style="background:none;border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:7px;padding:6px 10px;border-radius:4px;cursor:pointer;">🎵 LOFI</button>
+          <label class="opt-toggle" onclick="toggleSound()"><div class="tbox" id="stoggle"></div><span>Sons</span></label>
         </div>
       </div>
-      <button class="sheet-launch-btn" onclick="wizLaunch()">▶ C'EST PARTI !</button>
+      <button class="sheet-launch-btn" onclick="wizLaunchQuiz()">▶ C'EST PARTI !</button>
+    </div>
+
+    <!-- STEP 2b : DUEL -->
+    <div id="wiz-step-duel" style="display:none">
+      <div class="wiz-header">
+        <button class="wiz-back" onclick="wizShowStep('1')">◀</button>
+        <div class="wiz-title">⚔️ Duel</div>
+      </div>
+      <div class="mode-cards-grid" style="grid-template-columns:1fr 1fr;margin-top:16px;">
+        <button class="mode-card mode-card-duel" onclick="closeLaunchSheet();showScreen('duel-setup')">
+          <span class="mc-icon">🕹️</span>
+          <span class="mc-name">LOCAL</span>
+          <span class="mc-desc">2 joueurs · même clavier</span>
+        </button>
+        <button class="mode-card mode-card-duel" onclick="closeLaunchSheet();document.getElementById('screen-online-duel').style.display='flex';document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');})">
+          <span class="mc-icon">🌐</span>
+          <span class="mc-name">EN LIGNE</span>
+          <span class="mc-desc">Contre un ami à distance</span>
+        </button>
+      </div>
     </div>
 
   </div>
@@ -1152,7 +1203,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <!-- DUEL EN LIGNE -->
-<div id="screen-online-duel" class="screen">
+<div id="screen-online-duel" class="screen" style="display:none;">
   <div class="online-topbar">
     <button onclick="cancelOnlineSession()" style="background:none;border:1.5px solid var(--border2);border-radius:8px;padding:8px 12px;font-family:monospace;font-size:9px;color:var(--text2);cursor:pointer;letter-spacing:1px;">✕ FERMER</button>
     <div class="online-topbar-title">⚔️ DUEL EN LIGNE</div>
