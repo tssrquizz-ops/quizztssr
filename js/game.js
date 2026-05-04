@@ -752,6 +752,7 @@ function closeOverlay(name){
 }
 
 function openSettingsScreen(){
+  showScreen('settings');
   var ss=document.getElementById('stoggle-settings'); if(ss) ss.classList.toggle('on',soundOn);
   var ls=document.getElementById('lofi-btn-settings'); if(ls) ls.textContent=lofiOn?'ON':'OFF';
   document.querySelectorAll('.settings-theme-btn').forEach(function(b){
@@ -1203,7 +1204,7 @@ async function hostGenerateQuestionsAndStart(data){
       CATS[k].qs.forEach(function(q){ all.push(Object.assign({},q,{_cat:CATS[k].label})); });
     }); return all;
   })();
-  pool = src.filter(function(q){ return q.t==='qcm' || q.t==='debug' || q.t==='tf'; });
+  pool = src.filter(function(q){ return q.t==='qcm' || q.t==='debug' || q.t==='tf' || q.t==='fill' || q.t==='calc'; });
   if(pool.length<totalQ){ pool=src.slice(); }
   pool=shuffle(pool).slice(0,totalQ);
   onlineSession.questionsPool=pool;
@@ -1224,24 +1225,37 @@ async function hostGenerateQuestionsAndStart(data){
 function renderOnlineQuestion(qData){
   var area=document.getElementById('online-question-area');
   if(!area) return;
-  // Use qcard look
-  var seed = qData.shuffleSeed||0;
-  var rng=(function(s){return function(){ s=(s*9301+49297)%233280; return s/233280;};})(seed);
-  var pairs = (qData.opts||[]).map(function(t,i){return {t:t,i:i};});
-  // shuffle deterministic
-  for(var i=pairs.length-1;i>0;i--){ var j=Math.floor(rng()*(i+1)); var tmp=pairs[i];pairs[i]=pairs[j];pairs[j]=tmp; }
 
-  var keys=['A','B','C','D'];
-  var optsHtml=pairs.map(function(opt,ki){
-    return '<button class="opt online-opt" data-orig="'+opt.i+'" data-correct="'+qData.a+'" '+
-           'onclick="submitOnlineAnswer('+opt.i+',this)">'+
-           '<span class="okey">'+keys[ki]+'</span><span>'+opt.t+'</span></button>';
-  }).join('');
+  var isTF   = qData.t === 'tf';
+  var optsHtml = '';
+
+  if(qData.opts && qData.opts.length > 0){
+    // QCM, debug, tf — shuffle déterministe
+    var seed = qData.shuffleSeed||0;
+    var rng=(function(s){return function(){ s=(s*9301+49297)%233280; return s/233280;};})(seed);
+    var pairs = qData.opts.map(function(t,i){return {t:t,i:i};});
+    if(!isTF){
+      for(var i=pairs.length-1;i>0;i--){ var j=Math.floor(rng()*(i+1)); var tmp=pairs[i];pairs[i]=pairs[j];pairs[j]=tmp; }
+    }
+    var keys=['A','B','C','D'];
+    var optsCls = isTF ? 'opts opts-vf' : 'opts';
+    optsHtml = '<div class="'+optsCls+'">'+
+      pairs.map(function(opt,ki){
+        return '<button class="opt online-opt'+(isTF?' opt-tf':'')+'" data-orig="'+opt.i+'" data-correct="'+qData.a+'" '+
+               'onclick="submitOnlineAnswer('+opt.i+',this)">'+
+               (isTF?'':('<span class="okey">'+keys[ki]+'</span>'))+
+               '<span>'+opt.t+'</span></button>';
+      }).join('')+
+    '</div>';
+  } else {
+    // Types sans opts prédéfinis : afficher message
+    optsHtml = '<div style="font-family:monospace;font-size:10px;color:var(--text2);padding:20px;text-align:center;">Réponds dans les '+qData.x+'s</div>';
+  }
 
   area.innerHTML =
     '<div class="qcard online-qcard"><div class="qnum">Question '+((qData.idx||0)+1)+'</div>'+
       '<div class="qtext">'+qData.q+'</div></div>'+
-    '<div class="opts">'+optsHtml+'</div>'+
+    optsHtml+
     '<div id="online-feedback" class="online-feedback"></div>';
 
   // Timer 25s shared
