@@ -235,6 +235,14 @@ function promoCodeCopy(){
     var el2=document.getElementById('promo-copied'); if(el2){el2.style.opacity='1';setTimeout(function(){el2.style.opacity='0';},1500);}
   });
 }
+
+function selectAndJoinPromo(el){
+  var code = el.getAttribute('data-code')||'';
+  var inp = document.getElementById('promo-join-code');
+  if(inp){ inp.value = code; }
+  promoJoin();
+}
+
 function promoJoin(){
   if(!window._fbUser){alert('Tu dois être connecté pour rejoindre une promo.');return;}
   var code=(document.getElementById('promo-join-code').value||'').trim().toUpperCase();
@@ -270,9 +278,9 @@ async function loadPromoList(){
     var snap=await window._fbGetDocs(window._fbQuery(window._fbCollection(window._fbDb,'promos'),window._fbLimit(20)));
     var promos=[];
     snap.forEach(function(d){ promos.push(Object.assign({id:d.id},d.data())); });
-    if(!promos.length){list.innerHTML='<div style="font-family:monospace;font-size:9px;color:var(--text2);padding:10px;">Aucune promo disponible pour l'instant</div>';return;}
+    if(!promos.length){list.innerHTML='<div style="font-family:monospace;font-size:9px;color:var(--text2);padding:10px;">Aucune promo disponible</div>';return;}
     list.innerHTML=promos.map(function(p){
-      return '<div style="background:var(--panel);border:1.5px solid var(--border2);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="document.getElementById('promo-join-code').value=''+p.code+'';promoJoin()">'+
+      return '<div style="background:var(--panel);border:1.5px solid var(--border2);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="selectAndJoinPromo(this)" data-code="'+p.code+'">'+
         '<div><div style="font-family:monospace;font-size:10px;color:var(--text);">'+p.name+'</div>'+
         '<div style="font-family:monospace;font-size:8px;color:var(--text2);">'+(p.school||'')+'  ·  '+(p.members?p.members.length:1)+' membres</div></div>'+
         '<div style="font-family:monospace;font-size:12px;color:var(--acc);letter-spacing:3px;">'+p.code+'</div>'+
