@@ -362,6 +362,22 @@ function wizLaunchQuiz(){
   showQ();
 }
 
+// ============================================================
+// LAUNCH SHEET — open/close
+// ============================================================
+function openLaunchSheet(){
+  var ovl=document.getElementById('launch-ovl');
+  if(!ovl) return;
+  ovl.classList.add('open');
+  wizShowStep('1');
+  buildSheetModes();
+}
+function closeLaunchSheet(e){
+  if(e&&e.target!==e.currentTarget) return;
+  var ovl=document.getElementById('launch-ovl');
+  if(ovl) ovl.classList.remove('open');
+}
+
 function initMenu(){
   vTheme=lsGet('tssr5_vt','vt-dark');
   soundOn=lsGet('tssr5_sound',true);
@@ -703,22 +719,28 @@ function showQuestsScreen(){buildQuestsScreen();openOverlay('quests');}
 // SYSTÈME OVERLAY PANELS
 // ============================================================
 function openOverlay(name){
+  // Essayer d'abord un vrai overlay, sinon fallback sur screen
   var el2=document.getElementById('overlay-'+name);
-  if(!el2) return;
-  el2.classList.add('show');
+  if(el2){
+    el2.classList.add('show');
+    document.body.style.overflow='hidden';
+  } else {
+    // Fallback : utiliser showScreen
+    showScreen(name);
+  }
   // Charger les données
   if(name==='profile') loadProfileScreen();
   if(name==='leaderboard') loadLeaderboard();
   if(name==='quests') buildQuestsScreen();
   if(name==='settings') openSettingsScreen();
-  // Empêcher scroll background
-  document.body.style.overflow='hidden';
 }
 
 function closeOverlay(name){
   var el2=document.getElementById('overlay-'+name);
-  if(el2) el2.classList.remove('show');
-  document.body.style.overflow='';
+  if(el2){ el2.classList.remove('show'); document.body.style.overflow=''; }
+  // Aussi vérifier screen
+  var sc=document.getElementById('screen-'+name);
+  if(sc&&sc.classList.contains('active')) goMenu();
 }
 
 function openSettingsScreen(){
