@@ -142,9 +142,16 @@ function lbSwitchTab(tab){
 
 function renderLeaderboard(){
   var myUid=window._fbUser?window._fbUser.uid:null;
-  var sorted=_lbData.slice().sort(function(a,b){return (b[_lbTab]||0)-(a[_lbTab]||0);});
+  var sorted=_lbData.slice().sort(function(a,b){
+    if(_lbTab==='rate'){
+      var ra=a.totalPlayed>0?Math.round((a.totalCorrect||0)/a.totalPlayed*100):0;
+      var rb=b.totalPlayed>0?Math.round((b.totalCorrect||0)/b.totalPlayed*100):0;
+      return rb-ra;
+    }
+    return (b[_lbTab]||0)-(a[_lbTab]||0);
+  });
   var rankIcons={1:'🥇',2:'🥈',3:'🥉'};
-  var scoreLabels={mastered:'maîtrisés',streak:'j. streak',badges:'badges'};
+  var scoreLabels={mastered:'maîtrisés',rate:'% réussite',streak:'j. streak',badges:'badges'};
   var myRank=sorted.findIndex(function(x){return x.uid===myUid;})+1;
   var bannerEl=document.getElementById('lb-my-rank-banner');
   if(bannerEl) bannerEl.innerHTML=myRank>0?'<div class="lb-my-rank">Tu es #'+myRank+' sur '+sorted.length+' joueurs — '+(sorted[myRank-1][_lbTab]||0)+' '+scoreLabels[_lbTab]+'</div>':'';
@@ -159,7 +166,9 @@ function renderLeaderboard(){
       '<div class="lb-info"><div class="lb-pseudo">'+(user.pseudo||'Anonyme')+(isMe?' <span style="font-size:8px;color:var(--acc);">← toi</span>':'')+
       '</div><div style="font-size:9px;color:var(--text2);">'+(user.promo||'')+'</div>'+
       '<div style="font-family:monospace;font-size:7px;color:var(--dim);margin-top:2px;">'+(user.title||'')+'</div></div>'+
-      '<div class="lb-score"><span class="lb-score-val">'+(user[_lbTab]||0)+'</span><span class="lb-score-lbl">'+scoreLabels[_lbTab]+'</span></div>'+
+      '<div class="lb-score"><span class="lb-score-val">'+
+      (_lbTab==='rate' && user.totalPlayed>0 ? Math.round((user.totalCorrect||0)/(user.totalPlayed||1)*100)+'%<br><span style="font-size:8px;color:var(--dim)">('+user.totalPlayed+' q.)</span>' : (user[_lbTab]||0))+
+      '</span><span class="lb-score-lbl">'+scoreLabels[_lbTab]+'</span></div>'+
     '</div>';
   }).join('');
 }

@@ -336,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <button id="mm-login-btn" onclick="closeMainMenu();window._fbSkipLogin=false;var ls=document.getElementById('fb-login-screen');if(ls)ls.style.display='flex';document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');})" style="display:flex;">🔐 Se connecter</button>
     <button id="mm-logout-btn" onclick="closeMainMenu();window.fbLogout&&window.fbLogout()" style="display:none;">↩ Se déconnecter</button>
     <div id="mm-user-info" style="font-family:monospace;font-size:8px;color:var(--acc);margin-top:6px;"></div>
-    <div style="font-family:monospace;font-size:7px;color:var(--dim);margin-top:12px;letter-spacing:1px;">v8 · 03/05/2026</div>
+    <div style="font-family:monospace;font-size:7px;color:var(--dim);margin-top:12px;letter-spacing:1px;">v11 · 06/05/2026</div>
   </div>
 </div>
 
@@ -1113,6 +1113,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <div id="lb-my-rank-banner"></div>
   <div class="lb-tabs">
     <button class="lb-tab active" id="lb-tab-mastered" onclick="lbSwitchTab('mastered')">⭐ MAÎTRISÉS</button>
+    <button class="lb-tab" id="lb-tab-rate" onclick="lbSwitchTab('rate')">🎯 RÉUSSITE</button>
     <button class="lb-tab" id="lb-tab-streak" onclick="lbSwitchTab('streak')">🔥 STREAK</button>
     <button class="lb-tab" id="lb-tab-badges" onclick="lbSwitchTab('badges')">🏅 BADGES</button>
   </div>

@@ -105,8 +105,15 @@ function updateStreak(){
 
 function applyBody(){
   var catCls=CATS[selCat]?CATS[selCat].cat:'cat-mix';
-  var uiCls=window.uiStyle||'ui-neon';
-  document.body.className=vTheme+' '+catCls+' '+uiCls;
+  var uiCls=currentUI||window.uiStyle||lsGet('tssr5_ui','ui-neon')||'ui-neon';
+  var body=document.body;
+  // Retirer uniquement les classes thème et cat — préserver le reste
+  ['vt-dark','vt-light','vt-slate','vt-paper','vt-midnight','vt-warm'].forEach(function(c){body.classList.remove(c);});
+  ['cat-reseau','cat-cisco','cat-vlan','cat-stp','cat-routage','cat-secu','cat-windows','cat-dns',
+   'cat-ntfs','cat-hyperv','cat-raid','cat-cmd','cat-mix','cat-ad','cat-ps','cat-mbr','cat-wlan',
+   'cat-sauvegarde','cat-abe','cat-fsrm','cat-groupes_ad'].forEach(function(c){body.classList.remove(c);});
+  body.classList.add(vTheme,catCls);
+  if(!body.classList.contains(uiCls)) body.classList.add(uiCls);
   // Override --acc avec la couleur du mode si en jeu
   var modeCol=selMode&&MODE_COLORS[selMode]?MODE_COLORS[selMode]:null;
   if(modeCol&&document.getElementById('screen-game')&&document.getElementById('screen-game').classList.contains('active')){
@@ -272,18 +279,42 @@ function promoJoin(){
 }
 async function loadPromoList(){
   var list=document.getElementById('promo-list'); if(!list) return;
-  if(!window._fbGetDocs){list.innerHTML='<div style="font-family:monospace;font-size:9px;color:var(--text2);padding:10px;">Firebase non connecté</div>';return;}
+  if(!window._fbGetDocs){
+    list.innerHTML='<div style="font-family:monospace;font-size:9px;color:var(--text2);padding:10px;">Connecte-toi pour voir les promos</div>';
+    return;
+  }
   list.innerHTML='<div style="font-family:monospace;font-size:9px;color:var(--text2);padding:10px;">⏳ Chargement...</div>';
   try{
     var snap=await window._fbGetDocs(window._fbQuery(window._fbCollection(window._fbDb,'promos'),window._fbLimit(20)));
     var promos=[];
     snap.forEach(function(d){ promos.push(Object.assign({id:d.id},d.data())); });
-    if(!promos.length){list.innerHTML='<div style="font-family:monospace;font-size:9px;color:var(--text2);padding:10px;">Aucune promo disponible</div>';return;}
+    if(!promos.length){
+      list.innerHTML='<div style="font-family:monospace;font-size:9px;color:var(--text2);padding:10px;text-align:center;">Aucune promo disponible. Crée la première !</div>';
+      return;
+    }
+    var myUid=window._fbUser?window._fbUser.uid:null;
+    var myProfile={}; try{myProfile=JSON.parse(localStorage.getItem('tssr5_profile')||'{}');}catch(e){}
     list.innerHTML=promos.map(function(p){
-      return '<div style="background:var(--panel);border:1.5px solid var(--border2);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="selectAndJoinPromo(this)" data-code="'+p.code+'">'+
-        '<div><div style="font-family:monospace;font-size:10px;color:var(--text);">'+p.name+'</div>'+
-        '<div style="font-family:monospace;font-size:8px;color:var(--text2);">'+(p.school||'')+'  ·  '+(p.members?p.members.length:1)+' membres</div></div>'+
-        '<div style="font-family:monospace;font-size:12px;color:var(--acc);letter-spacing:3px;">'+p.code+'</div>'+
+      var members=p.members||[];
+      var isIn=myUid&&members.indexOf(myUid)>=0;
+      var isOwner=myUid&&p.ownerUid===myUid;
+      return '<div style="background:var(--panel);border:1.5px solid '+(isIn?'var(--acc)':'var(--border2)')+';border-radius:10px;padding:14px 16px;margin-bottom:8px;">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'+
+          '<div>'+
+            '<div style="font-family:monospace;font-size:11px;color:var(--text);">'+p.name+'</div>'+
+            (p.school?'<div style="font-family:monospace;font-size:8px;color:var(--text2);">'+p.school+'</div>':'')+
+          '</div>'+
+          '<div style="display:flex;align-items:center;gap:8px;">'+
+            '<div style="font-family:monospace;font-size:13px;color:var(--acc);letter-spacing:3px;">'+p.code+'</div>'+
+            (isIn?
+              '<span style="font-family:monospace;font-size:8px;color:var(--acc);border:1px solid var(--acc);border-radius:4px;padding:3px 7px;">'+(isOwner?'ADMIN':'MEMBRE')+'</span>':
+              '<button onclick="selectAndJoinPromo(this)" data-code="'+p.code+'" style="background:var(--acc);border:none;border-radius:6px;padding:6px 12px;font-family:monospace;font-size:8px;color:var(--bg);cursor:pointer;letter-spacing:1px;">REJOINDRE</button>'
+            )+
+          '</div>'+
+        '</div>'+
+        '<div style="font-family:monospace;font-size:8px;color:var(--text2);">👥 '+members.length+' membre'+(members.length>1?'s':'')+
+        (p.ownerEmail?' · Admin: '+p.ownerEmail:'')+
+        '</div>'+
       '</div>';
     }).join('');
   }catch(e){list.innerHTML='<div style="font-family:monospace;font-size:9px;color:#f87171;padding:10px;">Erreur: '+e.message+'</div>';}
@@ -424,7 +455,13 @@ function showScreen(n){
   var target=el('screen-'+n);
   if(target){
     target.classList.add('active');
-    target.style.display='flex';
+    // screen-menu utilise le display CSS (flex ou grid selon media query)
+    // on retire l'inline style pour laisser le CSS décider
+    if(n==='menu'){
+      target.style.display='';
+    } else {
+      target.style.display='flex';
+    }
   }
   try{window.scrollTo(0,0);}catch(e){}
 }

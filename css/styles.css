@@ -50,6 +50,7 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .slbl{font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin:22px 0 10px;}
 /* ===================== MENU ===================== */
 #screen-menu{padding-top:28px;}
+#screen-menu.active{display:flex;flex-direction:column;}
 .logo{text-align:center;margin-bottom:20px;}
 .logo h1{font-family:monospace;font-size:12px;color:var(--acc);line-height:2;text-shadow:0 0 18px var(--acc);transition:color .25s,text-shadow .25s;}
 .logo .sub{font-size:10px;color:var(--text2);margin-top:6px;letter-spacing:2px;text-transform:uppercase;}

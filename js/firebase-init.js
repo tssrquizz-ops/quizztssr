@@ -109,8 +109,14 @@ window.fbSaveUserData = async function() {
     await setDoc(doc(db,'users',window._fbUser.uid), payload, {merge:true});
     // Leaderboard public
     try {
+      // Calculer taux de réussite global
+      var statsAll=(function(){try{return JSON.parse(localStorage.getItem('tssr5_stats')||'{}');}catch(e){return {};}})();
+      var totalPlayed=0,totalCorrect=0;
+      Object.keys(statsAll).forEach(function(k){var s=statsAll[k];totalPlayed+=(s.played||0);totalCorrect+=(s.correct||0);});
       await setDoc(doc(db,'leaderboard',window._fbUser.uid),{
         pseudo:   profileData.pseudo||window._fbUser.email.split('@')[0],
+        totalPlayed: totalPlayed,
+        totalCorrect: totalCorrect,
         avatar:   profileData.avatar||'😊',
         promo:    profileData.promo||'',
         mastered: masteredCount,

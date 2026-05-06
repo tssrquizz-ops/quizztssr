@@ -1,15 +1,22 @@
 // ─── Badges ───
 var BDEFS=[
-{id:'perfect',icon:'💎',name:'PERFECTIONNISTE',desc:'10/10 sans erreur',chk:function(s,e,c,tot){return c===tot&&e.length===0;}},
-{id:'survivor',icon:'💀',name:'SURVIVANT',desc:'Finir le mode Survie',chk:function(s,e,c,tot,m){return m==='survie'&&c>=7;}},
-{id:'blitz_win',icon:'🔥',name:'KAMIKAZE',desc:'Finir le mode Blitz',chk:function(s,e,c,tot,m){return m==='blitz'&&c>=5;}},
-{id:'exam_ace',icon:'📝',name:'MAJOR DE PROMO',desc:'18/20 ou + en mode Examen',chk:function(s,e,c,tot,m){return m==='exam'&&c>=18;}},
-{id:'combo10',icon:'⚡',name:'COMBO KING',desc:'Atteindre un combo x10',chk:function(s,e,c,tot,m){return s.maxCombo>=10;}},
-{id:'no_errors',icon:'🎯',name:'SNIPER',desc:'0 erreur en mode Speed',chk:function(s,e,c,tot,m){return m==='speed'&&e.length===0;}},
-{id:'mix_win',icon:'🎲',name:'TOUCHE-A-TOUT',desc:'Finir le mode Mix avec 7/10 minimum',chk:function(s,e,c,tot,m){return s.cat==='mix'&&c>=7;}},
-{id:'mechs',icon:'🔧',name:'MULTI-TALENT',desc:'Jouer les 7 mécaniques différentes',chk:function(s,e,c,tot,m){return s.mechs&&s.mechs.size>=7;}},
-{id:'streak5',icon:'🔥',name:'EN FEU',desc:'5 jours de streak quotidien',chk:function(s,e,c,tot,m){return s.streak>=5;}},
-{id:'cisco_king',icon:'🔵',name:'CISCO KING',desc:'10/10 en Cisco IOS',chk:function(s,e,c,tot,m){return s.cat==='cisco'&&c===10&&e.length===0;}}
+  // Faciles — première partie
+  {id:'first_quiz', icon:'🎉', name:'PREMIER PAS',     desc:'Termine ton premier quiz',           chk:function(s,e,c,tot){return tot>=1;}},
+  {id:'5_correct',  icon:'⭐', name:'EN ROUTE',         desc:'5 bonnes réponses en un quiz',       chk:function(s,e,c,tot){return c>=5;}},
+  {id:'no_err_5',   icon:'🎯', name:'PRÉCIS',           desc:'Quiz sans erreur (min 5 questions)', chk:function(s,e,c,tot){return e.length===0&&tot>=5;}},
+  {id:'combo3',     icon:'🔥', name:'ON CHAUFFE',       desc:'Combo x3',                           chk:function(s,e,c,tot){return s.maxCombo>=3;}},
+  // Moyens
+  {id:'combo5',     icon:'⚡', name:'COMBO KING',       desc:'Combo x5',                           chk:function(s,e,c,tot){return s.maxCombo>=5;}},
+  {id:'perfect',    icon:'💎', name:'PERFECTIONNISTE',  desc:'10/10 sans erreur',                  chk:function(s,e,c,tot){return c===tot&&e.length===0&&tot>=10;}},
+  {id:'mix_win',    icon:'🎲', name:'TOUCHE-À-TOUT',    desc:'Quiz mix avec 7/10 minimum',         chk:function(s,e,c,tot){return s.cat==='mix'&&c>=7;}},
+  {id:'srs_done',   icon:'🔁', name:'RÉVISEUR',         desc:'Termine une session de révision ciblée', chk:function(s,e,c,tot){return s.mode==='srs'&&tot>=5;}},
+  {id:'mechs3',     icon:'🔧', name:'POLYVALENT',       desc:'3 types de questions différents',    chk:function(s,e,c,tot){return s.mechs&&s.mechs.size>=3;}},
+  // Difficiles
+  {id:'streak3',    icon:'📅', name:'RÉGULIER',         desc:'3 jours de streak',                  chk:function(s,e,c,tot){return s.streak>=3;}},
+  {id:'streak7',    icon:'🏆', name:'EN FEU',           desc:'7 jours de streak',                  chk:function(s,e,c,tot){return s.streak>=7;}},
+  {id:'mechs5',     icon:'🧠', name:'MULTI-TALENT',     desc:'5 types de questions différents',    chk:function(s,e,c,tot){return s.mechs&&s.mechs.size>=5;}},
+  {id:'duel_win',   icon:'⚔️', name:'DUELLISTE',        desc:'Gagne un duel',                      chk:function(s,e,c,tot,m){return m==='duel'&&c>tot/2;}},
+  {id:'cisco_ace',  icon:'🔵', name:'CISCO ACE',        desc:'10/10 en Cisco',                     chk:function(s,e,c,tot){return s.cat==='cisco'&&c===tot&&tot>=10;}},
 ];
 
 // ─── data.js — Banques de questions TSSR ───
