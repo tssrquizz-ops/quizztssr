@@ -999,7 +999,7 @@ function listenOnlineSession(code){
 function _showOnlinePanel(name){
   ['setup','vote','round','game','finish'].forEach(function(p){
     var el2=document.getElementById('online-'+p+'-panel');
-    if(el2) el2.style.display=(p===name)?'':'none';
+    if(el2) el2.style.display=(p===name)?'block':'none';
   });
 }
 

@@ -1669,16 +1669,6 @@ body.rpg-mode::before { opacity:0 !important; }
 #app { max-width: 860px; padding: 0 24px 80px; }
 @media (min-width: 860px) {
   #app { padding: 0 48px 80px; }
-  #screen-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 0 32px; align-items: start; }
-  #screen-menu .menu-topbar,
-  #screen-menu #streak-bar,
-  #screen-menu #daily-widget,
-  #screen-menu .start-btn-main,
-  #screen-menu .menu-actions-row,
-  #screen-menu .slbl,
-  #screen-menu #badges-row,
-  #screen-menu #quick-stats { grid-column: 1 / -1; }
-  #screen-menu .hero-cards { grid-column: 1 / -1; }
 }
 
 /* TOP BAR */
