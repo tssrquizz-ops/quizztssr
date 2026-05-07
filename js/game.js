@@ -110,7 +110,7 @@ function applyBody(){
   var uiCls=currentUI||window.uiStyle||lsGet('tssr5_ui','ui-neon')||'ui-neon';
   var body=document.body;
   // Retirer uniquement les classes thème et cat — préserver le reste
-  ['vt-dark','vt-light','vt-slate','vt-paper','vt-midnight','vt-warm'].forEach(function(c){body.classList.remove(c);});
+  ['vt-dark','vt-light'].forEach(function(c){body.classList.remove(c);});
   ['cat-reseau','cat-cisco','cat-vlan','cat-stp','cat-routage','cat-secu','cat-windows','cat-dns',
    'cat-ntfs','cat-hyperv','cat-raid','cat-cmd','cat-mix','cat-ad','cat-ps','cat-mbr','cat-wlan',
    'cat-sauvegarde','cat-abe','cat-fsrm','cat-groupes_ad'].forEach(function(c){body.classList.remove(c);});
@@ -148,13 +148,23 @@ function buildBadges(){
 
 // Sérialise une question pour Firestore (gère qcm, tf, debug)
 function buildOnlineQData(q, idx2) {
-  var opts = q.opts ? q.opts.slice() : [];
-  if (q.t === 'tf') opts = ['VRAI', 'FAUX'];
+  var opts = [];
+  if (q.t === 'tf') {
+    opts = ['VRAI', 'FAUX'];
+  } else if (q.opts) {
+    // Convertir les opts objets {v,sub} en strings simples
+    opts = q.opts.map(function(o){
+      return (o && typeof o === 'object') ? (o.v || String(o)) : String(o);
+    });
+  }
+  // Inclure le setup si présent (questions calc)
+  var qText = q.q;
+  if (q.setup) qText = q.q + '\n\n' + q.setup;
   return {
     idx: idx2,
-    q: q.q,
+    q: qText,
     opts: opts,
-    a: q.t === 'tf' ? (q.a === true ? 0 : 1) : q.a,
+    a: q.t === 'tf' ? (q.a === true ? 0 : 1) : (typeof q.a === 'number' ? q.a : 0),
     x: q.x || '',
     t: q.t || 'qcm',
     shuffleSeed: Math.floor(Math.random() * 999999)
@@ -274,6 +284,17 @@ async function adminDelPromo(code,name){
   if(!confirm('Supprimer la promo "'+unescape(name)+'" ?'))return;
   try{await window._fbDeleteDoc(window._fbDoc(window._fbDb,'promos',code));alert('Promo supprimée.');loadAdminData();}
   catch(e){alert('Erreur: '+e.message);}
+}
+
+
+// ── Toggle Dark / Light ──
+function toggleDarkLight(){
+  vTheme = (vTheme === 'vt-dark') ? 'vt-light' : 'vt-dark';
+  lsSet('tssr5_vt', vTheme);
+  applyBody();
+  var btn = document.getElementById('theme-toggle-btn');
+  if(btn) btn.textContent = vTheme === 'vt-dark' ? '🌙' : '☀️';
+  if(window.fbSaveUserData) setTimeout(window.fbSaveUserData, 500);
 }
 
 function openMainMenu(){
@@ -551,7 +572,9 @@ function initMenu(){
   // Build UI
   buildBadges();
   applyBody();
-  applyUI(); // applique le thème UI (arcade/paper/terminal/minimal)
+  applyUI();
+  var tBtn2=document.getElementById('theme-toggle-btn');
+  if(tBtn2) tBtn2.textContent = vTheme==='vt-dark'?'🌙':'☀️'; // applique le thème UI (arcade/paper/terminal/minimal)
   buildDailyWidget();
   buildQuickStats();
   if(typeof updateMenuTopbar==='function') updateMenuTopbar();
