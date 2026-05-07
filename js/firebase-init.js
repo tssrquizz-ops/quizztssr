@@ -57,7 +57,7 @@ window.fbLoadUserData = async function(uid) {
         if(d[k]!==undefined) try{localStorage.setItem(map[k],JSON.stringify(d[k]));}catch(e){}
       });
       if (d.prefs) {
-        if (d.prefs.vt)     try{localStorage.setItem('tssr5_vt', d.prefs.vt);}catch(e){}
+        // vt (thème) : géré uniquement en local — pas chargé depuis Firestore
         if (d.prefs.ui)     try{localStorage.setItem('tssr5_ui', d.prefs.ui);}catch(e){}
         if (d.prefs.sound  !== undefined) try{localStorage.setItem('tssr5_sound',  JSON.stringify(d.prefs.sound));}catch(e){}
         if (d.prefs.qcount !== undefined) try{localStorage.setItem('tssr5_qcount', JSON.stringify(d.prefs.qcount));}catch(e){}
@@ -70,9 +70,7 @@ window.fbLoadUserData = async function(uid) {
     try{window.bdD     = JSON.parse(localStorage.getItem('tssr5_badges')||'[]');}catch(e){}
     try{window.streakD = JSON.parse(localStorage.getItem('tssr5_streak')||'{"current":0,"best":0,"lastDate":""}');}catch(e){}
     try{window.historyD= JSON.parse(localStorage.getItem('tssr5_history')||'[]');}catch(e){}
-    // Resynchroniser vTheme et currentUI depuis localStorage (après chargement Firestore)
-    try{if(window.vTheme!==undefined){window.vTheme=localStorage.getItem('tssr5_vt')||'vt-dark';}}catch(e){}
-    try{if(window.currentUI!==undefined){window.currentUI=localStorage.getItem('tssr5_ui')||'ui-neon';}}catch(e){}
+
   } catch(err) { console.warn('[Firebase] load error:', err); }
 };
 
@@ -101,7 +99,7 @@ window.fbSaveUserData = async function() {
       hs:      JSON.parse(localStorage.getItem('tssr5_hs')     ||'{}'),
       profile: profileData,
       prefs: {
-        vt:     (window.vTheme && window.vTheme !== 'vt-dark' ? window.vTheme : localStorage.getItem('tssr5_vt')) ||'vt-dark',
+        // vt non sauvegardé dans Firestore — local only
         ui:     localStorage.getItem('tssr5_ui')    ||'ui-arcade',
         sound:  JSON.parse(localStorage.getItem('tssr5_sound') ||'false'),
         qcount: JSON.parse(localStorage.getItem('tssr5_qcount')||'10')

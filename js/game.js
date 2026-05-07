@@ -292,10 +292,11 @@ async function adminDelPromo(code,name){
 // ── Toggle Dark / Light ──
 function toggleDarkLight(){
   vTheme = (vTheme === 'vt-dark') ? 'vt-light' : 'vt-dark';
-  lsSet('tssr5_vt', vTheme);
+  // Sauvegarder UNIQUEMENT en localStorage — indépendant de Firebase
+  try{ localStorage.setItem('tssr5_vt', vTheme); }catch(e){}
   applyBody();
   _updateThemeBtns();
-  if(window.fbSaveUserData) setTimeout(window.fbSaveUserData, 500);
+  // PAS de fbSaveUserData ici — le thème est local only
 }
 
 function _updateThemeBtns(){
