@@ -292,9 +292,23 @@ function toggleDarkLight(){
   vTheme = (vTheme === 'vt-dark') ? 'vt-light' : 'vt-dark';
   lsSet('tssr5_vt', vTheme);
   applyBody();
-  var btn = document.getElementById('theme-toggle-btn');
-  if(btn) btn.textContent = vTheme === 'vt-dark' ? '🌙' : '☀️';
+  _updateThemeBtns();
   if(window.fbSaveUserData) setTimeout(window.fbSaveUserData, 500);
+}
+
+function _updateThemeBtns(){
+  var isDark = (vTheme === 'vt-dark');
+  var icon  = isDark ? '🌙' : '☀️';
+  var label = isDark ? 'MODE SOMBRE' : 'MODE CLAIR';
+  ['theme-toggle-btn','settings-theme-toggle'].forEach(function(id){
+    var btn=document.getElementById(id); if(btn) btn.querySelector ? null : null;
+  });
+  var t1=document.getElementById('theme-toggle-btn');
+  if(t1) t1.textContent = icon;
+  var t2=document.getElementById('settings-theme-icon');
+  if(t2) t2.textContent = icon;
+  var t3=document.getElementById('settings-theme-label');
+  if(t3) t3.textContent = label;
 }
 
 function openMainMenu(){
@@ -573,8 +587,7 @@ function initMenu(){
   buildBadges();
   applyBody();
   applyUI();
-  var tBtn2=document.getElementById('theme-toggle-btn');
-  if(tBtn2) tBtn2.textContent = vTheme==='vt-dark'?'🌙':'☀️'; // applique le thème UI (arcade/paper/terminal/minimal)
+  _updateThemeBtns(); // applique le thème UI (arcade/paper/terminal/minimal)
   buildDailyWidget();
   buildQuickStats();
   if(typeof updateMenuTopbar==='function') updateMenuTopbar();
@@ -923,6 +936,7 @@ function closeOverlay(name){
 
 function openSettingsScreen(){
   showScreen('settings');
+  _updateThemeBtns();
   var ss=document.getElementById('stoggle-settings'); if(ss) ss.classList.toggle('on',soundOn);
   var ls=document.getElementById('lofi-btn-settings'); if(ls) ls.textContent=lofiOn?'ON':'OFF';
   document.querySelectorAll('.settings-theme-btn').forEach(function(b){
