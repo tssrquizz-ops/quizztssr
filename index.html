@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<script>
+// Appliquer le thème sauvegardé immédiatement pour éviter le flash
+(function(){
+  try{
+    var t=localStorage.getItem('tssr5_vt')||'vt-dark';
+    document.addEventListener('DOMContentLoaded',function(){
+      document.body.classList.remove('vt-dark','vt-light');
+      document.body.classList.add(t);
+    });
+  }catch(e){}
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TSSR QUIZ</title>

@@ -2,8 +2,10 @@
 function lsGet(k,d){try{var v=localStorage.getItem(k);return v!==null?JSON.parse(v):d;}catch(e){return d;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));if(window._fbUser&&window.fbSaveUserData){clearTimeout(window._fbSaveTimer);window._fbSaveTimer=setTimeout(window.fbSaveUserData,2000);}}catch(e){}}
 // ─── Variables globales d'état ───
-var vTheme='vt-dark', selCat='reseau', selMode='chill', selDiff='all';
-var soundOn=true, jokersEnabled=true, currentUI='ui-neon';
+var vTheme=(function(){try{return localStorage.getItem('tssr5_vt')||'vt-dark';}catch(e){return 'vt-dark';}})();
+var selCat='reseau', selMode='chill', selDiff='all';
+var soundOn=true, jokersEnabled=true;
+var currentUI=(function(){try{return localStorage.getItem('tssr5_ui')||'ui-neon';}catch(e){return 'ui-neon';}})();
 var session=[], idx=0, correct=0, lives=5, combo=1, maxCombo=1;
 var errors=[], answered=false, timerInt=null, timeLeft=20, paused=false;
 var betOn=false, bonusStreak=0;

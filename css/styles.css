@@ -2,7 +2,29 @@
 /* ===================== THEMES ===================== */
 :root{--bg:#0d0e14;--bg2:#13151e;--panel:#1a1d2a;--border:#252840;--border2:#333658;--text:#c4cce0;--text2:#7078a0;--dim:#3a3f60;--white:#e8ecff;--sh:rgba(0,0,0,.4);--acc:#38bdf8;--a2:rgba(56,189,248,.12);--a3:rgba(56,189,248,.06);}
 body.vt-dark{--bg:#0d0e14;--bg2:#13151e;--panel:#1a1d2a;--border:#252840;--border2:#333658;--text:#c4cce0;--text2:#7078a0;--dim:#3a3f60;--white:#e8ecff;--sh:rgba(0,0,0,.4);}
-body.vt-light{--bg:#ffffff;--bg2:#f4f4f8;--panel:#ffffff;--border:#e0e0e8;--border2:#c8c8d8;--text:#1a1a2e;--text2:#4a4a6a;--dim:#9090b0;--white:#1a1a2e;--sh:rgba(0,0,0,.08);}
+body.vt-light{--bg:#ffffff;--bg2:#f4f4f8;--panel:#ffffff;--border:#e0e0e8;--border2:#c8c8d8;--text:#1a1a2e;--text2:#4a4a6a;--dim:#9090b0;--white:#1a1a2e;--sh:rgba(0,0,0,.08);--acc:#0066cc;--a2:rgba(0,102,204,.12);--a3:rgba(0,102,204,.06);}
+/* Couleurs d'accent vt-light par catégorie */
+body.vt-light.cat-reseau{--acc:#0066cc;--a2:rgba(0,102,204,.12);}
+body.vt-light.cat-cisco{--acc:#0055aa;--a2:rgba(0,85,170,.12);}
+body.vt-light.cat-vlan{--acc:#4338ca;--a2:rgba(67,56,202,.12);}
+body.vt-light.cat-stp{--acc:#c2410c;--a2:rgba(194,65,12,.12);}
+body.vt-light.cat-routage{--acc:#15803d;--a2:rgba(21,128,61,.12);}
+body.vt-light.cat-secu{--acc:#b91c1c;--a2:rgba(185,28,28,.12);}
+body.vt-light.cat-windows{--acc:#065f46;--a2:rgba(6,95,70,.12);}
+body.vt-light.cat-dns{--acc:#5b21b6;--a2:rgba(91,33,182,.12);}
+body.vt-light.cat-ntfs{--acc:#9f1239;--a2:rgba(159,18,57,.12);}
+body.vt-light.cat-hyperv{--acc:#065f46;--a2:rgba(6,95,70,.12);}
+body.vt-light.cat-raid{--acc:#92400e;--a2:rgba(146,64,14,.12);}
+body.vt-light.cat-cmd{--acc:#831843;--a2:rgba(131,24,67,.12);}
+body.vt-light.cat-mix{--acc:#6b21a8;--a2:rgba(107,33,168,.12);}
+body.vt-light.cat-ad{--acc:#4338ca;--a2:rgba(67,56,202,.12);}
+body.vt-light.cat-ps{--acc:#7e22ce;--a2:rgba(126,34,206,.12);}
+body.vt-light.cat-wlan{--acc:#065f46;--a2:rgba(6,95,70,.12);}
+body.vt-light.cat-mbr{--acc:#92400e;--a2:rgba(146,64,14,.12);}
+body.vt-light.cat-sauvegarde{--acc:#0066cc;--a2:rgba(0,102,204,.12);}
+body.vt-light.cat-abe{--acc:#15803d;--a2:rgba(21,128,61,.12);}
+body.vt-light.cat-fsrm{--acc:#b91c1c;--a2:rgba(185,28,28,.12);}
+body.vt-light.cat-groupes_ad{--acc:#4338ca;--a2:rgba(67,56,202,.12);}
 /* cat accents */
 body.cat-reseau{--acc:#38bdf8;--a2:rgba(56,189,248,.12);--a3:rgba(56,189,248,.06);}
 body.cat-cisco{--acc:#00c8ff;--a2:rgba(0,200,255,.12);--a3:rgba(0,200,255,.06);}
