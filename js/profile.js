@@ -64,18 +64,7 @@ function loadProfileScreen(){
   buildProfileThemeRow();
 }
 
-function buildProfileThemeRow(){
-  var row=document.getElementById('prof-theme-row'); if(!row) return;
-  row.innerHTML='';
-  PROFILE_THEMES.forEach(function(t){
-    var btn=document.createElement('button');
-    var isSel=(vTheme===t.id);
-    btn.style.cssText='display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:5px;cursor:pointer;font-family:monospace;font-size:7px;letter-spacing:1px;border:1.5px solid '+(isSel?'var(--acc)':'var(--border2)')+';background:'+(isSel?'var(--a2)':'var(--panel)')+';color:'+(isSel?'var(--acc)':'var(--text2)')+';transition:all .12s;';
-    btn.innerHTML='<span style="width:8px;height:8px;border-radius:50%;background:'+t.dot+';display:inline-block;"></span>'+t.label;
-    (function(tid){btn.onclick=function(){vTheme=tid;lsSet('tssr5_vt',vTheme);applyBody();buildProfileThemeRow();if(window.fbSaveUserData)setTimeout(window.fbSaveUserData,500);};})(t.id);
-    row.appendChild(btn);
-  });
-}
+function buildProfileThemeRow(){ /* thème géré par toggle dark/light */ }
 
 function saveProfile(){
   var pseudo=(document.getElementById('prof-pseudo-input').value||'').trim();
