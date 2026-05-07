@@ -1,18 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<script>
-// Appliquer le thème sauvegardé immédiatement pour éviter le flash
-(function(){
-  try{
-    var t=localStorage.getItem('tssr5_vt')||'vt-dark';
-    document.addEventListener('DOMContentLoaded',function(){
-      document.body.classList.remove('vt-dark','vt-light');
-      document.body.classList.add(t);
-    });
-  }catch(e){}
-})();
-</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TSSR QUIZ</title>
@@ -257,15 +245,9 @@ document.addEventListener('DOMContentLoaded', function() {
       </button>
     </div>
     <div class="menu-topbar-center">
-      <!-- VERSION_TAG: v12 — ne pas supprimer -->
-      <div class="menu-logo-small">📚 TSSR QUIZ <span style="font-size:7px;opacity:.5;letter-spacing:1px;">v12</span></div>
-      <div style="font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:1px;margin-top:2px;">v12</div>
+      <div class="menu-logo-small">📚 TSSR QUIZ</div>
     </div>
-    <div class="menu-topbar-right" style="display:flex;align-items:center;gap:8px;">
-      <button id="theme-toggle-btn" onclick="toggleDarkLight()" title="Changer thème"
-        style="background:none;border:1.5px solid var(--border2);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:16px;transition:all .2s;color:var(--text);">
-        🌙
-      </button>
+    <div class="menu-topbar-right">
       <button class="menu-profile-btn" onclick="showScreen('profile');loadProfileScreen()" title="Profil">
         <span id="menu-avatar-top">👤</span>
         <span id="menu-username-top" class="menu-username-label"></span>
@@ -350,7 +332,6 @@ document.addEventListener('DOMContentLoaded', function() {
   <button class="main-menu-btn" onclick="closeMainMenu();openJoinPromo()">🔗 Rejoindre une promo</button>
   <div class="main-menu-section-lbl">PARAMÈTRES</div>
   <button class="main-menu-btn" onclick="closeMainMenu();openSettingsScreen()">⚙️ Réglages</button>
-  <button class="main-menu-btn" onclick="closeMainMenu();openAdminPanel()">🔑 Admin</button>
   <div class="main-menu-footer">
     <button id="mm-login-btn" onclick="closeMainMenu();window._fbSkipLogin=false;var ls=document.getElementById('fb-login-screen');if(ls)ls.style.display='flex';document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');})" style="display:flex;">🔐 Se connecter</button>
     <button id="mm-logout-btn" onclick="closeMainMenu();window.fbLogout&&window.fbLogout()" style="display:none;">↩ Se déconnecter</button>
@@ -1053,13 +1034,13 @@ document.addEventListener('DOMContentLoaded', function() {
   <div style="max-width:500px;margin:0 auto;">
     <div class="settings-section">
       <span class="settings-section-title">🎨 Thème</span>
-      <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
-        <button onclick="toggleDarkLight()" id="settings-theme-toggle"
-          style="background:var(--panel);border:1.5px solid var(--border2);border-radius:24px;padding:10px 20px;cursor:pointer;font-family:monospace;font-size:11px;color:var(--text);display:flex;align-items:center;gap:8px;transition:all .2s;">
-          <span id="settings-theme-icon">🌙</span>
-          <span id="settings-theme-label">MODE SOMBRE</span>
-        </button>
-        <span style="font-family:monospace;font-size:8px;color:var(--dim);">Clique pour basculer</span>
+      <div class="settings-theme-grid">
+        <button class="settings-theme-btn" data-vt="vt-dark"     onclick="pickVTSettings(this)"><div class="settings-theme-dot" style="background:linear-gradient(135deg,#0d0e14,#38bdf8)"></div>DARK</button>
+        <button class="settings-theme-btn" data-vt="vt-light"    onclick="pickVTSettings(this)"><div class="settings-theme-dot" style="background:linear-gradient(135deg,#f0eeea,#0284c7)"></div>LIGHT</button>
+        <button class="settings-theme-btn" data-vt="vt-slate"    onclick="pickVTSettings(this)"><div class="settings-theme-dot" style="background:linear-gradient(135deg,#1a2035,#4488ff)"></div>SLATE</button>
+        <button class="settings-theme-btn" data-vt="vt-paper"    onclick="pickVTSettings(this)"><div class="settings-theme-dot" style="background:linear-gradient(135deg,#f0ead8,#a07000)"></div>PAPER</button>
+        <button class="settings-theme-btn" data-vt="vt-midnight" onclick="pickVTSettings(this)"><div class="settings-theme-dot" style="background:linear-gradient(135deg,#080810,#8866ff)"></div>NIGHT</button>
+        <button class="settings-theme-btn" data-vt="vt-warm"     onclick="pickVTSettings(this)"><div class="settings-theme-dot" style="background:linear-gradient(135deg,#1a1210,#ff8860)"></div>WARM</button>
       </div>
     </div>
     <div class="settings-section">
@@ -1115,7 +1096,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <span class="profile-form-lbl">Promo / Groupe</span>
       <input class="profile-input" id="prof-promo-input" type="text" maxlength="30" placeholder="Ex: TSSR B2 — AFPA Niort">
       <span class="profile-form-lbl">Thème</span>
-
+      <div id="prof-theme-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
       <button class="profile-save-btn" onclick="saveProfile()">💾 SAUVEGARDER</button>
       <div id="prof-save-msg" style="display:none;text-align:center;font-family:monospace;font-size:9px;color:#4ade80;margin-top:8px;">✅ Profil sauvegardé !</div>
     </div>

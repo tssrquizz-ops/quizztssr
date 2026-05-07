@@ -2,10 +2,8 @@
 function lsGet(k,d){try{var v=localStorage.getItem(k);return v!==null?JSON.parse(v):d;}catch(e){return d;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));if(window._fbUser&&window.fbSaveUserData){clearTimeout(window._fbSaveTimer);window._fbSaveTimer=setTimeout(window.fbSaveUserData,2000);}}catch(e){}}
 // ─── Variables globales d'état ───
-var vTheme=(function(){try{return localStorage.getItem('tssr5_vt')||'vt-dark';}catch(e){return 'vt-dark';}})();
-var selCat='reseau', selMode='chill', selDiff='all';
-var soundOn=true, jokersEnabled=true;
-var currentUI=(function(){try{return localStorage.getItem('tssr5_ui')||'ui-neon';}catch(e){return 'ui-neon';}})();
+var vTheme='vt-dark', selCat='reseau', selMode='chill', selDiff='all';
+var soundOn=true, jokersEnabled=true, currentUI='ui-neon';
 var session=[], idx=0, correct=0, lives=5, combo=1, maxCombo=1;
 var errors=[], answered=false, timerInt=null, timeLeft=20, paused=false;
 var betOn=false, bonusStreak=0;
@@ -107,12 +105,10 @@ function updateStreak(){
 
 function applyBody(){
   var catCls=CATS[selCat]?CATS[selCat].cat:'cat-mix';
-  if(!vTheme) vTheme=lsGet('tssr5_vt','vt-dark');
-  if(!currentUI) currentUI=lsGet('tssr5_ui','ui-neon');
   var uiCls=currentUI||window.uiStyle||lsGet('tssr5_ui','ui-neon')||'ui-neon';
   var body=document.body;
   // Retirer uniquement les classes thème et cat — préserver le reste
-  ['vt-dark','vt-light'].forEach(function(c){body.classList.remove(c);});
+  ['vt-dark','vt-light','vt-slate','vt-paper','vt-midnight','vt-warm'].forEach(function(c){body.classList.remove(c);});
   ['cat-reseau','cat-cisco','cat-vlan','cat-stp','cat-routage','cat-secu','cat-windows','cat-dns',
    'cat-ntfs','cat-hyperv','cat-raid','cat-cmd','cat-mix','cat-ad','cat-ps','cat-mbr','cat-wlan',
    'cat-sauvegarde','cat-abe','cat-fsrm','cat-groupes_ad'].forEach(function(c){body.classList.remove(c);});
@@ -150,23 +146,13 @@ function buildBadges(){
 
 // Sérialise une question pour Firestore (gère qcm, tf, debug)
 function buildOnlineQData(q, idx2) {
-  var opts = [];
-  if (q.t === 'tf') {
-    opts = ['VRAI', 'FAUX'];
-  } else if (q.opts) {
-    // Convertir les opts objets {v,sub} en strings simples
-    opts = q.opts.map(function(o){
-      return (o && typeof o === 'object') ? (o.v || String(o)) : String(o);
-    });
-  }
-  // Inclure le setup si présent (questions calc)
-  var qText = q.q;
-  if (q.setup) qText = q.q + '\n\n' + q.setup;
+  var opts = q.opts ? q.opts.slice() : [];
+  if (q.t === 'tf') opts = ['VRAI', 'FAUX'];
   return {
     idx: idx2,
-    q: qText,
+    q: q.q,
     opts: opts,
-    a: q.t === 'tf' ? (q.a === true ? 0 : 1) : (typeof q.a === 'number' ? q.a : 0),
+    a: q.t === 'tf' ? (q.a === true ? 0 : 1) : q.a,
     x: q.x || '',
     t: q.t || 'qcm',
     shuffleSeed: Math.floor(Math.random() * 999999)
@@ -174,145 +160,6 @@ function buildOnlineQData(q, idx2) {
 }
 
 // Menu principal
-
-// ============================================================
-// PANNEAU ADMIN
-// ============================================================
-var ADMIN_CODE='TSSR2024ADMIN';
-
-function openAdminPanel(){
-  if(!window._fbUser){alert('Connecte-toi dabord.');return;}
-  var code=prompt('Code admin :');
-  if(!code||code.trim()!==ADMIN_CODE){if(code!==null)alert('Code incorrect.');return;}
-  showAdminPanel();
-}
-
-function showAdminPanel(){
-  var existing=document.getElementById('admin-panel-ovl');
-  if(existing){existing.style.display='flex';loadAdminData();return;}
-  var ovl=document.createElement('div');
-  ovl.id='admin-panel-ovl';
-  ovl.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
-
-  var box=document.createElement('div');
-  box.style.cssText='background:var(--bg2);border:1.5px solid var(--border2);border-radius:12px;width:100%;max-width:600px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;';
-
-  var header=document.createElement('div');
-  header.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);';
-  header.innerHTML='<span style="font-family:monospace;font-size:11px;color:#f87171;letter-spacing:2px;">🔑 PANNEAU ADMIN</span>';
-  var closeBtn=document.createElement('button');
-  closeBtn.textContent='✕';
-  closeBtn.style.cssText='background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;';
-  closeBtn.onclick=function(){ ovl.style.display='none'; };
-  header.appendChild(closeBtn);
-
-  var body2=document.createElement('div');
-  body2.style.cssText='padding:16px 20px;overflow-y:auto;flex:1;';
-  body2.innerHTML='<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin-bottom:10px;">UTILISATEURS</div>'+
-    '<div id="admin-users-list">Chargement...</div>'+
-    '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin:16px 0 10px;">PROMOS</div>'+
-    '<div id="admin-promos-list">Chargement...</div>';
-
-  box.appendChild(header);
-  box.appendChild(body2);
-  ovl.appendChild(box);
-  document.body.appendChild(ovl);
-  loadAdminData();
-}
-
-async function loadAdminData(){
-  if(!window._fbGetDocs)return;
-  var ul=document.getElementById('admin-users-list');
-  var pl=document.getElementById('admin-promos-list');
-
-  // Utilisateurs
-  try{
-    var us=await window._fbGetDocs(window._fbQuery(window._fbCollection(window._fbDb,'leaderboard'),window._fbLimit(100)));
-    var users=[];
-    us.forEach(function(d){users.push(Object.assign({uid:d.id},d.data()));});
-    if(ul){
-      ul.innerHTML='';
-      users.forEach(function(u){
-        var row=document.createElement('div');
-        row.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--panel);border-radius:6px;margin-bottom:5px;';
-        var info=document.createElement('div');
-        info.innerHTML='<span style="font-family:monospace;font-size:10px;">'+(u.pseudo||'Anonyme')+'</span>'+
-          '<span style="font-family:monospace;font-size:8px;color:var(--text2);margin-left:8px;">'+(u.email||'')+'</span>';
-        var btn=document.createElement('button');
-        btn.textContent='SUPPRIMER';
-        btn.style.cssText='background:none;border:1px solid #f87171;border-radius:4px;color:#f87171;font-family:monospace;font-size:7px;padding:3px 8px;cursor:pointer;';
-        (function(uid,pseudo){ btn.onclick=function(){ adminDelUser(uid,pseudo); }; })(u.uid, u.pseudo||'cet user');
-        row.appendChild(info);
-        row.appendChild(btn);
-        ul.appendChild(row);
-      });
-      if(!users.length) ul.textContent='Aucun utilisateur';
-    }
-  }catch(e){ if(ul) ul.textContent='Erreur: '+e.message; }
-
-  // Promos
-  try{
-    var ps=await window._fbGetDocs(window._fbQuery(window._fbCollection(window._fbDb,'promos'),window._fbLimit(50)));
-    var promos=[];
-    ps.forEach(function(d){promos.push(Object.assign({code:d.id},d.data()));});
-    if(pl){
-      pl.innerHTML='';
-      promos.forEach(function(p){
-        var row=document.createElement('div');
-        row.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--panel);border-radius:6px;margin-bottom:5px;';
-        var info=document.createElement('div');
-        info.innerHTML='<span style="font-family:monospace;font-size:10px;">'+(p.name||p.code)+'</span>'+
-          '<span style="font-family:monospace;font-size:8px;color:var(--acc);margin-left:8px;letter-spacing:2px;">'+p.code+'</span>'+
-          '<span style="font-family:monospace;font-size:8px;color:var(--text2);margin-left:6px;">'+(p.members?p.members.length:0)+' membres</span>';
-        var btn=document.createElement('button');
-        btn.textContent='SUPPRIMER';
-        btn.style.cssText='background:none;border:1px solid #f87171;border-radius:4px;color:#f87171;font-family:monospace;font-size:7px;padding:3px 8px;cursor:pointer;';
-        (function(code,name){ btn.onclick=function(){ adminDelPromo(code,name); }; })(p.code, p.name||p.code);
-        row.appendChild(info);
-        row.appendChild(btn);
-        pl.appendChild(row);
-      });
-      if(!promos.length) pl.textContent='Aucune promo';
-    }
-  }catch(e){ if(pl) pl.textContent='Erreur: '+e.message; }
-}
-
-async function adminDelUser(uid,pseudo){
-  if(!confirm('Supprimer '+unescape(pseudo)+' du leaderboard ?'))return;
-  try{await window._fbDeleteDoc(window._fbDoc(window._fbDb,'leaderboard',uid));alert('Supprimé.');loadAdminData();}
-  catch(e){alert('Erreur: '+e.message);}
-}
-async function adminDelPromo(code,name){
-  if(!confirm('Supprimer la promo "'+unescape(name)+'" ?'))return;
-  try{await window._fbDeleteDoc(window._fbDoc(window._fbDb,'promos',code));alert('Promo supprimée.');loadAdminData();}
-  catch(e){alert('Erreur: '+e.message);}
-}
-
-
-// ── Toggle Dark / Light ──
-function toggleDarkLight(){
-  vTheme = (vTheme === 'vt-dark') ? 'vt-light' : 'vt-dark';
-  lsSet('tssr5_vt', vTheme);
-  applyBody();
-  _updateThemeBtns();
-  if(window.fbSaveUserData) setTimeout(window.fbSaveUserData, 500);
-}
-
-function _updateThemeBtns(){
-  var isDark = (vTheme === 'vt-dark');
-  var icon  = isDark ? '🌙' : '☀️';
-  var label = isDark ? 'MODE SOMBRE' : 'MODE CLAIR';
-  ['theme-toggle-btn','settings-theme-toggle'].forEach(function(id){
-    var btn=document.getElementById(id); if(btn) btn.querySelector ? null : null;
-  });
-  var t1=document.getElementById('theme-toggle-btn');
-  if(t1) t1.textContent = icon;
-  var t2=document.getElementById('settings-theme-icon');
-  if(t2) t2.textContent = icon;
-  var t3=document.getElementById('settings-theme-label');
-  if(t3) t3.textContent = label;
-}
-
 function openMainMenu(){
   var o=document.getElementById('main-menu-ovl');
   var p=document.getElementById('main-menu-panel');
@@ -579,7 +426,7 @@ function initMenu(){
 
   // Streak
   var sn=el('streak-num'); if(sn) sn.textContent=streakD.current+' jour'+(streakD.current!==1?'s':'');
-  var sb=el('streak-best'); if(sb) sb.textContent='Best: '+(streakD.best||0);
+  var sb=el('streak-best'); if(sb) sb.textContent='Best: '+streakD.best;
 
   // Sync sound toggles
   var stm=document.getElementById('stoggle-menu'); if(stm) stm.classList.toggle('on',soundOn);
@@ -588,8 +435,7 @@ function initMenu(){
   // Build UI
   buildBadges();
   applyBody();
-  applyUI();
-  _updateThemeBtns(); // applique le thème UI (arcade/paper/terminal/minimal)
+  applyUI(); // applique le thème UI (arcade/paper/terminal/minimal)
   buildDailyWidget();
   buildQuickStats();
   if(typeof updateMenuTopbar==='function') updateMenuTopbar();
@@ -606,11 +452,17 @@ function showScreen(n){
     s.classList.remove('active');
     s.style.display='none';
   });
-  var target=document.getElementById('screen-'+n);
-  if(!target){ console.warn('showScreen: screen-'+n+' introuvable'); return; }
-  target.classList.add('active');
-  // screen-menu : laisser le CSS décider du display (flex colonne)
-  target.style.display = (n==='menu') ? '' : 'flex';
+  var target=el('screen-'+n);
+  if(target){
+    target.classList.add('active');
+    // screen-menu utilise le display CSS (flex ou grid selon media query)
+    // on retire l'inline style pour laisser le CSS décider
+    if(n==='menu'){
+      target.style.display='';
+    } else {
+      target.style.display='flex';
+    }
+  }
   try{window.scrollTo(0,0);}catch(e){}
 }
 function goMenu(){
@@ -938,7 +790,6 @@ function closeOverlay(name){
 
 function openSettingsScreen(){
   showScreen('settings');
-  _updateThemeBtns();
   var ss=document.getElementById('stoggle-settings'); if(ss) ss.classList.toggle('on',soundOn);
   var ls=document.getElementById('lofi-btn-settings'); if(ls) ls.textContent=lofiOn?'ON':'OFF';
   document.querySelectorAll('.settings-theme-btn').forEach(function(b){
@@ -1148,7 +999,7 @@ function listenOnlineSession(code){
 function _showOnlinePanel(name){
   ['setup','vote','round','game','finish'].forEach(function(p){
     var el2=document.getElementById('online-'+p+'-panel');
-    if(el2) el2.style.display=(p===name)?'':'none';
+    if(el2) el2.style.display=(p===name)?'block':'none';
   });
 }
 
@@ -1376,6 +1227,17 @@ function renderRoundRecap(data, isStart){
 }
 
 // ---------- HOST GENERATE POOL ----------
+// ── Sérialise une question pour Firebase (inclut tous les champs selon le type) ──
+function serializeOnlineQ(q, idx, seed){
+  var base={ idx:idx, q:q.q, a:q.a, x:q.x||'', t:q.t||'qcm', shuffleSeed:seed };
+  if(q.opts)       base.opts=q.opts;
+  if(q.code)       base.code=q.code;
+  if(q.blank)      base.blank=q.blank;
+  if(q.setup)      base.setup=q.setup;
+  if(q.errorLines) base.errorLines=q.errorLines;
+  return base;
+}
+
 async function hostGenerateQuestionsAndStart(data){
   if(window._lastGenForCode===onlineSession.code) return; // single shot
   window._lastGenForCode=onlineSession.code;
@@ -1391,14 +1253,15 @@ async function hostGenerateQuestionsAndStart(data){
     }); return all;
   })();
   pool = src.filter(function(q){ return q.t==='qcm' || q.t==='debug' || q.t==='tf' || q.t==='fill' || q.t==='calc'; });
+  // Garder uniquement les questions avec les données minimales nécessaires
+  pool = pool.filter(function(q){ if(q.t==='fill') return q.code&&q.blank&&q.opts; if(q.t==='calc') return q.setup&&q.opts; if(q.t==='debug') return q.opts; return q.opts||q.t==='tf'; });
   if(pool.length<totalQ){ pool=src.slice(); }
   pool=shuffle(pool).slice(0,totalQ);
   onlineSession.questionsPool=pool;
 
   // Send first question
   var first=pool[0];
-  var qData={ idx:0, q:first.q, opts:first.opts||[], a:first.a, x:first.x||'', t:first.t||'qcm',
-              shuffleSeed:Math.floor(Math.random()*999999) };
+  var qData=serializeOnlineQ(first, 0, Math.floor(Math.random()*999999));
   await new Promise(function(r){setTimeout(r,3000);}); // wait for countdown
   await _onlineUpdate({
     status:'playing', qIdx:0, roundIdx:0, currentQ:qData, reveal:false,
@@ -1407,54 +1270,112 @@ async function hostGenerateQuestionsAndStart(data){
   });
 }
 
-// ---------- RENDER QUESTION ----------
+// ---------- RENDER QUESTION (multi-type) ----------
 function renderOnlineQuestion(qData){
   var area=document.getElementById('online-question-area');
   if(!area) return;
-  // Firestore peut convertir les arrays en objets {0:'val', 1:'val'}
-  if(qData.opts && !Array.isArray(qData.opts)){
-    qData.opts = Object.keys(qData.opts).sort(function(a,b){return +a-+b;}).map(function(k){return qData.opts[k];});
-  }
-  if(qData.t==='tf' && (!qData.opts || !qData.opts.length)){
-    qData.opts=['VRAI','FAUX'];
-    qData.a=(qData.a===true||qData.a===0)?0:1;
+
+  var t = qData.t || 'qcm';
+
+  // RNG déterministe — même seed = même ordre pour les 2 joueurs
+  var seed = qData.shuffleSeed||0;
+  var rng=(function(s){return function(){ s=(s*9301+49297)%233280; return s/233280;};})(seed);
+  function seededShuffle(arr){
+    var a=arr.slice();
+    for(var i=a.length-1;i>0;i--){ var j=Math.floor(rng()*(i+1)); var tmp=a[i];a[i]=a[j];a[j]=tmp; }
+    return a;
   }
 
+  var mechLabels={qcm:'QCM',tf:'VRAI / FAUX',fill:'COMPLÉTER',calc:'CALCUL',debug:'DEBUG'};
+  var mechColors={qcm:'mp-qcm',tf:'mp-tf',fill:'mp-fill',calc:'mp-calc',debug:'mp-debug'};
+  var mechBadge='<span class="mech-pill '+(mechColors[t]||'mp-qcm')+'">'+(mechLabels[t]||t.toUpperCase())+'</span>';
 
-  var isTF   = qData.t === 'tf';
   var optsHtml = '';
+  var keys=['A','B','C','D'];
 
-  if(qData.opts && qData.opts.length > 0){
-    // QCM, debug, tf — shuffle déterministe
-    var seed = qData.shuffleSeed||0;
-    var rng=(function(s){return function(){ s=(s*9301+49297)%233280; return s/233280;};})(seed);
-    var pairs = qData.opts.map(function(t,i){return {t:t,i:i};});
-    if(!isTF){
-      for(var i=pairs.length-1;i>0;i--){ var j=Math.floor(rng()*(i+1)); var tmp=pairs[i];pairs[i]=pairs[j];pairs[j]=tmp; }
-    }
-    var keys=['A','B','C','D'];
-    var optsCls = isTF ? 'opts opts-vf' : 'opts';
-    optsHtml = '<div class="'+optsCls+'">'+
-      pairs.map(function(opt,ki){
-        return '<button class="opt online-opt'+(isTF?' opt-tf':'')+'" data-orig="'+opt.i+'" data-correct="'+qData.a+'" '+
-               'onclick="submitOnlineAnswer('+opt.i+',this)">'+
-               (isTF?'':('<span class="okey">'+keys[ki]+'</span>'))+
-               '<span>'+opt.t+'</span></button>';
-      }).join('')+
-    '</div>';
+  if(t === 'tf'){
+    // ── VRAI / FAUX : a est un booléen — on encode true=1, false=0
+    optsHtml =
+      '<div class="tf-row">'+
+        '<button class="tf-btn tf-true online-opt" data-orig="1" onclick="submitOnlineAnswer(1,this)">'+
+          '✅<span class="tf-lbl">VRAI</span>'+
+        '</button>'+
+        '<button class="tf-btn tf-false online-opt" data-orig="0" onclick="submitOnlineAnswer(0,this)">'+
+          '❌<span class="tf-lbl">FAUX</span>'+
+        '</button>'+
+      '</div>';
+
+  } else if(t === 'fill'){
+    // ── COMPLÉTER ──
+    function escH(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    var safeCode = escH(qData.code||'');
+    var safeBlank = escH(qData.blank||'___');
+    var blankHtml = '<span class="fill-blank" id="ol-fill-blank">'+safeBlank+'</span>';
+    var codeHtml = safeCode.replace(safeBlank, blankHtml);
+    var pairs = seededShuffle((qData.opts||[]).map(function(txt,i){return{t:txt,i:i};}));
+    optsHtml =
+      '<pre class="fill-code">'+codeHtml+'</pre>'+
+      '<div class="fill-opts">'+
+        pairs.map(function(opt){
+          return '<button class="fill-opt online-opt" data-orig="'+opt.i+'" onclick="submitOnlineAnswer('+opt.i+',this)">'+opt.t+'</button>';
+        }).join('')+
+      '</div>';
+
+  } else if(t === 'calc'){
+    // ── CALCUL ──
+    var pairs = seededShuffle((qData.opts||[]).map(function(o,i){return{v:o.v||o,sub:o.sub||'',i:i};}));
+    optsHtml =
+      '<div class="calc-setup" style="white-space:pre-wrap;">'+qData.setup+'</div>'+
+      '<div class="calc-opts">'+
+        pairs.map(function(opt){
+          return '<button class="calc-opt online-opt" data-orig="'+opt.i+'" onclick="submitOnlineAnswer('+opt.i+',this)">'+
+                   opt.v+(opt.sub?'<span class="calc-sub">'+opt.sub+'</span>':'')+
+                 '</button>';
+        }).join('')+
+      '</div>';
+
+  } else if(t === 'debug'){
+    // ── DEBUG ──
+    function escH2(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    var lines=(qData.code||'').split('\n');
+    var codeRendered=lines.map(function(l,li){
+      var safe=escH2(l);
+      return (qData.errorLines&&qData.errorLines.indexOf(li)>-1)?'<span class="error-line">'+safe+'</span>':safe;
+    }).join('\n');
+    var pairs = seededShuffle((qData.opts||[]).map(function(txt,i){return{t:txt,i:i};}));
+    optsHtml =
+      '<pre class="debug-code">'+codeRendered+'</pre>'+
+      '<div class="opts">'+
+        pairs.map(function(opt,ki){
+          return '<button class="opt online-opt" data-orig="'+opt.i+'" onclick="submitOnlineAnswer('+opt.i+',this)">'+
+                   '<span class="okey">'+keys[ki]+'</span><span>'+opt.t+'</span>'+
+                 '</button>';
+        }).join('')+
+      '</div>';
+
   } else {
-    // Types sans opts prédéfinis : afficher message
-    optsHtml = '<div style="font-family:monospace;font-size:10px;color:var(--text2);padding:20px;text-align:center;">Réponds dans les '+qData.x+'s</div>';
+    // ── QCM (défaut) ──
+    var pairs = seededShuffle((qData.opts||[]).map(function(txt,i){return{t:txt,i:i};}));
+    optsHtml =
+      '<div class="opts">'+
+        pairs.map(function(opt,ki){
+          return '<button class="opt online-opt" data-orig="'+opt.i+'" onclick="submitOnlineAnswer('+opt.i+',this)">'+
+                   '<span class="okey">'+keys[ki]+'</span><span>'+opt.t+'</span>'+
+                 '</button>';
+        }).join('')+
+      '</div>';
   }
 
   area.innerHTML =
-    '<div class="qcard online-qcard"><div class="qnum">Question '+((qData.idx||0)+1)+'</div>'+
-      '<div class="qtext">'+qData.q+'</div></div>'+
+    '<div class="qcard online-qcard">'+
+      '<div class="qnum">Question '+((qData.idx||0)+1)+'</div>'+
+      mechBadge+
+      '<div class="qtext">'+qData.q+'</div>'+
+    '</div>'+
     optsHtml+
     '<div id="online-feedback" class="online-feedback"></div>';
 
-  // Timer 25s shared
-  // Timer visuel dans le panel online
+  // Timer visuel
   var tbWrap=document.querySelector('#online-game-panel .tbarwrap');
   if(tbWrap) tbWrap.innerHTML='<div id="tbar-od" class="tbar" style="width:100%;background:#00d87a;height:4px;border-radius:2px;transition:none;"></div>';
   var tb=document.getElementById('tbar-od');
@@ -1494,27 +1415,45 @@ window.submitOnlineAnswer = async function(chosen, btnEl){
 function revealOnlineQuestion(data){
   clearInterval(timerInt);
   var curQ=data.currentQ;
-  var correct = curQ&&curQ.a;
-  // Show correct + my error
+  var t=curQ&&curQ.t||'qcm';
+
+  // Pour TF : correct est booléen, on l'encode en 1/0 pour comparer data-orig
+  var correctRaw = curQ&&curQ.a;
+  var correctEncoded = (t==='tf') ? (correctRaw ? 1 : 0) : correctRaw;
+
+  // Highlight correct + erreurs
   document.querySelectorAll('.online-opt').forEach(function(b){
     b.disabled=true;
-    if(+b.getAttribute('data-orig')===correct) b.classList.add('ok');
+    var orig=b.getAttribute('data-orig');
+    var origVal = (t==='tf') ? +orig : +orig;
+    if(origVal===correctEncoded) b.classList.add('ok');
   });
-  // Show their answer marker (if available)
+
+  // Highlight réponse adverse erronée
   var key = onlineSession.role==='host'?'guest':'host';
   var their = data[key]&&data[key].answer;
-  if(their && their.choice!=null && their.choice!==correct){
+  if(their && their.choice!=null && their.choice!==correctEncoded){
     document.querySelectorAll('.online-opt').forEach(function(b){
       if(+b.getAttribute('data-orig')===their.choice) b.classList.add('them-err');
     });
   }
+
+  // Fill : mettre à jour le blank visuel
+  if(t==='fill'){
+    var blank=document.getElementById('ol-fill-blank');
+    if(blank){
+      blank.textContent=(curQ.opts&&curQ.opts[correctRaw])||'?';
+      blank.classList.add('ok-fill');
+    }
+  }
+
   // Feedback
   var hostA = data.host&&data.host.answer;
   var guestA= data.guest&&data.guest.answer;
   var myA   = onlineSession.role==='host'?hostA:guestA;
   var theirA= onlineSession.role==='host'?guestA:hostA;
-  var meOk  = myA && myA.choice===correct;
-  var themOk= theirA && theirA.choice===correct;
+  var meOk  = myA && myA.choice===correctEncoded;
+  var themOk= theirA && theirA.choice===correctEncoded;
 
   var msg='';
   if(meOk && themOk){
@@ -1533,7 +1472,9 @@ function revealOnlineQuestion(data){
 async function hostAdvance(data){
   var cfg=data.config||{};
   var curQ=data.currentQ||{};
-  var correct = curQ.a;
+  var t=curQ.t||'qcm';
+  // TF : a est booléen, on encode true=1 false=0 pour comparer avec submitOnlineAnswer
+  var correct = (t==='tf') ? (curQ.a ? 1 : 0) : curQ.a;
   var hostA = data.host&&data.host.answer;
   var guestA = data.guest&&data.guest.answer;
   var hostOk = hostA && hostA.choice===correct;
@@ -1603,8 +1544,7 @@ async function hostAdvance(data){
       if(!onlineSession.code) return;
       var next = pool[nextIdx];
       if(!next){ await _onlineUpdate({status:'finished'}); return; }
-      var qData={ idx:nextIdx, q:next.q, opts:next.opts||[], a:next.a, x:next.x||'', t:next.t||'qcm',
-                  shuffleSeed:Math.floor(Math.random()*999999) };
+      var qData=serializeOnlineQ(next, nextIdx, Math.floor(Math.random()*999999));
       await _onlineUpdate({
         status:'playing', qIdx:nextIdx, currentQ:qData, reveal:false,
         'host.answer':null,'guest.answer':null
@@ -1621,8 +1561,7 @@ async function hostAdvance(data){
     });
     return;
   }
-  var qData={ idx:nextIdx, q:next.q, opts:next.opts||[], a:next.a, x:next.x||'', t:next.t||'qcm',
-              shuffleSeed:Math.floor(Math.random()*999999) };
+  var qData=serializeOnlineQ(next, nextIdx, Math.floor(Math.random()*999999));
   await _onlineUpdate({
     qIdx:nextIdx, currentQ:qData, reveal:false,
     'host.score':hScore,'guest.score':gScore,
@@ -3245,16 +3184,15 @@ function selectMatchItem(el,side,itemIdx,pairs,wrap){
   } else if(side==='R'&&matchSelLeft!==null){
     var ok=(matchSelLeft===itemIdx);
     var leftEl=wrap.querySelector('.match-item[data-side="L"][data-idx="'+matchSelLeft+'"]');
-      if(ok){
-        if(leftEl){leftEl.classList.remove('selected');leftEl.classList.add('matched-ok');}
-        el.classList.add('matched-ok');
-      } else {
-        if(leftEl){leftEl.classList.add('match-flash-err');setTimeout(function(){if(leftEl){leftEl.classList.remove('match-flash-err','selected');}},500);}
-        el.classList.add('match-flash-err');setTimeout(function(){el.classList.remove('match-flash-err');},500);
-      }
+    if(leftEl){leftEl.classList.remove('selected');leftEl.classList.add(ok?'matched-ok':'matched-err');}
+    el.classList.add(ok?'matched-ok':'matched-err');
+    if(!ok){
+      var correctR=wrap.querySelector('.match-item[data-side="R"][data-idx="'+matchSelLeft+'"]');
+      if(correctR&&!correctR.classList.contains('matched-ok'))correctR.classList.add('matched-ok');
+    }
     matchMatched.push({l:matchSelLeft,r:itemIdx,ok:ok});
     matchSelLeft=null;
-    var done=wrap.querySelectorAll('.matched-ok').length;
+    var done=wrap.querySelectorAll('.matched-ok,.matched-err').length;
     if(done>=pairs.length*2){
       var allOk=matchMatched.every(function(m){return m.ok;});
       var curQ=session[idx]; // idx global = question courante

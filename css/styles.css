@@ -2,29 +2,11 @@
 /* ===================== THEMES ===================== */
 :root{--bg:#0d0e14;--bg2:#13151e;--panel:#1a1d2a;--border:#252840;--border2:#333658;--text:#c4cce0;--text2:#7078a0;--dim:#3a3f60;--white:#e8ecff;--sh:rgba(0,0,0,.4);--acc:#38bdf8;--a2:rgba(56,189,248,.12);--a3:rgba(56,189,248,.06);}
 body.vt-dark{--bg:#0d0e14;--bg2:#13151e;--panel:#1a1d2a;--border:#252840;--border2:#333658;--text:#c4cce0;--text2:#7078a0;--dim:#3a3f60;--white:#e8ecff;--sh:rgba(0,0,0,.4);}
-body.vt-light{--bg:#ffffff;--bg2:#f4f4f8;--panel:#ffffff;--border:#e0e0e8;--border2:#c8c8d8;--text:#1a1a2e;--text2:#4a4a6a;--dim:#9090b0;--white:#1a1a2e;--sh:rgba(0,0,0,.08);--acc:#0066cc;--a2:rgba(0,102,204,.12);--a3:rgba(0,102,204,.06);}
-/* Couleurs d'accent vt-light par catégorie */
-body.vt-light.cat-reseau{--acc:#0066cc;--a2:rgba(0,102,204,.12);}
-body.vt-light.cat-cisco{--acc:#0055aa;--a2:rgba(0,85,170,.12);}
-body.vt-light.cat-vlan{--acc:#4338ca;--a2:rgba(67,56,202,.12);}
-body.vt-light.cat-stp{--acc:#c2410c;--a2:rgba(194,65,12,.12);}
-body.vt-light.cat-routage{--acc:#15803d;--a2:rgba(21,128,61,.12);}
-body.vt-light.cat-secu{--acc:#b91c1c;--a2:rgba(185,28,28,.12);}
-body.vt-light.cat-windows{--acc:#065f46;--a2:rgba(6,95,70,.12);}
-body.vt-light.cat-dns{--acc:#5b21b6;--a2:rgba(91,33,182,.12);}
-body.vt-light.cat-ntfs{--acc:#9f1239;--a2:rgba(159,18,57,.12);}
-body.vt-light.cat-hyperv{--acc:#065f46;--a2:rgba(6,95,70,.12);}
-body.vt-light.cat-raid{--acc:#92400e;--a2:rgba(146,64,14,.12);}
-body.vt-light.cat-cmd{--acc:#831843;--a2:rgba(131,24,67,.12);}
-body.vt-light.cat-mix{--acc:#6b21a8;--a2:rgba(107,33,168,.12);}
-body.vt-light.cat-ad{--acc:#4338ca;--a2:rgba(67,56,202,.12);}
-body.vt-light.cat-ps{--acc:#7e22ce;--a2:rgba(126,34,206,.12);}
-body.vt-light.cat-wlan{--acc:#065f46;--a2:rgba(6,95,70,.12);}
-body.vt-light.cat-mbr{--acc:#92400e;--a2:rgba(146,64,14,.12);}
-body.vt-light.cat-sauvegarde{--acc:#0066cc;--a2:rgba(0,102,204,.12);}
-body.vt-light.cat-abe{--acc:#15803d;--a2:rgba(21,128,61,.12);}
-body.vt-light.cat-fsrm{--acc:#b91c1c;--a2:rgba(185,28,28,.12);}
-body.vt-light.cat-groupes_ad{--acc:#4338ca;--a2:rgba(67,56,202,.12);}
+body.vt-light{--bg:#f0eeea;--bg2:#e4e2dc;--panel:#ffffff;--border:#ccc8c0;--border2:#aaa49c;--text:#1e1c18;--text2:#5a5650;--dim:#8a8680;--white:#1e1c18;--sh:rgba(0,0,0,.08);}
+body.vt-slate{--bg:#1a2035;--bg2:#202540;--panel:#283050;--border:#334068;--border2:#445080;--text:#c8d4f0;--text2:#7888b8;--dim:#3a4870;--white:#e8eeff;--sh:rgba(0,0,0,.35);}
+body.vt-paper{--bg:#f0ead8;--bg2:#e8e2d0;--panel:#faf7f0;--border:#d4cdb8;--border2:#bcb5a0;--text:#2c2418;--text2:#685e4e;--dim:#a09880;--white:#2c2418;--sh:rgba(0,0,0,.1);}
+body.vt-midnight{--bg:#080810;--bg2:#0e0e1a;--panel:#141428;--border:#1e1e38;--border2:#282848;--text:#b0b8d8;--text2:#5860a0;--dim:#282848;--white:#d8dcff;--sh:rgba(0,0,0,.6);}
+body.vt-warm{--bg:#1a1210;--bg2:#201816;--panel:#2a201e;--border:#3a2e2a;--border2:#4a3c38;--text:#d8c8c0;--text2:#9880a0;--dim:#40302e;--white:#f0e8e4;--sh:rgba(0,0,0,.4);}
 /* cat accents */
 body.cat-reseau{--acc:#38bdf8;--a2:rgba(56,189,248,.12);--a3:rgba(56,189,248,.06);}
 body.cat-cisco{--acc:#00c8ff;--a2:rgba(0,200,255,.12);--a3:rgba(0,200,255,.06);}
@@ -40,9 +22,25 @@ body.cat-raid{--acc:#fbbf24;--a2:rgba(251,191,36,.12);--a3:rgba(251,191,36,.06);
 body.cat-cmd{--acc:#f472b6;--a2:rgba(244,114,182,.12);--a3:rgba(244,114,182,.06);}
 body.cat-mix{--acc:#e879f9;--a2:rgba(232,121,249,.12);--a3:rgba(232,121,249,.06);}
 /* light overrides */
+body.vt-light.cat-reseau,body.vt-paper.cat-reseau{--acc:#0284c7;--a2:rgba(2,132,199,.1);--a3:rgba(2,132,199,.05);}
+body.vt-light.cat-cisco,body.vt-paper.cat-cisco{--acc:#0070b0;--a2:rgba(0,112,176,.1);--a3:rgba(0,112,176,.05);}
+body.vt-light.cat-vlan,body.vt-paper.cat-vlan{--acc:#4338ca;--a2:rgba(67,56,202,.1);--a3:rgba(67,56,202,.05);}
+body.vt-light.cat-stp,body.vt-paper.cat-stp{--acc:#c2410c;--a2:rgba(194,65,12,.1);--a3:rgba(194,65,12,.05);}
+body.vt-light.cat-routage,body.vt-paper.cat-routage{--acc:#15803d;--a2:rgba(21,128,61,.1);--a3:rgba(21,128,61,.05);}
+body.vt-light.cat-secu,body.vt-paper.cat-secu{--acc:#b91c1c;--a2:rgba(185,28,28,.1);--a3:rgba(185,28,28,.05);}
+body.vt-light.cat-windows,body.vt-paper.cat-windows{--acc:#065f46;--a2:rgba(6,95,70,.1);--a3:rgba(6,95,70,.05);}
+body.vt-light.cat-dns,body.vt-paper.cat-dns{--acc:#5b21b6;--a2:rgba(91,33,182,.1);--a3:rgba(91,33,182,.05);}
+body.vt-light.cat-ntfs,body.vt-paper.cat-ntfs{--acc:#9f1239;--a2:rgba(159,18,57,.1);--a3:rgba(159,18,57,.05);}
+body.vt-light.cat-hyperv,body.vt-paper.cat-hyperv{--acc:#065f46;--a2:rgba(6,95,70,.1);--a3:rgba(6,95,70,.05);}
+body.vt-light.cat-raid,body.vt-paper.cat-raid{--acc:#92400e;--a2:rgba(146,64,14,.1);--a3:rgba(146,64,14,.05);}
+body.vt-light.cat-cmd,body.vt-paper.cat-cmd{--acc:#831843;--a2:rgba(131,24,67,.1);--a3:rgba(131,24,67,.05);}
+body.vt-light.cat-mix,body.vt-paper.cat-mix{--acc:#6b21a8;--a2:rgba(107,33,168,.1);--a3:rgba(107,33,168,.05);}
 body.cat-ad{--acc:#818cf8;--a2:rgba(129,140,248,.12);--a3:rgba(129,140,248,.06);}
 body.cat-wlan{--acc:#34d399;--a2:rgba(52,211,153,.12);--a3:rgba(52,211,153,.06);}
+body.vt-light.cat-ad,body.vt-paper.cat-ad{--acc:#4338ca;--a2:rgba(67,56,202,.1);--a3:rgba(67,56,202,.05);}
+body.vt-light.cat-wlan,body.vt-paper.cat-wlan{--acc:#065f46;--a2:rgba(6,95,70,.1);--a3:rgba(6,95,70,.05);}
 body.cat-ps{--acc:#c084fc;--a2:rgba(192,132,252,.12);--a3:rgba(192,132,252,.06);}
+body.vt-light.cat-ps,body.vt-paper.cat-ps{--acc:#7e22ce;--a2:rgba(126,34,206,.1);--a3:rgba(126,34,206,.05);}
 /* ===================== BASE ===================== */
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'DM Mono',monospace;min-height:100vh;font-size:15px;background:var(--bg);color:var(--text);transition:background .25s,color .25s;}
@@ -1670,7 +1668,7 @@ body.rpg-mode::before { opacity:0 !important; }
 /* Max-width PC plus large + meilleure utilisation */
 #app { max-width: 860px; padding: 0 24px 80px; }
 @media (min-width: 860px) {
-  #app { max-width: 860px; padding: 0 48px 80px; }
+  #app { padding: 0 48px 80px; }
 }
 
 /* TOP BAR */
@@ -2235,6 +2233,3 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
 .main-menu-footer{margin-top:auto;padding:16px 18px;border-top:1px solid var(--border);}
 #mm-login-btn,#mm-logout-btn{width:100%;padding:10px;border-radius:6px;font-family:monospace;font-size:8px;cursor:pointer;letter-spacing:1px;border:1.5px solid var(--border2);background:var(--panel);color:var(--text);margin-bottom:4px;display:block;}
 #mm-logout-btn{border-color:#f87171;color:#f87171;}
-
-.match-flash-err{animation:matchFlash .5s ease!important;border-color:#dc2626!important;}
-@keyframes matchFlash{0%{background:rgba(220,38,38,.3);}100%{background:var(--panel);}}
