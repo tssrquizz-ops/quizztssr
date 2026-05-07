@@ -245,10 +245,15 @@ document.addEventListener('DOMContentLoaded', function() {
       </button>
     </div>
     <div class="menu-topbar-center">
-      <div class="menu-logo-small">📚 TSSR QUIZ</div>
+      <!-- VERSION_TAG: v12 — ne pas supprimer -->
+      <div class="menu-logo-small">📚 TSSR QUIZ <span style="font-size:7px;opacity:.5;letter-spacing:1px;">v12</span></div>
       <div style="font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:1px;margin-top:2px;">v12</div>
     </div>
-    <div class="menu-topbar-right">
+    <div class="menu-topbar-right" style="display:flex;align-items:center;gap:8px;">
+      <button id="theme-toggle-btn" onclick="toggleDarkLight()" title="Changer thème"
+        style="background:none;border:1.5px solid var(--border2);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:16px;transition:all .2s;color:var(--text);">
+        🌙
+      </button>
       <button class="menu-profile-btn" onclick="showScreen('profile');loadProfileScreen()" title="Profil">
         <span id="menu-avatar-top">👤</span>
         <span id="menu-username-top" class="menu-username-label"></span>
