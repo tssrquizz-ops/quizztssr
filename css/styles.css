@@ -1668,7 +1668,7 @@ body.rpg-mode::before { opacity:0 !important; }
 /* Max-width PC plus large + meilleure utilisation */
 #app { max-width: 860px; padding: 0 24px 80px; }
 @media (min-width: 860px) {
-  #app { padding: 0 48px 80px; }
+  #app { max-width: 860px; padding: 0 48px 80px; }
 }
 
 /* TOP BAR */
@@ -2233,3 +2233,6 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
 .main-menu-footer{margin-top:auto;padding:16px 18px;border-top:1px solid var(--border);}
 #mm-login-btn,#mm-logout-btn{width:100%;padding:10px;border-radius:6px;font-family:monospace;font-size:8px;cursor:pointer;letter-spacing:1px;border:1.5px solid var(--border2);background:var(--panel);color:var(--text);margin-bottom:4px;display:block;}
 #mm-logout-btn{border-color:#f87171;color:#f87171;}
+
+.match-flash-err{animation:matchFlash .5s ease!important;border-color:#dc2626!important;}
+@keyframes matchFlash{0%{background:rgba(220,38,38,.3);}100%{background:var(--panel);}}

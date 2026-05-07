@@ -105,6 +105,8 @@ function updateStreak(){
 
 function applyBody(){
   var catCls=CATS[selCat]?CATS[selCat].cat:'cat-mix';
+  if(!vTheme) vTheme=lsGet('tssr5_vt','vt-dark');
+  if(!currentUI) currentUI=lsGet('tssr5_ui','ui-neon');
   var uiCls=currentUI||window.uiStyle||lsGet('tssr5_ui','ui-neon')||'ui-neon';
   var body=document.body;
   // Retirer uniquement les classes thème et cat — préserver le reste
@@ -160,6 +162,120 @@ function buildOnlineQData(q, idx2) {
 }
 
 // Menu principal
+
+// ============================================================
+// PANNEAU ADMIN
+// ============================================================
+var ADMIN_CODE='TSSR2024ADMIN';
+
+function openAdminPanel(){
+  if(!window._fbUser){alert('Connecte-toi dabord.');return;}
+  var code=prompt('Code admin :');
+  if(!code||code.trim()!==ADMIN_CODE){if(code!==null)alert('Code incorrect.');return;}
+  showAdminPanel();
+}
+
+function showAdminPanel(){
+  var existing=document.getElementById('admin-panel-ovl');
+  if(existing){existing.style.display='flex';loadAdminData();return;}
+  var ovl=document.createElement('div');
+  ovl.id='admin-panel-ovl';
+  ovl.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+  var box=document.createElement('div');
+  box.style.cssText='background:var(--bg2);border:1.5px solid var(--border2);border-radius:12px;width:100%;max-width:600px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;';
+
+  var header=document.createElement('div');
+  header.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);';
+  header.innerHTML='<span style="font-family:monospace;font-size:11px;color:#f87171;letter-spacing:2px;">🔑 PANNEAU ADMIN</span>';
+  var closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText='background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;';
+  closeBtn.onclick=function(){ ovl.style.display='none'; };
+  header.appendChild(closeBtn);
+
+  var body2=document.createElement('div');
+  body2.style.cssText='padding:16px 20px;overflow-y:auto;flex:1;';
+  body2.innerHTML='<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin-bottom:10px;">UTILISATEURS</div>'+
+    '<div id="admin-users-list">Chargement...</div>'+
+    '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin:16px 0 10px;">PROMOS</div>'+
+    '<div id="admin-promos-list">Chargement...</div>';
+
+  box.appendChild(header);
+  box.appendChild(body2);
+  ovl.appendChild(box);
+  document.body.appendChild(ovl);
+  loadAdminData();
+}
+
+async function loadAdminData(){
+  if(!window._fbGetDocs)return;
+  var ul=document.getElementById('admin-users-list');
+  var pl=document.getElementById('admin-promos-list');
+
+  // Utilisateurs
+  try{
+    var us=await window._fbGetDocs(window._fbQuery(window._fbCollection(window._fbDb,'leaderboard'),window._fbLimit(100)));
+    var users=[];
+    us.forEach(function(d){users.push(Object.assign({uid:d.id},d.data()));});
+    if(ul){
+      ul.innerHTML='';
+      users.forEach(function(u){
+        var row=document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--panel);border-radius:6px;margin-bottom:5px;';
+        var info=document.createElement('div');
+        info.innerHTML='<span style="font-family:monospace;font-size:10px;">'+(u.pseudo||'Anonyme')+'</span>'+
+          '<span style="font-family:monospace;font-size:8px;color:var(--text2);margin-left:8px;">'+(u.email||'')+'</span>';
+        var btn=document.createElement('button');
+        btn.textContent='SUPPRIMER';
+        btn.style.cssText='background:none;border:1px solid #f87171;border-radius:4px;color:#f87171;font-family:monospace;font-size:7px;padding:3px 8px;cursor:pointer;';
+        (function(uid,pseudo){ btn.onclick=function(){ adminDelUser(uid,pseudo); }; })(u.uid, u.pseudo||'cet user');
+        row.appendChild(info);
+        row.appendChild(btn);
+        ul.appendChild(row);
+      });
+      if(!users.length) ul.textContent='Aucun utilisateur';
+    }
+  }catch(e){ if(ul) ul.textContent='Erreur: '+e.message; }
+
+  // Promos
+  try{
+    var ps=await window._fbGetDocs(window._fbQuery(window._fbCollection(window._fbDb,'promos'),window._fbLimit(50)));
+    var promos=[];
+    ps.forEach(function(d){promos.push(Object.assign({code:d.id},d.data()));});
+    if(pl){
+      pl.innerHTML='';
+      promos.forEach(function(p){
+        var row=document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--panel);border-radius:6px;margin-bottom:5px;';
+        var info=document.createElement('div');
+        info.innerHTML='<span style="font-family:monospace;font-size:10px;">'+(p.name||p.code)+'</span>'+
+          '<span style="font-family:monospace;font-size:8px;color:var(--acc);margin-left:8px;letter-spacing:2px;">'+p.code+'</span>'+
+          '<span style="font-family:monospace;font-size:8px;color:var(--text2);margin-left:6px;">'+(p.members?p.members.length:0)+' membres</span>';
+        var btn=document.createElement('button');
+        btn.textContent='SUPPRIMER';
+        btn.style.cssText='background:none;border:1px solid #f87171;border-radius:4px;color:#f87171;font-family:monospace;font-size:7px;padding:3px 8px;cursor:pointer;';
+        (function(code,name){ btn.onclick=function(){ adminDelPromo(code,name); }; })(p.code, p.name||p.code);
+        row.appendChild(info);
+        row.appendChild(btn);
+        pl.appendChild(row);
+      });
+      if(!promos.length) pl.textContent='Aucune promo';
+    }
+  }catch(e){ if(pl) pl.textContent='Erreur: '+e.message; }
+}
+
+async function adminDelUser(uid,pseudo){
+  if(!confirm('Supprimer '+unescape(pseudo)+' du leaderboard ?'))return;
+  try{await window._fbDeleteDoc(window._fbDoc(window._fbDb,'leaderboard',uid));alert('Supprimé.');loadAdminData();}
+  catch(e){alert('Erreur: '+e.message);}
+}
+async function adminDelPromo(code,name){
+  if(!confirm('Supprimer la promo "'+unescape(name)+'" ?'))return;
+  try{await window._fbDeleteDoc(window._fbDoc(window._fbDb,'promos',code));alert('Promo supprimée.');loadAdminData();}
+  catch(e){alert('Erreur: '+e.message);}
+}
+
 function openMainMenu(){
   var o=document.getElementById('main-menu-ovl');
   var p=document.getElementById('main-menu-panel');
@@ -426,7 +542,7 @@ function initMenu(){
 
   // Streak
   var sn=el('streak-num'); if(sn) sn.textContent=streakD.current+' jour'+(streakD.current!==1?'s':'');
-  var sb=el('streak-best'); if(sb) sb.textContent='Best: '+streakD.best;
+  var sb=el('streak-best'); if(sb) sb.textContent='Best: '+(streakD.best||0);
 
   // Sync sound toggles
   var stm=document.getElementById('stoggle-menu'); if(stm) stm.classList.toggle('on',soundOn);
@@ -452,17 +568,11 @@ function showScreen(n){
     s.classList.remove('active');
     s.style.display='none';
   });
-  var target=el('screen-'+n);
-  if(target){
-    target.classList.add('active');
-    // screen-menu utilise le display CSS (flex ou grid selon media query)
-    // on retire l'inline style pour laisser le CSS décider
-    if(n==='menu'){
-      target.style.display='';
-    } else {
-      target.style.display='flex';
-    }
-  }
+  var target=document.getElementById('screen-'+n);
+  if(!target){ console.warn('showScreen: screen-'+n+' introuvable'); return; }
+  target.classList.add('active');
+  // screen-menu : laisser le CSS décider du display (flex colonne)
+  target.style.display = (n==='menu') ? '' : 'flex';
   try{window.scrollTo(0,0);}catch(e){}
 }
 function goMenu(){
@@ -999,7 +1109,7 @@ function listenOnlineSession(code){
 function _showOnlinePanel(name){
   ['setup','vote','round','game','finish'].forEach(function(p){
     var el2=document.getElementById('online-'+p+'-panel');
-    if(el2) el2.style.display=(p===name)?'block':'none';
+    if(el2) el2.style.display=(p===name)?'':'none';
   });
 }
 
@@ -1262,6 +1372,15 @@ async function hostGenerateQuestionsAndStart(data){
 function renderOnlineQuestion(qData){
   var area=document.getElementById('online-question-area');
   if(!area) return;
+  // Firestore peut convertir les arrays en objets {0:'val', 1:'val'}
+  if(qData.opts && !Array.isArray(qData.opts)){
+    qData.opts = Object.keys(qData.opts).sort(function(a,b){return +a-+b;}).map(function(k){return qData.opts[k];});
+  }
+  if(qData.t==='tf' && (!qData.opts || !qData.opts.length)){
+    qData.opts=['VRAI','FAUX'];
+    qData.a=(qData.a===true||qData.a===0)?0:1;
+  }
+
 
   var isTF   = qData.t === 'tf';
   var optsHtml = '';
@@ -3087,15 +3206,16 @@ function selectMatchItem(el,side,itemIdx,pairs,wrap){
   } else if(side==='R'&&matchSelLeft!==null){
     var ok=(matchSelLeft===itemIdx);
     var leftEl=wrap.querySelector('.match-item[data-side="L"][data-idx="'+matchSelLeft+'"]');
-    if(leftEl){leftEl.classList.remove('selected');leftEl.classList.add(ok?'matched-ok':'matched-err');}
-    el.classList.add(ok?'matched-ok':'matched-err');
-    if(!ok){
-      var correctR=wrap.querySelector('.match-item[data-side="R"][data-idx="'+matchSelLeft+'"]');
-      if(correctR&&!correctR.classList.contains('matched-ok'))correctR.classList.add('matched-ok');
-    }
+      if(ok){
+        if(leftEl){leftEl.classList.remove('selected');leftEl.classList.add('matched-ok');}
+        el.classList.add('matched-ok');
+      } else {
+        if(leftEl){leftEl.classList.add('match-flash-err');setTimeout(function(){if(leftEl){leftEl.classList.remove('match-flash-err','selected');}},500);}
+        el.classList.add('match-flash-err');setTimeout(function(){el.classList.remove('match-flash-err');},500);
+      }
     matchMatched.push({l:matchSelLeft,r:itemIdx,ok:ok});
     matchSelLeft=null;
-    var done=wrap.querySelectorAll('.matched-ok,.matched-err').length;
+    var done=wrap.querySelectorAll('.matched-ok').length;
     if(done>=pairs.length*2){
       var allOk=matchMatched.every(function(m){return m.ok;});
       var curQ=session[idx]; // idx global = question courante
