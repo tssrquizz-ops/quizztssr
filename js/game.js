@@ -2,7 +2,7 @@
 function lsGet(k,d){try{var v=localStorage.getItem(k);return v!==null?JSON.parse(v):d;}catch(e){return d;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));if(window._fbUser&&window.fbSaveUserData){clearTimeout(window._fbSaveTimer);window._fbSaveTimer=setTimeout(window.fbSaveUserData,2000);}}catch(e){}}
 // ─── Variables globales d'état ───
-var vTheme=(function(){try{return localStorage.getItem('tssr5_vt')||'vt-dark';}catch(e){return 'vt-dark';}})();
+var vTheme=(function(){try{return localStorage.getItem('tssr5_vt')||'vt-light';}catch(e){return 'vt-light';}})();
 var selCat='reseau', selMode='chill', selDiff='all';
 var soundOn=true, jokersEnabled=true;
 var currentUI=(function(){try{return localStorage.getItem('tssr5_ui')||'ui-neon';}catch(e){return 'ui-neon';}})();
@@ -58,7 +58,7 @@ var MECH_MIN_TIMER=8;
 
 var hsD=lsGet('tssr5_hs',{}),stD=lsGet('tssr5_stats',{}),xpD=lsGet('tssr5_xp',{total:0,level:1}),bdD=lsGet('tssr5_badges',[]);
 var streakD=lsGet('tssr5_streak',{current:0,best:0,lastDate:''});
-var savedVT=lsGet('tssr5_vt','vt-dark');
+var savedVT=lsGet('tssr5_vt','vt-light');
 var savedSound=lsGet('tssr5_sound',false);
 var savedJokers=lsGet('tssr5_jokers',true);
 var selQCount=lsGet('tssr5_qcount',10);
@@ -107,7 +107,7 @@ function updateStreak(){
 
 function applyBody(){
   var catCls=CATS[selCat]?CATS[selCat].cat:'cat-mix';
-  if(!vTheme) vTheme=lsGet('tssr5_vt','vt-dark');
+  if(!vTheme) vTheme=lsGet('tssr5_vt','vt-light');
   if(!currentUI) currentUI=lsGet('tssr5_ui','ui-neon');
   var uiCls=currentUI||window.uiStyle||lsGet('tssr5_ui','ui-neon')||'ui-neon';
   var body=document.body;
@@ -300,7 +300,7 @@ function toggleDarkLight(){
 }
 
 function _updateThemeBtns(){
-  var isDark = (vTheme === 'vt-dark');
+  var isDark = (vTheme === 'vt-dark' || !vTheme);
   var icon  = isDark ? '🌙' : '☀️';
   var label = isDark ? 'MODE SOMBRE' : 'MODE CLAIR';
   ['theme-toggle-btn','settings-theme-toggle'].forEach(function(id){
@@ -572,7 +572,7 @@ function closeLaunchSheet(e){
 }
 
 function initMenu(){
-  vTheme=lsGet('tssr5_vt','vt-dark');
+  vTheme=lsGet('tssr5_vt','vt-light');
   soundOn=lsGet('tssr5_sound',true);
   jokersEnabled=lsGet('tssr5_jokers',true);
   selQCount=lsGet('tssr5_qcount',10);
@@ -6106,7 +6106,7 @@ function updateMenuTopbar(){
 // est géré par Firebase onAuthStateChanged ou fbContinueWithoutAccount.
 (function(){
   function doInit(){
-    vTheme=lsGet('tssr5_vt','vt-dark');
+    vTheme=lsGet('tssr5_vt','vt-light');
     soundOn=lsGet('tssr5_sound',true);
     jokersEnabled=lsGet('tssr5_jokers',true);
     selQCount=lsGet('tssr5_qcount',10);

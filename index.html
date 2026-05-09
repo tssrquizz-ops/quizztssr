@@ -2,10 +2,10 @@
 <html lang="fr">
 <head>
 <script>
-// Appliquer le thème sauvegardé immédiatement pour éviter le flash
+// Appliquer le thème sauvegardé — défaut: vt-light (clair)
 (function(){
   try{
-    var t=localStorage.getItem('tssr5_vt')||'vt-dark';
+    var t=localStorage.getItem('tssr5_vt')||'vt-light';
     document.addEventListener('DOMContentLoaded',function(){
       document.body.classList.remove('vt-dark','vt-light');
       document.body.classList.add(t);
@@ -43,7 +43,8 @@
 /* ── TOPBAR ── */
 .menu-topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 18px;}
 .menu-topbar-center{flex:1;text-align:center;}
-.menu-logo-small{font-family:monospace;font-size:13px;color:var(--acc);letter-spacing:2px;text-shadow:0 0 12px var(--acc);}
+.menu-logo-small{font-family:monospace;font-size:14px;font-weight:700;color:var(--text);letter-spacing:3px;text-transform:uppercase;}
+.menu-logo-small span{font-size:8px;opacity:.35;letter-spacing:1px;vertical-align:middle;margin-left:4px;font-weight:400;}
 .menu-ham-btn{background:none;border:1.5px solid var(--border2);border-radius:8px;padding:9px 11px;cursor:pointer;display:flex;flex-direction:column;gap:4px;transition:border-color .15s;}
 .menu-ham-btn span{display:block;width:18px;height:2px;background:var(--text2);border-radius:2px;transition:all .2s;}
 .menu-ham-btn:hover{border-color:var(--acc);}
@@ -75,7 +76,7 @@
 #mm-logout-btn{border-color:#f87171;color:#f87171;}
 </style>
 </head>
-<body class="vt-dark cat-reseau ui-arcade">
+<body class="vt-light cat-reseau ui-arcade">
 <div id="app">
 
 <!-- ============ ÉCRAN LOGIN PLEIN PAGE ============ -->
@@ -257,8 +258,8 @@ document.addEventListener('DOMContentLoaded', function() {
       </button>
     </div>
     <div class="menu-topbar-center">
-      <!-- VERSION_TAG: v13 — ne pas supprimer -->
-      <div class="menu-logo-small">📚 TSSR QUIZ <span style="font-size:7px;opacity:.5;letter-spacing:1px;">v13</span></div>
+      <!-- VERSION_TAG: v14 — ne pas supprimer -->
+      <div class="menu-logo-small">TSSR QUIZ<span style="font-size:7px;opacity:.4;letter-spacing:1px;margin-left:6px;">v14</span></div>
       <div style="font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:1px;margin-top:2px;">v12</div>
     </div>
     <div class="menu-topbar-right" style="display:flex;align-items:center;gap:8px;">
@@ -979,7 +980,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="side-ovl" id="side-ovl" onclick="closeSideMenu()"></div>
 <div class="side-panel" id="side-panel">
   <div class="side-header">
-    <span class="side-title">📚 TSSR QUIZ</span>
+    <span class="side-title">TSSR QUIZ</span>
     <span class="side-sub" id="side-context">En cours de partie...</span>
   </div>
   <div class="side-body">
