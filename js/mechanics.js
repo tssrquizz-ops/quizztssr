@@ -1,4 +1,6 @@
 // ─── mechanics.js — Mécaniques de rendu ───
+function _safeQ(s){ return window.safeHTML ? window.safeHTML(String(s||'')) : String(s||''); }
+function _safeU(s){ return window.safeText ? window.safeText(String(s||'')) : String(s||''); }
 // ============================================================
 // MÉCANIQUE TYPE — Saisie libre
 // ============================================================
@@ -48,15 +50,15 @@ function renderSlider(q,area){
   var wrap=document.createElement('div');wrap.className='slider-wrap';
   var midVal=Math.round((q.min+q.max)/2);
   var display=document.createElement('div');display.className='slider-display';display.id='slider-display';
-  display.innerHTML=midVal+(q.unit?'<span class="slider-unit">'+q.unit+'</span>':'');
+  display.innerHTML=midVal+(q.unit?'<span class="slider-unit">'+_safeU(q.unit)+'</span>':'');
   var track=document.createElement('div');track.className='slider-track';
   var slider=document.createElement('input');slider.type='range';slider.className='slider-input';
   slider.min=q.min;slider.max=q.max;slider.step=q.step||1;slider.value=midVal;slider.id='slider-input';
   var bounds=document.createElement('div');bounds.className='slider-bounds';
-  bounds.innerHTML='<span>'+q.min+(q.unit?' '+q.unit:'')+'</span><span>'+q.max+(q.unit?' '+q.unit:'')+'</span>';
+  bounds.innerHTML='<span>'+q.min+(q.unit?' '+_safeU(q.unit):'')+'</span><span>'+q.max+(q.unit?' '+_safeU(q.unit):'')+'</span>';
   slider.oninput=function(){
     var v=parseInt(slider.value);
-    display.innerHTML=v+(q.unit?'<span class="slider-unit">'+q.unit+'</span>':'');
+    display.innerHTML=v+(q.unit?'<span class="slider-unit">'+_safeU(q.unit)+'</span>':'');
   };
   var btn=document.createElement('button');btn.className='slider-submit-btn';btn.textContent='✓ CONFIRMER';
   btn.onclick=function(){if(!answered)resolveSlider(parseInt(slider.value),display,slider,q);};
@@ -70,7 +72,7 @@ function resolveSlider(val,display,slider,q){
   var tol=q.tolerance||0;var ok=Math.abs(val-q.a)<=tol;
   display.className='slider-display '+(ok?'ok-val':'err-val');
   if(!ok){
-    display.innerHTML=val+(q.unit?'<span class="slider-unit">'+q.unit+'</span>':'')+' &nbsp;<span style="font-size:14px;color:var(--text2)">→ réponse : '+q.a+(q.unit?' '+q.unit:'')+'</span>';
+    display.innerHTML=val+(q.unit?'<span class="slider-unit">'+_safeU(q.unit)+'</span>':'')+' &nbsp;<span style="font-size:14px;color:var(--text2)">→ réponse : '+_safeU(q.a)+(q.unit?' '+_safeU(q.unit):'')+'</span>';
     errors.push({q:q.q,yours:String(val),correct:String(q.a),x:q.x,orig:q,mech:'slider'});
   }
   resolveCommon(ok,q);
@@ -145,8 +147,8 @@ function renderMultiblank(q, area) {
   codeDiv.className = 'mbk-code';
   codeDiv.id = 'mbk-code';
 
-  // Replace ___N___ with span placeholders
-  var codeHtml = q.code;
+  // Nettoyer le code source puis insérer les placeholders (ordre important pour XSS)
+  var codeHtml = _safeQ(q.code);
   q.blanks.forEach(function(b, i) {
     var ph = '___' + (i+1) + '___';
     codeHtml = codeHtml.replace(
@@ -165,7 +167,7 @@ function renderMultiblank(q, area) {
     grp.className = 'mbk-group';
     var lbl = document.createElement('div');
     lbl.className = 'mbk-group-lbl';
-    lbl.innerHTML = '<span class="mbk-group-num">' + (i+1) + '</span>' + (b.label || 'Complète le blanc ' + (i+1));
+    lbl.innerHTML = '<span class="mbk-group-num">' + (i+1) + '</span>' + _safeU(b.label || 'Complète le blanc ' + (i+1));
     var row = document.createElement('div');
     row.className = 'mbk-opts-row';
     var shuffled = shuffle(b.opts.map(function(o, oi) { return {t:o, i:oi}; }));
@@ -306,7 +308,7 @@ function renderCategorize(q, area) {
     col.id = 'cat-col-' + ci;
     var header = document.createElement('div');
     header.className = 'cat-col-header';
-    header.innerHTML = catName + '<span style="font-size:10px;opacity:.5">↓</span>';
+    header.innerHTML = _safeU(catName) + '<span style="font-size:10px;opacity:.5">↓</span>';
     var body = document.createElement('div');
     body.className = 'cat-col-body';
     body.id = 'cat-col-body-' + ci;
@@ -453,7 +455,7 @@ function renderHotspot(q, area) {
   // Diagram
   var diagDiv = document.createElement('div');
   diagDiv.className = 'hs-diagram';
-  var diagHtml = q.diagram;
+  var diagHtml = _safeQ(q.diagram);
   q.zones.forEach(function(z, i) {
     diagHtml = diagHtml.replace(
       '[' + (i+1) + ']',
@@ -479,7 +481,7 @@ function renderHotspot(q, area) {
     qrow.id = 'hs-qrow-' + i;
     var qlbl = document.createElement('div');
     qlbl.className = 'hs-qlbl';
-    qlbl.innerHTML = '<span class="hs-qlbl-num">Zone ' + (i+1) + '</span>' + z.q;
+    qlbl.innerHTML = '<span class="hs-qlbl-num">Zone ' + (i+1) + '</span>' + _safeQ(z.q);
     var qtext = document.createElement('div');
     qtext.className = 'hs-qtext';
     qtext.textContent = z.hint || '';

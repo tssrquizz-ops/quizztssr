@@ -1,4 +1,8 @@
 // ─── profile.js — Profil, Leaderboard, Objectifs ───
+function escapeUserHtml(s){
+  if(window.safeText) return window.safeText(String(s==null?'':s));
+  var d=document.createElement('div'); d.textContent=String(s==null?'':s); return d.innerHTML;
+}
 var AVATARS=['😊','😎','🤓','🧑‍💻','👨‍💻','👩‍💻','🦊','🐺','🐸','🤖','👾','🎯','🔥','⚡','🌙','🎮','📡','🛡️','🗺️','💡','🔑','🏆','💎','⚙️','🧠','🦁','🐉','🦅','🌊','🚀','🎭','🎲','🧩','📚','🖥️'];
 var PROFILE_TITLES=[
   {min:0,   label:'DÉBUTANT',      cls:'title-debutant'},
@@ -118,7 +122,7 @@ async function loadLeaderboard(){
     snap.forEach(function(d){ _lbData.push(Object.assign({uid:d.id},d.data())); });
     renderLeaderboard();
   }catch(err){
-    document.getElementById('lb-list').innerHTML='<div style="text-align:center;padding:24px;font-family:monospace;font-size:9px;color:#dc2626;">❌ '+err.message+'</div>';
+    document.getElementById('lb-list').innerHTML='<div style="text-align:center;padding:24px;font-family:monospace;font-size:9px;color:#dc2626;">❌ '+escapeUserHtml(err.message)+'</div>';
   }
 }
 
@@ -151,10 +155,10 @@ function renderLeaderboard(){
     var rankDisp=rankIcons[rank]||('<span style="font-size:11px;color:var(--dim);">#'+rank+'</span>');
     return '<div class="lb-row'+(isMe?' lb-me':'')+'">'+
       '<div class="lb-rank">'+(rankDisp)+'</div>'+
-      '<div class="lb-avatar">'+(user.avatar||'😊')+'</div>'+
-      '<div class="lb-info"><div class="lb-pseudo">'+(user.pseudo||'Anonyme')+(isMe?' <span style="font-size:8px;color:var(--acc);">← toi</span>':'')+
-      '</div><div style="font-size:9px;color:var(--text2);">'+(user.promo||'')+'</div>'+
-      '<div style="font-family:monospace;font-size:7px;color:var(--dim);margin-top:2px;">'+(user.title||'')+'</div></div>'+
+      '<div class="lb-avatar">'+escapeUserHtml(user.avatar||'😊')+'</div>'+
+      '<div class="lb-info"><div class="lb-pseudo">'+escapeUserHtml(user.pseudo||'Anonyme')+(isMe?' <span style="font-size:8px;color:var(--acc);">← toi</span>':'')+
+      '</div><div style="font-size:9px;color:var(--text2);">'+escapeUserHtml(user.promo||'')+'</div>'+
+      '<div style="font-family:monospace;font-size:7px;color:var(--dim);margin-top:2px;">'+escapeUserHtml(user.title||'')+'</div></div>'+
       '<div class="lb-score"><span class="lb-score-val">'+
       (_lbTab==='rate' && user.totalPlayed>0 ? Math.round((user.totalCorrect||0)/(user.totalPlayed||1)*100)+'%<br><span style="font-size:8px;color:var(--dim)">('+user.totalPlayed+' q.)</span>' : (user[_lbTab]||0))+
       '</span><span class="lb-score-lbl">'+scoreLabels[_lbTab]+'</span></div>'+

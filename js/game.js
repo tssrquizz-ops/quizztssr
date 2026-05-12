@@ -64,6 +64,27 @@ var savedJokers=lsGet('tssr5_jokers',true);
 var selQCount=lsGet('tssr5_qcount',10);
 
 function el(id){return document.getElementById(id);}
+/** Texte utilisateur / Firestore → fragment HTML échappé */
+function escapeUserHtml(s){
+  if(window.safeText) return window.safeText(String(s==null?'':s));
+  var d=document.createElement('div'); d.textContent=String(s==null?'':s); return d.innerHTML;
+}
+/** Énoncés & contenus éditoriaux (HTML limité : gras, code, etc.) */
+function safeQuestionHtml(s){
+  if(window.safeHTML) return window.safeHTML(String(s==null?'':s));
+  return escapeUserHtml(s);
+}
+/** Réponse attendue affichée dans le feedback (qcm, calc {v,sub}, tf) */
+function fmtAnswerForHtml(q){
+  if(!q.opts||q.opts[q.a]===undefined){
+    return escapeUserHtml(q.a===true||q.a===false?(q.a?'VRAI':'FAUX'):String(q.a));
+  }
+  var o=q.opts[q.a];
+  if(typeof o==='object'&&o&&o.v!==undefined){
+    return safeQuestionHtml(String(o.v))+(o.sub?'<span class="calc-sub">'+escapeUserHtml(o.sub)+'</span>':'');
+  }
+  return safeQuestionHtml(String(o));
+}
 // Audio
 var audioCtx=null;
 function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
@@ -176,15 +197,16 @@ function buildOnlineQData(q, idx2) {
 // Menu principal
 
 // ============================================================
-// PANNEAU ADMIN
+// PANNEAU ADMIN (Firestore : collection admins/{uid})
 // ============================================================
-var ADMIN_CODE='TSSR2024ADMIN';
-
-function openAdminPanel(){
+async function openAdminPanel(){
   if(!window._fbUser){alert('Connecte-toi dabord.');return;}
-  var code=prompt('Code admin :');
-  if(!code||code.trim()!==ADMIN_CODE){if(code!==null)alert('Code incorrect.');return;}
-  showAdminPanel();
+  try{
+    if(typeof window.fbCheckAdmin!=='function'){alert('Firebase non initialisé.');return;}
+    var ok=await window.fbCheckAdmin();
+    if(!ok){alert('Accès réservé aux administrateurs.');return;}
+    showAdminPanel();
+  }catch(e){alert('Erreur: '+e.message);}
 }
 
 function showAdminPanel(){
@@ -236,8 +258,8 @@ async function loadAdminData(){
         var row=document.createElement('div');
         row.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--panel);border-radius:6px;margin-bottom:5px;';
         var info=document.createElement('div');
-        info.innerHTML='<span style="font-family:monospace;font-size:10px;">'+(u.pseudo||'Anonyme')+'</span>'+
-          '<span style="font-family:monospace;font-size:8px;color:var(--text2);margin-left:8px;">'+(u.email||'')+'</span>';
+        info.innerHTML='<span style="font-family:monospace;font-size:10px;">'+escapeUserHtml(u.pseudo||'Anonyme')+'</span>'+
+          '<span style="font-family:monospace;font-size:8px;color:var(--text2);margin-left:8px;">'+escapeUserHtml(u.email||'')+'</span>';
         var btn=document.createElement('button');
         btn.textContent='SUPPRIMER';
         btn.style.cssText='background:none;border:1px solid #f87171;border-radius:4px;color:#f87171;font-family:monospace;font-size:7px;padding:3px 8px;cursor:pointer;';
@@ -261,8 +283,8 @@ async function loadAdminData(){
         var row=document.createElement('div');
         row.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--panel);border-radius:6px;margin-bottom:5px;';
         var info=document.createElement('div');
-        info.innerHTML='<span style="font-family:monospace;font-size:10px;">'+(p.name||p.code)+'</span>'+
-          '<span style="font-family:monospace;font-size:8px;color:var(--acc);margin-left:8px;letter-spacing:2px;">'+p.code+'</span>'+
+        info.innerHTML='<span style="font-family:monospace;font-size:10px;">'+escapeUserHtml(p.name||p.code)+'</span>'+
+          '<span style="font-family:monospace;font-size:8px;color:var(--acc);margin-left:8px;letter-spacing:2px;">'+escapeUserHtml(p.code)+'</span>'+
           '<span style="font-family:monospace;font-size:8px;color:var(--text2);margin-left:6px;">'+(p.members?p.members.length:0)+' membres</span>';
         var btn=document.createElement('button');
         btn.textContent='SUPPRIMER';
@@ -278,12 +300,12 @@ async function loadAdminData(){
 }
 
 async function adminDelUser(uid,pseudo){
-  if(!confirm('Supprimer '+unescape(pseudo)+' du leaderboard ?'))return;
+  if(!confirm('Supprimer du leaderboard : '+String(pseudo||'?')+' ?'))return;
   try{await window._fbDeleteDoc(window._fbDoc(window._fbDb,'leaderboard',uid));alert('Supprimé.');loadAdminData();}
   catch(e){alert('Erreur: '+e.message);}
 }
 async function adminDelPromo(code,name){
-  if(!confirm('Supprimer la promo "'+unescape(name)+'" ?'))return;
+  if(!confirm('Supprimer la promo "'+String(name||'?')+'" ?'))return;
   try{await window._fbDeleteDoc(window._fbDoc(window._fbDb,'promos',code));alert('Promo supprimée.');loadAdminData();}
   catch(e){alert('Erreur: '+e.message);}
 }
@@ -452,26 +474,27 @@ async function loadPromoList(){
       var members=p.members||[];
       var isIn=myUid&&members.indexOf(myUid)>=0;
       var isOwner=myUid&&p.ownerUid===myUid;
+      var codeEsc=escapeUserHtml(p.code||'');
       return '<div style="background:var(--panel);border:1.5px solid '+(isIn?'var(--acc)':'var(--border2)')+';border-radius:10px;padding:14px 16px;margin-bottom:8px;">'+
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'+
           '<div>'+
-            '<div style="font-family:monospace;font-size:11px;color:var(--text);">'+p.name+'</div>'+
-            (p.school?'<div style="font-family:monospace;font-size:8px;color:var(--text2);">'+p.school+'</div>':'')+
+            '<div style="font-family:monospace;font-size:11px;color:var(--text);">'+escapeUserHtml(p.name||'')+'</div>'+
+            (p.school?'<div style="font-family:monospace;font-size:8px;color:var(--text2);">'+escapeUserHtml(p.school)+'</div>':'')+
           '</div>'+
           '<div style="display:flex;align-items:center;gap:8px;">'+
-            '<div style="font-family:monospace;font-size:13px;color:var(--acc);letter-spacing:3px;">'+p.code+'</div>'+
+            '<div style="font-family:monospace;font-size:13px;color:var(--acc);letter-spacing:3px;">'+codeEsc+'</div>'+
             (isIn?
               '<span style="font-family:monospace;font-size:8px;color:var(--acc);border:1px solid var(--acc);border-radius:4px;padding:3px 7px;">'+(isOwner?'ADMIN':'MEMBRE')+'</span>':
-              '<button onclick="selectAndJoinPromo(this)" data-code="'+p.code+'" style="background:var(--acc);border:none;border-radius:6px;padding:6px 12px;font-family:monospace;font-size:8px;color:var(--bg);cursor:pointer;letter-spacing:1px;">REJOINDRE</button>'
+              '<button onclick="selectAndJoinPromo(this)" data-code="'+codeEsc+'" style="background:var(--acc);border:none;border-radius:6px;padding:6px 12px;font-family:monospace;font-size:8px;color:var(--bg);cursor:pointer;letter-spacing:1px;">REJOINDRE</button>'
             )+
           '</div>'+
         '</div>'+
         '<div style="font-family:monospace;font-size:8px;color:var(--text2);">👥 '+members.length+' membre'+(members.length>1?'s':'')+
-        (p.ownerEmail?' · Admin: '+p.ownerEmail:'')+
+        (p.ownerEmail?' · Admin: '+escapeUserHtml(p.ownerEmail):'')+
         '</div>'+
       '</div>';
     }).join('');
-  }catch(e){list.innerHTML='<div style="font-family:monospace;font-size:9px;color:#f87171;padding:10px;">Erreur: '+e.message+'</div>';}
+  }catch(e){list.innerHTML='<div style="font-family:monospace;font-size:9px;color:#f87171;padding:10px;">Erreur: '+escapeUserHtml(e.message)+'</div>';}
 }
 
 
@@ -807,7 +830,7 @@ async function loadLeaderboard(){
     snap.forEach(function(d){ _lbData.push(Object.assign({uid:d.id},d.data())); });
     renderLeaderboard();
   }catch(err){
-    document.getElementById('lb-list').innerHTML='<div style="text-align:center;padding:24px;font-family:monospace;font-size:9px;color:#dc2626;">❌ '+err.message+'</div>';
+    document.getElementById('lb-list').innerHTML='<div style="text-align:center;padding:24px;font-family:monospace;font-size:9px;color:#dc2626;">❌ '+escapeUserHtml(err.message)+'</div>';
   }
 }
 
@@ -820,9 +843,16 @@ function lbSwitchTab(tab){
 
 function renderLeaderboard(){
   var myUid=window._fbUser?window._fbUser.uid:null;
-  var sorted=_lbData.slice().sort(function(a,b){return (b[_lbTab]||0)-(a[_lbTab]||0);});
+  var sorted=_lbData.slice().sort(function(a,b){
+    if(_lbTab==='rate'){
+      var ra=a.totalPlayed>0?Math.round((a.totalCorrect||0)/a.totalPlayed*100):0;
+      var rb=b.totalPlayed>0?Math.round((b.totalCorrect||0)/b.totalPlayed*100):0;
+      return rb-ra;
+    }
+    return (b[_lbTab]||0)-(a[_lbTab]||0);
+  });
   var rankIcons={1:'🥇',2:'🥈',3:'🥉'};
-  var scoreLabels={mastered:'maîtrisés',streak:'j. streak',badges:'badges'};
+  var scoreLabels={mastered:'maîtrisés',rate:'% réussite',streak:'j. streak',badges:'badges'};
   var myRank=sorted.findIndex(function(x){return x.uid===myUid;})+1;
   var bannerEl=document.getElementById('lb-my-rank-banner');
   if(bannerEl) bannerEl.innerHTML=myRank>0?'<div class="lb-my-rank">Tu es #'+myRank+' sur '+sorted.length+' joueurs — '+(sorted[myRank-1][_lbTab]||0)+' '+scoreLabels[_lbTab]+'</div>':'';
@@ -833,11 +863,13 @@ function renderLeaderboard(){
     var rankDisp=rankIcons[rank]||('<span style="font-size:11px;color:var(--dim);">#'+rank+'</span>');
     return '<div class="lb-row'+(isMe?' lb-me':'')+'">'+
       '<div class="lb-rank">'+(rankDisp)+'</div>'+
-      '<div class="lb-avatar">'+(user.avatar||'😊')+'</div>'+
-      '<div class="lb-info"><div class="lb-pseudo">'+(user.pseudo||'Anonyme')+(isMe?' <span style="font-size:8px;color:var(--acc);">← toi</span>':'')+
-      '</div><div style="font-size:9px;color:var(--text2);">'+(user.promo||'')+'</div>'+
-      '<div style="font-family:monospace;font-size:7px;color:var(--dim);margin-top:2px;">'+(user.title||'')+'</div></div>'+
-      '<div class="lb-score"><span class="lb-score-val">'+(user[_lbTab]||0)+'</span><span class="lb-score-lbl">'+scoreLabels[_lbTab]+'</span></div>'+
+      '<div class="lb-avatar">'+escapeUserHtml(user.avatar||'😊')+'</div>'+
+      '<div class="lb-info"><div class="lb-pseudo">'+escapeUserHtml(user.pseudo||'Anonyme')+(isMe?' <span style="font-size:8px;color:var(--acc);">← toi</span>':'')+
+      '</div><div style="font-size:9px;color:var(--text2);">'+escapeUserHtml(user.promo||'')+'</div>'+
+      '<div style="font-family:monospace;font-size:7px;color:var(--dim);margin-top:2px;">'+escapeUserHtml(user.title||'')+'</div></div>'+
+      '<div class="lb-score"><span class="lb-score-val">'+
+      (_lbTab==='rate' && user.totalPlayed>0 ? Math.round((user.totalCorrect||0)/(user.totalPlayed||1)*100)+'%<br><span style="font-size:8px;color:var(--dim)">('+user.totalPlayed+' q.)</span>' : (user[_lbTab]||0))+
+      '</span><span class="lb-score-lbl">'+scoreLabels[_lbTab]+'</span></div>'+
     '</div>';
   }).join('');
 }
@@ -1250,9 +1282,9 @@ function renderVotePanel(data, me, them, isHost){
   area.innerHTML=
     '<div class="ovote-header">'+
       '<div class="ovote-vs">'+
-        '<div class="ovote-player ovote-me"><span class="ovote-pname">'+(me&&me.pseudo||'Moi')+'</span><span class="ovote-pstatus">'+(myVote.mode?'✓ Voté':'À toi')+'</span></div>'+
+        '<div class="ovote-player ovote-me"><span class="ovote-pname">'+escapeUserHtml(me&&me.pseudo||'Moi')+'</span><span class="ovote-pstatus">'+(myVote.mode?'✓ Voté':'À toi')+'</span></div>'+
         '<div class="ovote-vs-mid">VS</div>'+
-        '<div class="ovote-player ovote-them"><span class="ovote-pname">'+(them&&them.pseudo||'Adversaire')+'</span><span class="ovote-pstatus">'+(theirReady?'✓ A voté':'En attente…')+'</span></div>'+
+        '<div class="ovote-player ovote-them"><span class="ovote-pname">'+escapeUserHtml(them&&them.pseudo||'Adversaire')+'</span><span class="ovote-pstatus">'+(theirReady?'✓ A voté':'En attente…')+'</span></div>'+
       '</div>'+
       '<h2 class="ovote-h">📊 Votez ensemble la config</h2>'+
       '<p class="ovote-sub">Si vos votes diffèrent, on tire au hasard parmi les choix.</p>'+
@@ -1342,12 +1374,12 @@ function renderRoundRecap(data, isStart){
   else label='Dernier round — scores cachés 🤐';
 
   area.innerHTML=
-    '<div class="oround-pulse">'+label+'</div>'+
+    '<div class="oround-pulse">'+escapeUserHtml(label)+'</div>'+
     '<div class="oround-vs">'+
-      '<div class="oround-side"><div class="oround-name">'+hostName+'</div>'+
+      '<div class="oround-side"><div class="oround-name">'+escapeUserHtml(hostName)+'</div>'+
         '<div class="oround-score'+(hideScores?' hide':'')+'">'+(hideScores?'??':hScore)+'</div></div>'+
       '<div class="oround-mid">VS</div>'+
-      '<div class="oround-side"><div class="oround-name">'+guestName+'</div>'+
+      '<div class="oround-side"><div class="oround-name">'+escapeUserHtml(guestName)+'</div>'+
         '<div class="oround-score'+(hideScores?' hide':'')+'">'+(hideScores?'??':gScore)+'</div></div>'+
     '</div>'+
     (cfg.mode==='rounds'?'<div class="oround-meta">'+cfg.qPerRound+' questions × '+cfg.totalRounds+' rounds'+(cfg.speedBonus?' · ⚡ bonus vitesse':'')+'</div>':
@@ -1440,17 +1472,17 @@ function renderOnlineQuestion(qData){
         return '<button class="opt online-opt'+(isTF?' opt-tf':'')+'" data-orig="'+opt.i+'" data-correct="'+qData.a+'" '+
                'onclick="submitOnlineAnswer('+opt.i+',this)">'+
                (isTF?'':('<span class="okey">'+keys[ki]+'</span>'))+
-               '<span>'+opt.t+'</span></button>';
+               '<span>'+safeQuestionHtml(String(opt.t))+'</span></button>';
       }).join('')+
     '</div>';
   } else {
     // Types sans opts prédéfinis : afficher message
-    optsHtml = '<div style="font-family:monospace;font-size:10px;color:var(--text2);padding:20px;text-align:center;">Réponds dans les '+qData.x+'s</div>';
+    optsHtml = '<div style="font-family:monospace;font-size:10px;color:var(--text2);padding:20px;text-align:center;">Réponds dans les '+escapeUserHtml(String(qData.x))+'s</div>';
   }
 
   area.innerHTML =
     '<div class="qcard online-qcard"><div class="qnum">Question '+((qData.idx||0)+1)+'</div>'+
-      '<div class="qtext">'+qData.q+'</div></div>'+
+      '<div class="qtext">'+safeQuestionHtml(qData.q)+'</div></div>'+
     optsHtml+
     '<div id="online-feedback" class="online-feedback"></div>';
 
@@ -1526,8 +1558,8 @@ function revealOnlineQuestion(data){
   else if(themOk){ msg='❌ Raté — adversaire a trouvé.'; }
   else { msg='❌ Personne n\'a trouvé. Bonne réponse en vert.'; }
   var fb=document.getElementById('online-feedback');
-  if(fb) fb.innerHTML='<div class="ofeed-result">'+msg+'</div>'+
-                     (curQ.x?'<div class="ofeed-exp">'+curQ.x+'</div>':'');
+  if(fb) fb.innerHTML='<div class="ofeed-result">'+escapeUserHtml(msg)+'</div>'+
+                     (curQ.x?'<div class="ofeed-exp">'+safeQuestionHtml(curQ.x)+'</div>':'');
 }
 
 // ---------- HOST ADVANCE (compute scores + next q or round end or finish) ----------
@@ -1873,7 +1905,7 @@ function showQ(){
   var qnum=document.createElement('div');qnum.className='qnum';
   var srsHtml=getSRSLabel(q);
   qnum.innerHTML='Question '+(idx+1)+(isBonus?' ★':'')+'  '+srsHtml;
-  var qtxt=document.createElement('div');qtxt.className='qtext';qtxt.innerHTML=q.q+(q._cat?'<span class="qcat-tag">['+q._cat+']</span>':'');
+  var qtxt=document.createElement('div');qtxt.className='qtext';qtxt.innerHTML=safeQuestionHtml(q.q)+(q._cat?'<span class="qcat-tag">['+escapeUserHtml(q._cat)+']</span>':'');
   card.appendChild(qdiff);card.appendChild(qnum);card.appendChild(qtxt);
   area.appendChild(card);
 
@@ -1921,7 +1953,11 @@ function renderQCM(q,area){
   var wrap=document.createElement('div');wrap.className='opts';
   ['A','B','C','D'].forEach(function(k,i){
     var b=document.createElement('button');b.className='opt';
-    b.innerHTML='<span class="okey">'+k+'</span><span>'+shuffled[i].t+'</span>';
+    var raw=shuffled[i].t;
+    var optHtml=(typeof raw==='object'&&raw&&raw.v!==undefined)
+      ? safeQuestionHtml(String(raw.v))+(raw.sub?'<span class="calc-sub">'+escapeUserHtml(raw.sub)+'</span>':'')
+      : safeQuestionHtml(String(raw));
+    b.innerHTML='<span class="okey">'+k+'</span><span>'+optHtml+'</span>';
     b.setAttribute('data-orig',shuffled[i].i);
     b.onclick=function(){if(!answered)resolveQCM(shuffled[i].i,b,q,wrap);};
     wrap.appendChild(b);
@@ -2032,7 +2068,7 @@ function renderCalc(q,area){
   var shuffled=shuffle(q.opts.map(function(o,i){return{v:o.v,sub:o.sub,i:i};}));
   shuffled.forEach(function(opt){
     var b=document.createElement('button');b.className='calc-opt';
-    b.innerHTML=opt.v+'<span class="calc-sub">'+opt.sub+'</span>';
+    b.innerHTML=safeQuestionHtml(String(opt.v))+'<span class="calc-sub">'+escapeUserHtml(opt.sub||'')+'</span>';
     b.setAttribute('data-orig',opt.i);
     b.onclick=function(){if(!answered)resolveCalc(opt.i,b,q,opts);};
     opts.appendChild(b);
@@ -2177,13 +2213,14 @@ function expireQ(q){
 
 function showFB(ok,q,timeout,timeBadge){
   var fb=el('fbk');
-  var ca=q.opts?q.opts[q.a]:(q.a===true?'VRAI':'FAUX');
+  var caHtml=fmtAnswerForHtml(q);
   if(selMode==='exam')return; // no feedback in exam mode
   var lastT=qTimes.length>0?qTimes[qTimes.length-1]:0;
   var tb2=selMode!=='exam'?getTimeBadge(lastT):'';
-  if(ok){fb.className='fbk show fok';fb.innerHTML='&#9989; Bonne réponse !'+tb2+'<div class="fexp">'+q.x+'</div>';}
-  else if(timeout){fb.className='fbk show ferr';fb.innerHTML='&#9203; Temps écoulé !'+(timeBadge||'')+'<br><span class="fans">&#10003; '+ca+'</span><div class="fexp">'+q.x+'</div>';}
-  else{fb.className='fbk show ferr';fb.innerHTML='&#10060; Mauvaise réponse !'+(timeBadge||'')+'<br><span class="fans">&#10003; '+ca+'</span><div class="fexp">'+q.x+'</div>';}
+  var xHtml=safeQuestionHtml(q.x||'');
+  if(ok){fb.className='fbk show fok';fb.innerHTML='&#9989; Bonne réponse !'+tb2+'<div class="fexp">'+xHtml+'</div>';}
+  else if(timeout){fb.className='fbk show ferr';fb.innerHTML='&#9203; Temps écoulé !'+(timeBadge||'')+'<br><span class="fans">&#10003; '+caHtml+'</span><div class="fexp">'+xHtml+'</div>';}
+  else{fb.className='fbk show ferr';fb.innerHTML='&#10060; Mauvaise réponse !'+(timeBadge||'')+'<br><span class="fans">&#10003; '+caHtml+'</span><div class="fexp">'+xHtml+'</div>';}
 }
 
 function updLives(){
@@ -2254,8 +2291,8 @@ function showResults(){
     examSum.style.display='block';
     examSum.innerHTML='<div style="font-family:\'Press Start 2P\',monospace;font-size:9px;color:var(--text2);margin-bottom:12px">RÉSULTATS DÉTAILLÉS — EXAMEN</div>'+session.map(function(q,i){
       var err=errors.filter(function(x){return x.q===q.q;});var ok=err.length===0;
-      var ca=q.opts?q.opts[q.a]:(q.a===true?'VRAI':'FAUX');
-      return '<div class="exam-q-row"><span class="eq-icon">'+(ok?'✅':'❌')+'</span><div><div class="eq-q">Q'+(i+1)+'. '+q.q+'</div>'+(ok?'<div class="eq-ans eq-ok">✓ Bonne réponse : '+ca+'</div>':'<div class="eq-ans eq-err">✗ Ta réponse : '+(err[0]?err[0].yours:'?')+'</div><div class="eq-ans eq-ok">✓ Bonne réponse : '+ca+'</div>')+'<div class="eq-exp">'+q.x+'</div></div></div>';
+      var caH=fmtAnswerForHtml(q);
+      return '<div class="exam-q-row"><span class="eq-icon">'+(ok?'✅':'❌')+'</span><div><div class="eq-q">Q'+(i+1)+'. '+safeQuestionHtml(q.q)+'</div>'+(ok?'<div class="eq-ans eq-ok">✓ Bonne réponse : '+caH+'</div>':'<div class="eq-ans eq-err">✗ Ta réponse : '+escapeUserHtml(err[0]?err[0].yours:'?')+'</div><div class="eq-ans eq-ok">✓ Bonne réponse : '+caH+'</div>')+'<div class="eq-exp">'+safeQuestionHtml(q.x||'')+'</div></div></div>';
     }).join('');
     el('res-tabs').style.display='none';
     el('tab-recap').style.display='none';
@@ -2268,9 +2305,9 @@ function showResults(){
   }
 
   var ML={qcm:'QCM',tf:'V/F',fill:'Compléter',order:'Ordre',calc:'Calcul',debug:'Débug',word:'Sélection'};
-  el('tab-recap').innerHTML=session.map(function(q){var e=errors.filter(function(x){return x.q===q.q;}).length>0;return '<div class="rrow"><span>'+(e?'❌':'✅')+'</span><span>'+q.q+'</span><span class="rmech">'+(ML[q.t]||q.t)+'</span></div>';}).join('');
+  el('tab-recap').innerHTML=session.map(function(q){var e=errors.filter(function(x){return x.q===q.q;}).length>0;return '<div class="rrow"><span>'+(e?'❌':'✅')+'</span><span>'+safeQuestionHtml(q.q)+'</span><span class="rmech">'+(ML[q.t]||q.t)+'</span></div>';}).join('');
   buildQStatsTab();
-  el('tab-errors').innerHTML=errors.length===0?'<div style="text-align:center;padding:24px;font-family:\'Press Start 2P\',monospace;font-size:10px;color:#00a85a">PARFAIT !</div>':errors.map(function(e){return '<div class="ecard"><div class="eq2">'+e.q+'</div><div class="ey">&#10007; '+e.yours+'</div><div class="ec">&#10003; '+e.correct+'</div><div class="ex">'+e.x+'</div></div>';}).join('');
+  el('tab-errors').innerHTML=errors.length===0?'<div style="text-align:center;padding:24px;font-family:\'Press Start 2P\',monospace;font-size:10px;color:#00a85a">PARFAIT !</div>':errors.map(function(e){return '<div class="ecard"><div class="eq2">'+safeQuestionHtml(e.q)+'</div><div class="ey">&#10007; '+escapeUserHtml(e.yours)+'</div><div class="ec">&#10003; '+escapeUserHtml(String(e.correct))+'</div><div class="ex">'+safeQuestionHtml(e.x||'')+'</div></div>';}).join('');
 }
 
 function switchTab(tab,ev){
@@ -2319,7 +2356,7 @@ function showFlashCard(){
   var card=document.getElementById('flash-card');
   flashFlipped=false;
   card.classList.remove('revealed');
-  document.getElementById('flash-q').innerHTML=q.q;
+  document.getElementById('flash-q').innerHTML=safeQuestionHtml(q.q);
   document.getElementById('flash-cat').textContent=catLabel;
   document.getElementById('flash-cat-b').textContent=catLabel;
   document.getElementById('flash-ans').textContent=getFlashAnswer(q);
@@ -2447,7 +2484,7 @@ function showDuelQ(){
   var cls=p===0?'turn-p1':'turn-p2';
   var banner=document.createElement('div');
   banner.className='duel-turn-banner '+cls;
-  banner.innerHTML='<span class="duel-turn-icon">'+(p===0?'🔵':'🩷')+'</span>&nbsp;Tour de <strong>'+duelNames[p]+'</strong>';
+  banner.innerHTML='<span class="duel-turn-icon">'+(p===0?'🔵':'🩷')+'</span>&nbsp;Tour de <strong>'+escapeUserHtml(duelNames[p])+'</strong>';
   area.appendChild(banner);
 
   // Scoreboard
@@ -2456,13 +2493,13 @@ function showDuelQ(){
   var sb=document.createElement('div'); sb.className='duel-scoreboard';
   sb.innerHTML=
     '<div class="dsp'+(p===0?' p1-active':'')+'">'+
-      '<span class="dsp-name" style="color:#38bdf8">'+duelNames[0]+'</span>'+
+      '<span class="dsp-name" style="color:#38bdf8">'+escapeUserHtml(duelNames[0])+'</span>'+
       '<span class="dsp-score" style="color:#38bdf8">'+duelScores[0]+'</span>'+
       '<div class="dsp-bar"><div class="dsp-fill" style="width:'+pct0+'%;background:#38bdf8"></div></div>'+
     '</div>'+
     '<div class="duel-vs-mid">/ '+duelTarget+'</div>'+
     '<div class="dsp'+(p===1?' p2-active':'')+'">'+
-      '<span class="dsp-name" style="color:#f472b6">'+duelNames[1]+'</span>'+
+      '<span class="dsp-name" style="color:#f472b6">'+escapeUserHtml(duelNames[1])+'</span>'+
       '<span class="dsp-score" style="color:#f472b6">'+duelScores[1]+'</span>'+
       '<div class="dsp-bar"><div class="dsp-fill" style="width:'+pct1+'%;background:#f472b6"></div></div>'+
     '</div>';
@@ -2473,7 +2510,7 @@ function showDuelQ(){
   card.style.cssText='--acc:'+col+';';
   // add diff color to qdiff span after render
   setTimeout(function(){var qd=card.querySelector('.qdiff');if(qd){qd.style.color=DS_COLORS[q.d]||'var(--dim)';qd.style.fontSize='9px';}},0);
-  card.innerHTML='<span class="qdiff">'+DS[q.d]+'</span><div class="qnum">Question '+(duelQIdx+1)+'</div><div class="qtext">'+q.q+(q._cat?'<span class="qcat-tag">['+q._cat+']</span>':'')+'</div>';
+  card.innerHTML='<span class="qdiff">'+DS[q.d]+'</span><div class="qnum">Question '+(duelQIdx+1)+'</div><div class="qtext">'+safeQuestionHtml(q.q)+(q._cat?'<span class="qcat-tag">['+escapeUserHtml(q._cat)+']</span>':'')+'</div>';
   area.appendChild(card);
 
   // Options — shuffle and store mapping
@@ -2484,7 +2521,10 @@ function showDuelQ(){
   for(var ki=0;ki<Math.min(4,shuffled.length);ki++){
     (function(optData,keyLabel,keyIndex){
       var b=document.createElement('button'); b.className='opt';
-      b.innerHTML='<span class="okey">'+keyLabel+'</span><span>'+optData.t+'</span>';
+      var duelOpt=(typeof optData.t==='object'&&optData.t&&optData.t.v!==undefined)
+        ? safeQuestionHtml(String(optData.t.v))+(optData.t.sub?'<span class="calc-sub">'+escapeUserHtml(optData.t.sub)+'</span>':'')
+        : safeQuestionHtml(String(optData.t));
+      b.innerHTML='<span class="okey">'+keyLabel+'</span><span>'+duelOpt+'</span>';
       b.setAttribute('data-orig',''+optData.i);
       b.setAttribute('data-key-idx',''+keyIndex);
       b.onclick=function(){
@@ -2520,7 +2560,7 @@ function showDuelQ(){
         wrap.querySelectorAll('.opt').forEach(function(b){if(+b.getAttribute('data-orig')===q.a)b.classList.add('ok');});
         var fbk=el('fbk');
         fbk.className='fbk show ferr';
-        fbk.innerHTML='⏰ Temps écoulé !<span class="fans"> ✓ '+q.opts[q.a]+'</span><div class="fexp">'+q.x+'</div>';
+        fbk.innerHTML='⏰ Temps écoulé !<span class="fans"> ✓ '+fmtAnswerForHtml(q)+'</span><div class="fexp">'+safeQuestionHtml(q.x||'')+'</div>';
         duelTurn=1-duelTurn;
         duelQIdx++;
         el('nextbtn').className='next-btn show';
@@ -2549,7 +2589,7 @@ function pickDuelAnswer(origIdx, btn, wrap){
     duelScores[p]++;
     flash('g'); playOk();
     fbk.className='fbk show fok';
-    fbk.innerHTML='✅ <strong>'+duelNames[p]+'</strong> a la bonne réponse ! ('+duelScores[p]+'/'+duelTarget+')<div class="fexp">'+q.x+'</div>';
+    fbk.innerHTML='✅ <strong>'+escapeUserHtml(duelNames[p])+'</strong> a la bonne réponse ! ('+duelScores[p]+'/'+duelTarget+')<div class="fexp">'+safeQuestionHtml(q.x||'')+'</div>';
     if(duelScores[p]>=duelTarget){
       setTimeout(function(){showDuelWin(p);},800);
       return;
@@ -2557,7 +2597,7 @@ function pickDuelAnswer(origIdx, btn, wrap){
   } else {
     flash('r'); playErr();
     fbk.className='fbk show ferr';
-    fbk.innerHTML='❌ Mauvais !<span class="fans"> ✓ '+q.opts[q.a]+'</span><div class="fexp">'+q.x+'</div>';
+    fbk.innerHTML='❌ Mauvais !<span class="fans"> ✓ '+fmtAnswerForHtml(q)+'</span><div class="fexp">'+safeQuestionHtml(q.x||'')+'</div>';
   }
 
   // Switch turn and advance question
@@ -2574,9 +2614,9 @@ function showDuelWin(winner){
   document.getElementById('dw-title').textContent=duelNames[winner]+' GAGNE ! 🏆';
   document.getElementById('dw-title').style.color=col;
   document.getElementById('dw-scores').innerHTML=
-    '<div class="duel-fs"><span class="duel-fs-name" style="color:#38bdf8">'+duelNames[0]+'</span><span class="duel-fs-val" style="color:#38bdf8">'+duelScores[0]+'</span></div>'+
+    '<div class="duel-fs"><span class="duel-fs-name" style="color:#38bdf8">'+escapeUserHtml(duelNames[0])+'</span><span class="duel-fs-val" style="color:#38bdf8">'+duelScores[0]+'</span></div>'+
     '<div class="duel-fs" style="font-size:24px;color:var(--dim)"> - </div>'+
-    '<div class="duel-fs"><span class="duel-fs-name" style="color:#f472b6">'+duelNames[1]+'</span><span class="duel-fs-val" style="color:#f472b6">'+duelScores[1]+'</span></div>';
+    '<div class="duel-fs"><span class="duel-fs-name" style="color:#f472b6">'+escapeUserHtml(duelNames[1])+'</span><span class="duel-fs-val" style="color:#f472b6">'+duelScores[1]+'</span></div>';
   document.getElementById('dw-sub').textContent='Premier a '+duelTarget+' points !';
   win.classList.add('show');
   if(typeof playBonus==='function') playBonus();
@@ -2876,8 +2916,8 @@ function openDailyScreen(){
       '<div style="width:36px;"></div>'+
     '</div>'+
     '<div class="daily-page-body">'+
-      '<div class="daily-cat-pill">'+(q._cat||'')+' · ★★★</div>'+
-      '<h2 class="daily-page-q">'+q.q+'</h2>'+
+      '<div class="daily-cat-pill">'+escapeUserHtml(q._cat||'')+' · ★★★</div>'+
+      '<h2 class="daily-page-q">'+safeQuestionHtml(q.q)+'</h2>'+
       '<div id="daily-opts" class="opts daily-opts-page"></div>'+
       '<div id="daily-exp"></div>'+
     '</div>';
@@ -2891,7 +2931,11 @@ function openDailyScreen(){
     if(!shuffled[i]) return;
     var b=document.createElement('button'); b.className='opt';
     b.setAttribute('data-testid','daily-opt-'+k);
-    b.innerHTML='<span class="okey">'+k+'</span><span>'+shuffled[i].t+'</span>';
+    var dRaw=shuffled[i].t;
+    var dHtml=(typeof dRaw==='object'&&dRaw&&dRaw.v!==undefined)
+      ? safeQuestionHtml(String(dRaw.v))+(dRaw.sub?'<span class="calc-sub">'+escapeUserHtml(dRaw.sub)+'</span>':'')
+      : safeQuestionHtml(String(dRaw));
+    b.innerHTML='<span class="okey">'+k+'</span><span>'+dHtml+'</span>';
     b.onclick=(function(opt){return function(){
       optsDiv.querySelectorAll('.opt').forEach(function(x){x.disabled=true;});
       optsDiv.querySelectorAll('.opt').forEach(function(x){if(+x.getAttribute('data-orig')===q.a)x.classList.add('ok');});
@@ -2900,7 +2944,7 @@ function openDailyScreen(){
       dailyData[today]={ok:ok};lsSet('tssr5_daily',dailyData);
       if(ok){beep(784,.15,'sine',.2);}else{beep(200,.1,'sawtooth',.15);}
       var exp=document.getElementById('daily-exp');
-      exp.innerHTML='<div class="daily-exp-box"><div class="daily-exp-lbl">'+(ok?'✅ BRAVO !':'❌ Raté')+'</div><div class="daily-exp-txt">'+q.x+'</div><button class="sheet-launch-btn" onclick="closeDailyScreen();buildDailyWidget();" data-testid="daily-back-btn">↩ RETOUR AU MENU</button></div>';
+      exp.innerHTML='<div class="daily-exp-box"><div class="daily-exp-lbl">'+(ok?'✅ BRAVO !':'❌ Raté')+'</div><div class="daily-exp-txt">'+safeQuestionHtml(q.x||'')+'</div><button class="sheet-launch-btn" onclick="closeDailyScreen();buildDailyWidget();" data-testid="daily-back-btn">↩ RETOUR AU MENU</button></div>';
     };})(shuffled[i]);
     b.setAttribute('data-orig',shuffled[i].i);
     optsDiv.appendChild(b);
@@ -2967,7 +3011,7 @@ function revealBlind(qtext){
   if(!el||selMode!=='blind') return;
   var text=qtext;
   var words=text.split(' ');
-  el.innerHTML=words.map(function(w){return '<span class="blind-reveal">'+w+'</span>';}).join(' ');
+  el.innerHTML=words.map(function(w){return '<span class="blind-reveal">'+escapeUserHtml(w)+'</span>';}).join(' ');
   var spans=el.querySelectorAll('.blind-reveal');
   spans.forEach(function(s,i){setTimeout(function(){s.classList.add('shown');},i*80);});
 }
@@ -3023,7 +3067,7 @@ function showDiscQ(){
   // Populate
   document.getElementById('disc-cat-pill').textContent=catLabel;
   document.getElementById('disc-qnum').textContent='QUESTION '+(discIdx+1)+' / '+discSession.length;
-  document.getElementById('disc-q').innerHTML=q.q;
+  document.getElementById('disc-q').innerHTML=safeQuestionHtml(q.q);
   // Answer
   var ans='';
   if(q.t==='qcm'||q.t==='debug') ans=q.opts[q.a];
@@ -3123,8 +3167,9 @@ function showDiscResults(){
   list.innerHTML=discSession.map(function(q,i){
     var sc=discGroupScores[i];
     var icon=sc===1?'✅':sc===0?'❌':'—';
-    var ans=q.t==='qcm'||q.t==='debug'?q.opts[q.a]:q.t==='tf'?(q.a?'VRAI':'FAUX'):q.t==='fill'?q.opts[q.a]:'...';
-    return '<div class="disc-res-row"><span style="flex-shrink:0">'+icon+'</span><span style="flex:1">'+q.q+'</span><span style="color:#00a85a;font-size:11px;flex-shrink:0;margin-left:8px;">'+ans+'</span></div>';
+    var rawA=q.t==='qcm'||q.t==='debug'?q.opts[q.a]:q.t==='tf'?(q.a?'VRAI':'FAUX'):q.t==='fill'?q.opts[q.a]:'...';
+    var ans=(typeof rawA==='object'&&rawA&&rawA.v!==undefined)?String(rawA.v)+(rawA.sub?' ('+rawA.sub+')':''):String(rawA);
+    return '<div class="disc-res-row"><span style="flex-shrink:0">'+icon+'</span><span style="flex:1">'+safeQuestionHtml(q.q)+'</span><span style="color:#00a85a;font-size:11px;flex-shrink:0;margin-left:8px;">'+escapeUserHtml(ans)+'</span></div>';
   }).join('');
 }
 
@@ -3269,13 +3314,15 @@ function selectMatchItem(el,side,itemIdx,pairs,wrap){
 // MODE INVERSÉ
 // =====================================================
 function renderInverse(q,area){
-  var ans='';
-  if(q.t==='qcm'||q.t==='debug') ans=q.opts[q.a];
-  else if(q.t==='tf') ans=q.a===true?'VRAI':'FAUX';
-  else if(q.t==='fill') ans=q.opts[q.a];
-  else ans=String(q.a);
+  var ansDisp='';
+  if(q.t==='qcm'||q.t==='debug'){
+    var ao=q.opts[q.a];
+    ansDisp=(typeof ao==='object'&&ao&&ao.v!==undefined)?String(ao.v)+(ao.sub?' ('+ao.sub+')':''):String(ao);
+  } else if(q.t==='tf') ansDisp=q.a===true?'VRAI':'FAUX';
+  else if(q.t==='fill') ansDisp=String(q.opts[q.a]);
+  else ansDisp=String(q.a);
   var box=document.createElement('div'); box.className='inv-answer-box';
-  box.innerHTML='<span class="inv-answer-label">A QUELLE QUESTION CORRESPOND CETTE REPONSE ?</span><div class="inv-answer-val">'+ans+'</div>';
+  box.innerHTML='<span class="inv-answer-label">A QUELLE QUESTION CORRESPOND CETTE REPONSE ?</span><div class="inv-answer-val">'+escapeUserHtml(ansDisp)+'</div>';
   area.appendChild(box);
   var realQ=q.q;
   var pool=session.filter(function(x){return x.q!==realQ;});
@@ -3286,18 +3333,18 @@ function renderInverse(q,area){
   ['A','B','C','D'].forEach(function(k,ii){
     if(ii>=allOpts.length) return;
     var b=document.createElement('button'); b.className='opt';
-    b.innerHTML='<span class="okey">'+k+'</span><span>'+allOpts[ii]+'</span>';
+    b.innerHTML='<span class="okey">'+k+'</span><span>'+safeQuestionHtml(allOpts[ii])+'</span>';
+    b.setAttribute('data-inv-correct', allOpts[ii]===realQ ? '1' : '0');
     (function(btn,optText,isOk){
       btn.onclick=function(){
         if(answered) return;
         clearInterval(timerInt); answered=true;
         wrap.querySelectorAll('.opt').forEach(function(x){x.disabled=true;});
         wrap.querySelectorAll('.opt').forEach(function(x){
-          var sp=x.querySelectorAll('span')[1];
-          if(sp&&sp.textContent===realQ) x.classList.add('ok');
+          if(x.getAttribute('data-inv-correct')==='1') x.classList.add('ok');
         });
         btn.classList.add(isOk?'ok':'err');
-        if(!isOk) errors.push({q:'[INVERSE] '+ans,yours:optText,correct:realQ,x:q.x,orig:q,mech:'inverse'});
+        if(!isOk) errors.push({q:'[INVERSE] '+ansDisp,yours:optText,correct:realQ,x:q.x,orig:q,mech:'inverse'});
         resolveCommon(isOk,q);
       };
     })(b,allOpts[ii],allOpts[ii]===realQ);
@@ -5025,7 +5072,11 @@ function rpgShowInlineQuestion(qid,inlineQ,resolution,nextBtn,sc){
     if(!shuffled[i]) return;
     var b=document.createElement('button');
     b.className='rpg-inline-opt';
-    b.innerHTML='<span style="font-weight:bold;margin-right:8px;">'+k+'.</span><span>'+shuffled[i].t+'</span>';
+    var ri=shuffled[i].t;
+    var rHtml=(typeof ri==='object'&&ri&&ri.v!==undefined)
+      ? safeQuestionHtml(String(ri.v))+(ri.sub?'<span class="calc-sub">'+escapeUserHtml(ri.sub)+'</span>':'')
+      : safeQuestionHtml(String(ri));
+    b.innerHTML='<span style="font-weight:bold;margin-right:8px;">'+k+'.</span><span>'+rHtml+'</span>';
     var isOk=shuffled[i].i===qdata.a;
     (function(btn,correct){
       btn.onclick=function(){

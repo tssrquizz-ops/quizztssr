@@ -45,6 +45,17 @@ window._fbOrderBy      = orderBy;
 window._fbLimit        = limit;
 window._fbUser           = null;
 
+// ── Admin : document admins/{uid} (créé dans la console Firebase) ──
+window.fbCheckAdmin = async function() {
+  if (!window._fbUser) return false;
+  try {
+    var snap = await getDoc(doc(db, 'admins', window._fbUser.uid));
+    return snap.exists();
+  } catch (e) {
+    return false;
+  }
+};
+
 // ── Charger données depuis Firestore ──
 window.fbLoadUserData = async function(uid) {
   try {

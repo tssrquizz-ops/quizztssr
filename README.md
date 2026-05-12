@@ -27,6 +27,16 @@ git push
 ```
 Firebase Hosting se met à jour automatiquement.
 
+### Règles Firestore
+
+À déployer **au moins une fois** (et après chaque modification de `firestore.rules`) :
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+Voir **[FIRESTORE_SETUP.md](FIRESTORE_SETUP.md)** : admins, collections, dépannage permissions.
+
 ## Projet Firebase
 
 **ID :** `tssrquizz-2744f`

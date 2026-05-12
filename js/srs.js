@@ -2,6 +2,10 @@
 // ============================================================
 // SYSTÈME SRS — Répétition Espacée (Spaced Repetition System)
 // ============================================================
+function escapeUserHtml(s){
+  if(window.safeText) return window.safeText(String(s==null?'':s));
+  var d=document.createElement('div'); d.textContent=String(s==null?'':s); return d.innerHTML;
+}
 var QDB = {};  // {hash: {seen, correct, streak, ease, nextReview}}
 
 function getQHash(q) {
@@ -169,8 +173,9 @@ function buildQStatsTab() {
     var col = rate === null ? 'var(--dim)' : rate >= 80 ? '#4ade80' : rate >= 50 ? '#fbbf24' : '#f87171';
     var status = getSRSStatus(q);
     var statusLabels = {new:'⭐ Nouveau', due:'🔄 À revoir', ok:'✅ Maîtrisé', hard:'🔥 Difficile'};
+    var qPrev=(typeof q.q==='string'?q.q:String(q.q||'')).replace(/<[^>]+>/g,' ');
     return '<div class="qstat-row">' +
-      '<div class="qstat-q">' + q.q.slice(0, 80) + (q.q.length > 80 ? '…' : '') + '</div>' +
+      '<div class="qstat-q">' + escapeUserHtml(qPrev.slice(0, 80)) + (qPrev.length > 80 ? '…' : '') + '</div>' +
       '<div class="qstat-rate" style="color:' + col + '">' + (rate !== null ? rate + '%' : 'Jamais') + '</div>' +
       '<div class="qstat-seen">' + r.seen + ' vues</div>' +
       '<div class="qstat-streak" title="' + statusLabels[status] + '">' + statusLabels[status] + '</div>' +
