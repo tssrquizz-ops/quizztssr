@@ -1544,14 +1544,14 @@ function revealOnlineQuestion(data){
   // Show correct + my error
   document.querySelectorAll('.online-opt').forEach(function(b){
     b.disabled=true;
-    if(+b.getAttribute('data-orig')===correct) b.classList.add('ok');
+    if(+b.getAttribute('data-orig') == correct) b.classList.add('ok');
   });
   // Show their answer marker (if available)
   var key = onlineSession.role==='host'?'guest':'host';
   var their = data[key]&&data[key].answer;
   if(their && their.choice!=null && their.choice!==correct){
     document.querySelectorAll('.online-opt').forEach(function(b){
-      if(+b.getAttribute('data-orig')===their.choice) b.classList.add('them-err');
+      if(+b.getAttribute('data-orig') == their.choice) b.classList.add('them-err');
     });
   }
   // Feedback
@@ -1559,8 +1559,8 @@ function revealOnlineQuestion(data){
   var guestA= data.guest&&data.guest.answer;
   var myA   = onlineSession.role==='host'?hostA:guestA;
   var theirA= onlineSession.role==='host'?guestA:hostA;
-  var meOk  = myA && myA.choice===correct;
-  var themOk= theirA && theirA.choice===correct;
+  var meOk  = myA && myA.choice == correct;
+  var themOk= theirA && theirA.choice == correct;
 
   var msg='';
   if(meOk && themOk){
@@ -1582,8 +1582,8 @@ async function hostAdvance(data){
   var correct = (curQ.t === 'tf') ? ((curQ.a===true || curQ.a===0) ? 0 : 1) : curQ.a;
   var hostA = data.host&&data.host.answer;
   var guestA = data.guest&&data.guest.answer;
-  var hostOk = hostA && hostA.choice===correct;
-  var guestOk= guestA && guestA.choice===correct;
+  var hostOk = hostA && hostA.choice == correct;
+  var guestOk= guestA && guestA.choice == correct;
 
   // Score computation
   var hScore = data.host&&data.host.score || 0;
