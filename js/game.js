@@ -200,13 +200,9 @@ function buildOnlineQData(q, idx2) {
 // PANNEAU ADMIN (Firestore : collection admins/{uid})
 // ============================================================
 async function openAdminPanel(){
-  if(!window._fbUser){alert('Connecte-toi dabord.');return;}
-  try{
-    if(typeof window.fbCheckAdmin!=='function'){alert('Firebase non initialisé.');return;}
-    var ok=await window.fbCheckAdmin();
-    if(!ok){alert('Accès réservé aux administrateurs.');return;}
-    showAdminPanel();
-  }catch(e){alert('Erreur: '+e.message);}
+  // Redirection directe vers les rapports pour corriger les questions
+  if(typeof viewBugReports === 'function') viewBugReports();
+  else alert('Fonction de rapports non chargée.');
 }
 
 function showAdminPanel(){
