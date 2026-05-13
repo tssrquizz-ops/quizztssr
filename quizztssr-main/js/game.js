@@ -1453,7 +1453,7 @@ async function hostGenerateQuestionsAndStart(data){
 
   // Send first question
   var first = pool[0];
-  var correctIdx = first.a;
+  var correctIdx = (first.a !== undefined) ? first.a : (first.correct || first.items || 0);
   if(first.t==='tf') correctIdx = (first.a===true || first.a===0) ? 0 : 1;
 
   var qData={ idx:0, q:first.q, opts:first.opts||[], a:correctIdx, x:first.x||'', t:first.t||'qcm',
@@ -1673,7 +1673,7 @@ async function hostAdvance(data){
       if(!onlineSession.code) return;
       var next = pool[nextIdx];
       if(!next){ await _onlineUpdate({status:'finished'}); return; }
-      var correctIdx = next.a;
+      var correctIdx = (next.a !== undefined) ? next.a : (next.correct || next.items || 0);
       if(next.t==='tf') correctIdx = (next.a===true || next.a===0) ? 0 : 1;
 
       var qData={ idx:nextIdx, q:next.q, opts:next.opts||[], a:correctIdx, x:next.x||'', t:next.t||'qcm',
