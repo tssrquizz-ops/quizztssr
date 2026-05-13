@@ -1429,6 +1429,7 @@ async function hostGenerateQuestionsAndStart(data){
   onlineSession.questionsPool=pool;
 
   // Send first question
+  var first = pool[0];
   var correctIdx = first.a;
   if(first.t==='tf') correctIdx = (first.a===true || first.a===0) ? 0 : 1;
 
