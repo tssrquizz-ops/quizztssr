@@ -1,0 +1,140 @@
+/* =====================================================
+   base.css — Variables, reset, layout de base
+   TSSRQUIZZ — Phase 5 du plan d'implémentation
+   ===================================================== */
+
+/* ===================== VARIABLES (défaut dark) ===================== */
+:root {
+  --bg:#0d0e14; --bg2:#13151e; --panel:#1a1d2a;
+  --border:#252840; --border2:#333658;
+  --text:#c4cce0; --text2:#7078a0; --dim:#3a3f60;
+  --white:#e8ecff; --sh:rgba(0,0,0,.4);
+  --acc:#38bdf8; --a2:rgba(56,189,248,.12); --a3:rgba(56,189,248,.06);
+}
+
+/* ===================== THÈME SOMBRE ===================== */
+body.vt-dark {
+  --bg:#0d0e14; --bg2:#13151e; --panel:#1a1d2a;
+  --border:#252840; --border2:#333658;
+  --text:#c4cce0; --text2:#7078a0; --dim:#3a3f60;
+  --white:#e8ecff; --sh:rgba(0,0,0,.4);
+}
+
+/* ===================== THÈME CLAIR ===================== */
+body.vt-light {
+  --bg:#ffffff; --bg2:#f4f4f8; --panel:#ffffff;
+  --border:#e0e0e8; --border2:#c8c8d8;
+  --text:#1a1a2e; --text2:#4a4a6a; --dim:#9090b0;
+  --white:#1a1a2e; --sh:rgba(0,0,0,.08);
+  --acc:#0066cc; --a2:rgba(0,102,204,.12); --a3:rgba(0,102,204,.06);
+}
+
+/* ===================== ACCENTS CATÉGORIES — MODE CLAIR ===================== */
+body.vt-light.cat-reseau{--acc:#0066cc;--a2:rgba(0,102,204,.12);}
+body.vt-light.cat-cisco{--acc:#0055aa;--a2:rgba(0,85,170,.12);}
+body.vt-light.cat-vlan{--acc:#4338ca;--a2:rgba(67,56,202,.12);}
+body.vt-light.cat-stp{--acc:#c2410c;--a2:rgba(194,65,12,.12);}
+body.vt-light.cat-routage{--acc:#15803d;--a2:rgba(21,128,61,.12);}
+body.vt-light.cat-secu{--acc:#b91c1c;--a2:rgba(185,28,28,.12);}
+body.vt-light.cat-windows{--acc:#065f46;--a2:rgba(6,95,70,.12);}
+body.vt-light.cat-dns{--acc:#5b21b6;--a2:rgba(91,33,182,.12);}
+body.vt-light.cat-ntfs{--acc:#9f1239;--a2:rgba(159,18,57,.12);}
+body.vt-light.cat-hyperv{--acc:#065f46;--a2:rgba(6,95,70,.12);}
+body.vt-light.cat-raid{--acc:#92400e;--a2:rgba(146,64,14,.12);}
+body.vt-light.cat-cmd{--acc:#831843;--a2:rgba(131,24,67,.12);}
+body.vt-light.cat-mix{--acc:#6b21a8;--a2:rgba(107,33,168,.12);}
+body.vt-light.cat-ad{--acc:#4338ca;--a2:rgba(67,56,202,.12);}
+body.vt-light.cat-ps{--acc:#7e22ce;--a2:rgba(126,34,206,.12);}
+body.vt-light.cat-wlan{--acc:#065f46;--a2:rgba(6,95,70,.12);}
+body.vt-light.cat-mbr{--acc:#92400e;--a2:rgba(146,64,14,.12);}
+body.vt-light.cat-sauvegarde{--acc:#0066cc;--a2:rgba(0,102,204,.12);}
+body.vt-light.cat-abe{--acc:#15803d;--a2:rgba(21,128,61,.12);}
+body.vt-light.cat-fsrm{--acc:#b91c1c;--a2:rgba(185,28,28,.12);}
+body.vt-light.cat-groupes_ad{--acc:#4338ca;--a2:rgba(67,56,202,.12);}
+
+/* ===================== ACCENTS CATÉGORIES — MODE SOMBRE ===================== */
+body.cat-reseau{--acc:#38bdf8;--a2:rgba(56,189,248,.12);--a3:rgba(56,189,248,.06);}
+body.cat-cisco{--acc:#00c8ff;--a2:rgba(0,200,255,.12);--a3:rgba(0,200,255,.06);}
+body.cat-vlan{--acc:#818cf8;--a2:rgba(129,140,248,.12);--a3:rgba(129,140,248,.06);}
+body.cat-stp{--acc:#fb923c;--a2:rgba(251,146,60,.12);--a3:rgba(251,146,60,.06);}
+body.cat-routage{--acc:#4ade80;--a2:rgba(74,222,128,.12);--a3:rgba(74,222,128,.06);}
+body.cat-secu{--acc:#f87171;--a2:rgba(248,113,113,.12);--a3:rgba(248,113,113,.06);}
+body.cat-windows{--acc:#00e0b0;--a2:rgba(0,224,176,.12);--a3:rgba(0,224,176,.06);}
+body.cat-dns{--acc:#a78bfa;--a2:rgba(167,139,250,.12);--a3:rgba(167,139,250,.06);}
+body.cat-ntfs{--acc:#fb7185;--a2:rgba(251,113,133,.12);--a3:rgba(251,113,133,.06);}
+body.cat-hyperv{--acc:#34d399;--a2:rgba(52,211,153,.12);--a3:rgba(52,211,153,.06);}
+body.cat-raid{--acc:#fbbf24;--a2:rgba(251,191,36,.12);--a3:rgba(251,191,36,.06);}
+body.cat-cmd{--acc:#f472b6;--a2:rgba(244,114,182,.12);--a3:rgba(244,114,182,.06);}
+body.cat-mix{--acc:#e879f9;--a2:rgba(232,121,249,.12);--a3:rgba(232,121,249,.06);}
+body.cat-ad{--acc:#818cf8;--a2:rgba(129,140,248,.12);--a3:rgba(129,140,248,.06);}
+body.cat-wlan{--acc:#34d399;--a2:rgba(52,211,153,.12);--a3:rgba(52,211,153,.06);}
+body.cat-ps{--acc:#c084fc;--a2:rgba(192,132,252,.12);--a3:rgba(192,132,252,.06);}
+
+/* ===================== RESET ===================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ===================== BASE BODY ===================== */
+body {
+  font-family: 'DM Mono', monospace;
+  min-height: 100vh;
+  font-size: 15px;
+  background: var(--bg);
+  color: var(--text);
+  transition: background .25s, color .25s;
+}
+
+/* Grille de fond décorative */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(var(--border2) 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: .18;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===================== LAYOUT PRINCIPAL ===================== */
+#app {
+  position: relative;
+  z-index: 1;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 18px 60px;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 860px) {
+  #app { max-width: 860px; padding: 0 48px 80px; }
+}
+@media (min-width: 900px) {
+  #app { max-width: 1100px; padding: 0 28px 60px; }
+}
+@media (min-width: 1280px) {
+  #app { max-width: 1200px; }
+}
+
+/* ===================== ÉCRANS ===================== */
+.screen {
+  display: none;
+  flex-direction: column;
+}
+.screen.active {
+  display: flex;
+}
+
+/* ===================== LABEL SECTION ===================== */
+.slbl {
+  font-family: monospace;
+  font-size: 8px;
+  color: var(--dim);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin: 22px 0 10px;
+}

@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<!-- Applique le thème avant le premier rendu pour éviter le flash -->
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('tssr5_vt')||'vt-light';
+    document.addEventListener('DOMContentLoaded',function(){
+      document.body.classList.remove('vt-dark','vt-light');
+      document.body.classList.add(t);
+    });
+  }catch(e){}
+})();
+</script>
+<meta charset="UTF-8">
+<!-- ============ CSP — Sécurité Phase 3 ============ -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.googleapis.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com;">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="TSSRQUIZZ — Application d'entraînement aux examens TSSR : réseaux, Windows Server, sécurité, et bien plus.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="TSSRQUIZZ — Entraînement examens TSSR">
+<meta property="og:description" content="Quiz interactif : 380+ questions, révision espacée, classement, modes variés.">
+<meta property="og:url" content="https://tssrquizz-2744f.web.app/">
+<meta name="twitter:card" content="summary_large_image">
+<title>TSSRQUIZZ — Entraînement examens TSSR</title>
+<!-- Préconnexions fonts pour performance -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- ============ CSS MODULAIRE — Phase 5 ============ -->
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/themes.css">
+<link rel="stylesheet" href="css/accessibility.css">
+<!-- ============ FIREBASE SDK ============ -->
+<script type="module" src="js/firebase-init.js"></script>
+<!-- ============ SANITIZE — Sécurité Phase 3.2 ============ -->
+<script src="js/utils/sanitize.js" defer></script>
+
+<!-- ============ STYLES AUTH ============ -->
+<style>
+#fb-login-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px;}
+#fb-login-screen.visible{display:flex;}
+#fb-auth-section{border-top:1px solid var(--border);padding-top:14px;margin-top:14px;}
+#fb-login-btn,#fb-logout-btn{width:100%;align-items:center;gap:8px;padding:9px 14px;border-radius:6px;font-family:monospace;font-size:8px;cursor:pointer;letter-spacing:1px;transition:all .15s;border:1.5px solid var(--border2);background:var(--panel);color:var(--text);}
+#fb-login-btn:hover{border-color:var(--acc);color:var(--acc);}
+#fb-logout-btn{border-color:#f87171;color:#f87171;display:none;}
+#fb-logout-btn:hover{background:rgba(248,113,113,.1);}
+#fb-user-info{font-family:monospace;font-size:8px;color:var(--acc);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#fb-sync-status{font-family:monospace;font-size:8px;color:var(--text2);margin-top:6px;display:none;align-items:center;gap:5px;}
+.fb-sync-dot{width:6px;height:6px;border-radius:50%;background:#00d87a;flex-shrink:0;animation:fbpulse 2s infinite;}
+@keyframes fbpulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.fb-login-box{width:100%;max-width:380px;background:var(--panel);border:1.5px solid var(--border2);border-radius:12px;padding:32px 28px;}
+.fb-field{width:100%;padding:11px 14px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:6px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text);outline:none;transition:border-color .2s;box-sizing:border-box;margin-bottom:10px;}
+.fb-field:focus{border-color:var(--acc);}
+.fb-err{display:none;font-family:monospace;font-size:9px;color:#f87171;background:rgba(248,113,113,.1);border:1px solid #f87171;border-radius:4px;padding:7px 10px;margin-bottom:10px;}
+</style>
+<style>
+/* ── TOPBAR ── */
+.menu-topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 18px;}
+.menu-topbar-center{flex:1;text-align:center;}
+.menu-logo-small{font-family:'Press Start 2P',cursive;font-size:12px;background:linear-gradient(to right, var(--acc), #8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;text-transform:uppercase;filter:drop-shadow(0 0 8px var(--a2));}
+.menu-logo-small span{font-family:'DM Mono',monospace;font-size:8px;color:var(--text2);opacity:.6;letter-spacing:1px;margin-left:8px;font-weight:400;-webkit-text-fill-color:var(--text2);vertical-align:middle;}
+.menu-ham-btn{background:none;border:1.5px solid var(--border2);border-radius:8px;padding:9px 11px;cursor:pointer;display:flex;flex-direction:column;gap:4px;transition:border-color .15s;}
+.menu-ham-btn span{display:block;width:18px;height:2px;background:var(--text2);border-radius:2px;transition:all .2s;}
+.menu-ham-btn:hover{border-color:var(--acc);}
+.menu-ham-btn:hover span{background:var(--acc);}
+.menu-profile-btn{background:none;border:1.5px solid var(--border2);border-radius:8px;padding:7px 11px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:border-color .15s;color:var(--text);font-family:monospace;font-size:18px;}
+.menu-profile-btn:hover{border-color:var(--acc);}
+.menu-username-label{font-family:monospace;font-size:8px;color:var(--text2);max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:none;}
+@media(min-width:480px){.menu-username-label{display:block;}}
+/* ── CTA PRINCIPAL ── */
+.start-btn-main{width:100%;margin:16px 0 14px;padding:18px;background:var(--acc);border:none;border-radius:10px;font-family:monospace;font-size:12px;color:var(--bg);cursor:pointer;letter-spacing:2px;transition:all .18s;box-shadow:0 6px 28px var(--sh);}
+.start-btn-main:hover{filter:brightness(1.12);transform:translateY(-3px);}
+/* ── ACTIONS SECONDAIRES ── */
+.menu-actions-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px;}
+.menu-action-card{background:var(--panel);border:1.5px solid var(--border2);border-radius:10px;padding:14px 8px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:6px;}
+.menu-action-card:hover{border-color:var(--acc);transform:translateY(-2px);}
+.mac-icon{font-size:22px;line-height:1;}
+.mac-label{font-family:monospace;font-size:8px;color:var(--text2);letter-spacing:1px;}
+/* ── MENU PANEL LATÉRAL ── */
+.main-menu-ovl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;backdrop-filter:blur(3px);}
+.main-menu-ovl.open{display:block;}
+.main-menu-panel{position:fixed!important;top:0!important;left:0!important;width:280px;max-width:85vw;height:100%!important;background:var(--bg2);border-right:1.5px solid var(--border2);z-index:9001!important;transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex!important;flex-direction:column;overflow-y:auto;padding-bottom:40px;}
+.main-menu-panel.open{transform:translateX(0)!important;}
+.main-menu-header{display:flex;align-items:center;justify-content:space-between;padding:20px 18px 14px;border-bottom:1px solid var(--border);}
+.main-menu-section-lbl{font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:2px;padding:14px 18px 6px;text-transform:uppercase;}
+.main-menu-btn{width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:14px 18px;font-family:monospace;font-size:10px;color:var(--text);cursor:pointer;transition:background .12s,color .12s;letter-spacing:.5px;}
+.main-menu-btn:hover{background:var(--panel);color:var(--acc);}
+.main-menu-footer{margin-top:auto;padding:16px 18px;border-top:1px solid var(--border);}
+#mm-login-btn,#mm-logout-btn{width:100%;padding:10px;border-radius:6px;font-family:monospace;font-size:8px;cursor:pointer;letter-spacing:1px;border:1.5px solid var(--border2);background:var(--panel);color:var(--text);margin-bottom:4px;display:block;}
+#mm-logout-btn{border-color:#f87171;color:#f87171;}
+</style>
+</head>
+<body class="vt-light cat-reseau ui-arcade">
+<!-- Lien d'évitement pour navigation clavier (accessibilité) -->
+<a href="#main-content" class="skip-link">Aller au contenu principal</a>
+<div id="app" role="application" aria-label="TSSRQUIZZ">
+
+<!-- ============ ÉCRAN LOGIN PLEIN PAGE ============ -->
+<div id="fb-login-screen">
+  <div class="fb-login-box">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-size:32px;margin-bottom:8px;">📚</div>
+      <div style="font-family:'Press Start 2P',cursive;font-size:16px;background:linear-gradient(to right, var(--acc), #8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;filter:drop-shadow(0 0 10px var(--a2));">TSSRQUIZZ</div>
+      <div style="font-family:monospace;font-size:8px;color:var(--text2);margin-top:4px;letter-spacing:1px;">Connecte-toi pour retrouver ta progression</div>
+    </div>
+
+    <div style="display:flex;margin-bottom:20px;border:1.5px solid var(--border2);border-radius:6px;overflow:hidden;">
+      <button id="fb-tab-login" onclick="fbSwitchTab('login')"
+        style="flex:1;padding:9px;font-family:monospace;font-size:8px;cursor:pointer;border:none;background:var(--acc);color:var(--bg);letter-spacing:1px;transition:all .15s;">
+        CONNEXION
+      </button>
+      <button id="fb-tab-signup" onclick="fbSwitchTab('signup')"
+        style="flex:1;padding:9px;font-family:monospace;font-size:8px;cursor:pointer;border:none;background:transparent;color:var(--text2);letter-spacing:1px;transition:all .15s;">
+        INSCRIPTION
+      </button>
+    </div>
+
+    <input id="fb-email" type="email" placeholder="Email" autocomplete="email" class="fb-field">
+    <input id="fb-password" type="password" placeholder="Mot de passe" autocomplete="current-password" class="fb-field">
+    <input id="fb-name" type="text" placeholder="Prénom (inscription)" autocomplete="given-name" class="fb-field" style="display:none;">
+
+    <div class="fb-err" id="fb-error"></div>
+
+    <button id="fb-submit-btn" onclick="fbSubmit()"
+      style="width:100%;padding:13px;background:var(--acc);border:none;border-radius:6px;font-family:monospace;font-size:9px;color:var(--bg);cursor:pointer;letter-spacing:1px;margin-bottom:10px;transition:filter .15s;">
+      SE CONNECTER
+    </button>
+
+    <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px;color:var(--dim);font-family:monospace;font-size:8px;">
+      <div style="flex:1;height:1px;background:var(--border);"></div>ou<div style="flex:1;height:1px;background:var(--border);"></div>
+    </div>
+
+    <button onclick="fbGoogleLogin()"
+      style="width:100%;padding:12px;background:var(--panel);border:1.5px solid var(--border2);border-radius:6px;font-family:monospace;font-size:9px;color:var(--text2);cursor:pointer;letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;transition:border-color .15s;"
+      onmouseover="this.style.borderColor='var(--acc)'" onmouseout="this.style.borderColor='var(--border2)'">
+      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.3 9 3.4l6.7-6.7C35.8 2.5 30.3 0 24 0 14.6 0 6.6 5.5 2.6 13.6l7.8 6C12.3 13.5 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10 7.1-17z"/><path fill="#FBBC05" d="M10.4 28.6A14.6 14.6 0 0 1 9.5 24c0-1.6.3-3.2.9-4.6l-7.8-6A23.9 23.9 0 0 0 0 24c0 3.8.9 7.4 2.6 10.6l7.8-6z"/><path fill="#34A853" d="M24 48c6.3 0 11.6-2.1 15.4-5.7l-7.5-5.8c-2.1 1.4-4.8 2.2-7.9 2.2-6.3 0-11.6-3.9-13.6-9.4l-7.8 6C6.6 42.5 14.6 48 24 48z"/></svg>
+      CONTINUER AVEC GOOGLE
+    </button>
+
+    <button onclick="fbContinueWithoutAccount()"
+      style="width:100%;padding:11px;background:none;border:1.5px dashed var(--border2);border-radius:6px;font-family:monospace;font-size:8px;color:var(--text2);cursor:pointer;letter-spacing:1px;transition:all .15s;"
+      onmouseover="this.style.borderColor='var(--text2)';this.style.color='var(--text)'"
+      onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">
+      CONTINUER SANS COMPTE →
+    </button>
+  </div>
+</div>
+
+<script>
+// ── Fonctions UI Firebase (non-module) ──
+
+window.fbUpdateAuthUI = function(user) {
+  // Mettre à jour le profil menu
+  setTimeout(function(){ 
+    if(typeof updateMenuProfile==='function') updateMenuProfile();
+    if(typeof updateMenuTopbar==='function') updateMenuTopbar();
+  }, 300);
+  var loginBtn  = document.getElementById('fb-login-btn');
+  var logoutBtn = document.getElementById('fb-logout-btn');
+  var userInfo  = document.getElementById('fb-user-info');
+  var syncEl    = document.getElementById('fb-sync-status');
+  var syncTxt   = document.getElementById('fb-sync-text');
+  if (user) {
+    if (loginBtn)  loginBtn.style.display  = 'none';
+    if (logoutBtn) logoutBtn.style.display = 'flex';
+    if (userInfo)  userInfo.textContent    = user.displayName || user.email;
+    if (syncEl)    syncEl.style.display    = 'flex';
+    if (syncTxt)   syncTxt.textContent     = 'Synchro : ' + (user.displayName || user.email);
+  } else {
+    if (loginBtn)  loginBtn.style.display  = 'flex';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    if (userInfo)  userInfo.textContent    = '';
+    if (syncEl)    syncEl.style.display    = 'none';
+  }
+};
+
+window.fbSwitchTab = function(tab) {
+  var isLogin = tab === 'login';
+  var tl = document.getElementById('fb-tab-login');
+  var ts = document.getElementById('fb-tab-signup');
+  var sb = document.getElementById('fb-submit-btn');
+  var fn = document.getElementById('fb-name');
+  var er = document.getElementById('fb-error');
+  if(tl){ tl.style.background = isLogin ? 'var(--acc)' : 'transparent'; tl.style.color = isLogin ? 'var(--bg)' : 'var(--text2)'; }
+  if(ts){ ts.style.background = isLogin ? 'transparent' : 'var(--acc)'; ts.style.color = isLogin ? 'var(--text2)' : 'var(--bg)'; }
+  if(sb) sb.textContent = isLogin ? 'SE CONNECTER' : "S'INSCRIRE";
+  if(fn) fn.style.display = isLogin ? 'none' : 'block';
+  if(er) er.style.display = 'none';
+};
+
+window.fbSubmit = async function() {
+  var email    = (document.getElementById('fb-email').value    ||'').trim();
+  var password = (document.getElementById('fb-password').value ||'').trim();
+  var isSignup = (document.getElementById('fb-submit-btn').textContent||'').indexOf('INSCRIRE') > -1;
+  var errEl    = document.getElementById('fb-error');
+  var btn      = document.getElementById('fb-submit-btn');
+  errEl.style.display = 'none';
+  if (!email || !password) { errEl.textContent='Email et mot de passe requis.'; errEl.style.display='block'; return; }
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    if (isSignup) {
+      await window._fbSignUpEmail(window._fbAuth, email, password);
+    } else {
+      await window._fbSignInEmail(window._fbAuth, email, password);
+    }
+  } catch(err) {
+    var msgs = {
+      'auth/user-not-found':      'Compte introuvable.',
+      'auth/wrong-password':      'Mot de passe incorrect.',
+      'auth/email-already-in-use':'Email déjà utilisé — connecte-toi.',
+      'auth/invalid-email':       'Email invalide.',
+      'auth/weak-password':       'Mot de passe trop faible (6 car. min).',
+      'auth/invalid-credential':  'Email ou mot de passe incorrect.',
+      'auth/too-many-requests':   'Trop de tentatives. Réessaie plus tard.'
+    };
+    errEl.textContent = msgs[err.code] || 'Erreur : ' + err.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = isSignup ? "S'INSCRIRE" : 'SE CONNECTER';
+  }
+};
+
+window.fbGoogleLogin = async function() {
+  var errEl = document.getElementById('fb-error');
+  if (errEl) errEl.style.display = 'none';
+  try {
+    await window._fbSignInPopup(window._fbAuth, window._fbGoogleProvider);
+  } catch(err) {
+    if (errEl) { errEl.textContent = 'Connexion Google annulée ou bloquée.'; errEl.style.display = 'block'; }
+  }
+};
+
+window.fbContinueWithoutAccount = function() {
+  window._fbSkipLogin = true;
+  var ls = document.getElementById('fb-login-screen');
+  if (ls) ls.style.display = 'none';
+  if (typeof initMenu === 'function') initMenu();
+  var sm = document.getElementById('screen-menu');
+  if (sm) { document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');}); sm.classList.add('active'); }
+};
+
+window.fbLogout = async function() {
+  if (confirm('Se déconnecter ?')) {
+    if (window.fbSaveUserData) await window.fbSaveUserData();
+    await window._fbSignOut(window._fbAuth);
+    window._fbSkipLogin = false;
+    window._fbUser = null;
+    var ls = document.getElementById('fb-login-screen');
+    if (ls) ls.style.display = 'flex';
+    document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
+  }
+};
+
+// Enter key sur les champs
+document.addEventListener('DOMContentLoaded', function() {
+  ['fb-email','fb-password','fb-name'].forEach(function(id) {
+    var el2 = document.getElementById(id);
+    if (el2) el2.addEventListener('keydown', function(e){ if(e.key==='Enter') window.fbSubmit(); });
+  });
+  // Afficher l'écran login immédiatement — Firebase onAuthStateChanged le masquera si déjà connecté
+  var ls = document.getElementById('fb-login-screen');
+  if (ls) ls.style.display = 'flex';
+});
+</script>
+
+<!-- MENU -->
+<!-- Ancre d'accessibilité pour le skip-link -->
+<span id="main-content" tabindex="-1" aria-hidden="true"></span>
+<div id="screen-menu" class="screen" role="main">
+
+  <!-- TOP BAR -->
+  <div class="menu-topbar">
+    <div class="menu-topbar-left">
+      <button class="menu-ham-btn" onclick="openMainMenu()" title="Ouvrir le menu" aria-label="Ouvrir le menu de navigation" aria-expanded="false" aria-controls="main-menu-panel" id="ham-btn">
+        <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+      </button>
+    </div>
+    <div class="menu-topbar-center">
+      <!-- VERSION_TAG: v14 — ne pas supprimer -->
+      <div class="menu-logo-small">TSSRQUIZZ<span>v14</span></div>
+    </div>
+    <div class="menu-topbar-right" style="display:flex;align-items:center;gap:8px;">
+      <button id="theme-toggle-btn" onclick="toggleDarkLight()" title="Basculer thème clair/sombre" aria-label="Basculer entre le thème clair et sombre"
+        style="background:none;border:1.5px solid var(--border2);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:16px;transition:all .2s;color:var(--text);">
+        🌙
+      </button>
+      <button class="menu-profile-btn" onclick="showScreen('profile');loadProfileScreen()" title="Voir mon profil" aria-label="Accéder à mon profil">
+        <span id="menu-avatar-top" aria-hidden="true">👤</span>
+        <span id="menu-username-top" class="menu-username-label"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- STREAK -->
+  <div id="streak-bar" class="streak-bar">
+    <div class="streak-fire">🔥</div>
+    <div class="streak-info">
+      <div class="streak-num" id="streak-num">0 jours</div>
+      <div class="streak-lbl">Streak quotidien</div>
+    </div>
+    <div class="streak-best" id="streak-best">Best: 0</div>
+  </div>
+
+  <!-- DAILY WIDGET -->
+  <div id="daily-widget" style="margin-bottom:12px;"></div>
+
+  <!-- HERO CARDS -->
+  <div class="hero-cards">
+    <button class="hero-card hero-card-srs" onclick="showSRSScreen()">
+      <span class="hero-card-icon">🎯</span>
+      <span class="hero-card-title">RÉVISION CIBLÉE</span>
+      <span class="hero-card-desc">S'adapte à tes erreurs — le plus efficace pour l'exam</span>
+      <span class="hero-card-badge">⭐ RECOMMANDÉ</span>
+    </button>
+    <button class="hero-card hero-card-rpg" onclick="launchRPGDirect()">
+      <span class="hero-card-icon">🎭</span>
+      <span class="hero-card-title">TICKETS</span>
+      <span class="hero-card-desc">Résous des incidents réels en situation</span>
+      <span class="hero-card-badge">🎬 IMMERSIF</span>
+    </button>
+  </div>
+
+  <!-- CTA PRINCIPAL -->
+  <button class="start-btn-main" onclick="openLaunchSheet()">▶ LANCER UN QUIZ</button>
+
+  <!-- ACTIONS SECONDAIRES -->
+  <div class="menu-actions-row">
+    <button class="menu-action-card" onclick="showQuestsScreen()">
+      <span class="mac-icon">🎯</span>
+      <span class="mac-label">Objectifs</span>
+    </button>
+    <button class="menu-action-card" onclick="showStatsScreen()">
+      <span class="mac-icon">📊</span>
+      <span class="mac-label">Stats</span>
+    </button>
+    <button class="menu-action-card" onclick="showLeaderboard()">
+      <span class="mac-icon">🏆</span>
+      <span class="mac-label">Classement</span>
+    </button>
+  </div>
+
+  <!-- BADGES -->
+  <div class="slbl" style="margin-top:18px;">🏅 Badges</div>
+  <div class="badges-row" id="badges-row"></div>
+  <div id="quick-stats" style="display:flex;gap:8px;margin-top:14px;"></div>
+
+</div>
+
+<!-- MAIN MENU OVERLAY -->
+<div class="main-menu-ovl" id="main-menu-ovl" onclick="closeMainMenu()"></div>
+<div class="main-menu-panel" id="main-menu-panel">
+  <div class="main-menu-header">
+    <span style="font-family:monospace;font-size:10px;color:var(--acc);letter-spacing:2px;">MENU</span>
+    <button onclick="closeMainMenu()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:4px;">✕</button>
+  </div>
+  <div class="main-menu-section-lbl">QUIZ</div>
+  <button class="main-menu-btn" onclick="closeMainMenu();openLaunchSheet()">▶ Lancer un quiz</button>
+  <button class="main-menu-btn" onclick="closeMainMenu();showSRSScreen()">🎯 Révision ciblée</button>
+  <button class="main-menu-btn" onclick="closeMainMenu();launchRPGDirect()">🎭 Tickets (RPG)</button>
+  <button class="main-menu-btn" onclick="closeMainMenu();showScreen('online-duel')">⚔️ Duel en ligne</button>
+  <div class="main-menu-section-lbl">MON ESPACE</div>
+  <button class="main-menu-btn" onclick="closeMainMenu();showScreen('profile');loadProfileScreen()">👤 Profil</button>
+  <button class="main-menu-btn" onclick="closeMainMenu();showStatsScreen()">📊 Statistiques</button>
+  <button class="main-menu-btn" onclick="closeMainMenu();showQuestsScreen()">🎯 Objectifs</button>
+  <button class="main-menu-btn" onclick="closeMainMenu();showLeaderboard()">🏆 Classement</button>
+  <div class="main-menu-section-lbl">PROMO</div>
+  <button class="main-menu-btn" onclick="closeMainMenu();openCreatePromo()">➕ Créer ma promo</button>
+  <button class="main-menu-btn" onclick="closeMainMenu();openJoinPromo()">🔗 Rejoindre une promo</button>
+  <div class="main-menu-section-lbl">PARAMÈTRES</div>
+  <button class="main-menu-btn" onclick="closeMainMenu();openSettingsScreen()">⚙️ Réglages</button>
+  <button class="main-menu-btn" onclick="closeMainMenu();openAdminPanel()">🔑 Admin</button>
+  <div class="main-menu-footer">
+    <button id="mm-login-btn" onclick="closeMainMenu();window._fbSkipLogin=false;var ls=document.getElementById('fb-login-screen');if(ls)ls.style.display='flex';document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');})" style="display:flex;">🔐 Se connecter</button>
+    <button id="mm-logout-btn" onclick="closeMainMenu();window.fbLogout&&window.fbLogout()" style="display:none;">↩ Se déconnecter</button>
+    <div id="mm-user-info" style="font-family:monospace;font-size:8px;color:var(--acc);margin-top:6px;"></div>
+    <div style="font-family:monospace;font-size:7px;color:var(--dim);margin-top:12px;letter-spacing:1px;">v11 · 06/05/2026</div>
+  </div>
+</div>
+
+<!-- LAUNCH WIZARD -->
+<div class="launch-ovl" id="launch-ovl" onclick="closeLaunchSheet(event)">
+  <div class="launch-sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+
+    <!-- STEP 1 : CHOIX DU MODE -->
+    <div id="wiz-step-1">
+      <div class="wiz-header">
+        <button class="wiz-close" onclick="closeLaunchSheet()">✕</button>
+        <div class="wiz-title">Que veux-tu faire ?</div>
+      </div>
+      <div class="mode-cards-grid">
+        <button class="mode-card mode-card-quiz" onclick="wizPickMode('quiz')">
+          <span class="mc-icon">🎯</span>
+          <span class="mc-name">QUIZ</span>
+          <span class="mc-desc">Questions libres · configure tout</span>
+        </button>
+        <button class="mode-card mode-card-srs" onclick="wizPickMode('srs')">
+          <span class="mc-icon">🔁</span>
+          <span class="mc-name">RÉVISION CIBLÉE</span>
+          <span class="mc-desc">S'adapte à tes erreurs</span>
+        </button>
+        <button class="mode-card mode-card-rpg" onclick="wizPickMode('rpg')">
+          <span class="mc-icon">🎭</span>
+          <span class="mc-name">TICKETS</span>
+          <span class="mc-desc">Incidents réels en situation</span>
+        </button>
+        <button class="mode-card mode-card-duel" onclick="wizPickMode('duel')">
+          <span class="mc-icon">⚔️</span>
+          <span class="mc-name">DUEL</span>
+          <span class="mc-desc">Local 2J ou en ligne</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 2a : OPTIONS QUIZ -->
+    <div id="wiz-step-quiz" style="display:none">
+      <div class="wiz-header">
+        <button class="wiz-back" onclick="wizShowStep('1')">◀</button>
+        <div class="wiz-title">🎯 Configure ta partie</div>
+      </div>
+      <div class="sheet-section">
+        <span class="sheet-lbl">📖 Catégorie</span>
+        <div class="wiz-cat-hint">Plusieurs sélections possibles</div>
+        <div id="sheet-cat-grid" class="sheet-cat-grid"></div>
+      </div>
+      <div class="sheet-section">
+        <span class="sheet-lbl">⏱ Timer par question</span>
+        <div class="sheet-row">
+          <button class="sheet-pill sel" data-timer="0"  onclick="wizPickTimer(this)">OFF</button>
+          <button class="sheet-pill"     data-timer="10" onclick="wizPickTimer(this)">10s</button>
+          <button class="sheet-pill"     data-timer="15" onclick="wizPickTimer(this)">15s</button>
+          <button class="sheet-pill"     data-timer="20" onclick="wizPickTimer(this)">20s</button>
+          <button class="sheet-pill"     data-timer="30" onclick="wizPickTimer(this)">30s</button>
+        </div>
+      </div>
+      <div class="sheet-section">
+        <span class="sheet-lbl">❤️ Vies</span>
+        <div class="sheet-row">
+          <button class="sheet-pill"     data-lives="1"  onclick="wizPickLives(this)">1</button>
+          <button class="sheet-pill"     data-lives="3"  onclick="wizPickLives(this)">3</button>
+          <button class="sheet-pill sel" data-lives="5"  onclick="wizPickLives(this)">5</button>
+          <button class="sheet-pill"     data-lives="99" onclick="wizPickLives(this)">∞</button>
+        </div>
+      </div>
+      <div class="sheet-section">
+        <span class="sheet-lbl">⭐ Difficulté</span>
+        <div class="sheet-row">
+          <button class="sheet-pill sel" data-diff="all" onclick="sheetPickDiff(this)">TOUT</button>
+          <button class="sheet-pill"     data-diff="1"   onclick="sheetPickDiff(this)">FACILE ★</button>
+          <button class="sheet-pill"     data-diff="2"   onclick="sheetPickDiff(this)">MOYEN ★★</button>
+          <button class="sheet-pill"     data-diff="3"   onclick="sheetPickDiff(this)">DIFFICILE ★★★</button>
+        </div>
+      </div>
+      <div class="sheet-section">
+        <span class="sheet-lbl">🔢 Nb de questions</span>
+        <div class="sheet-row">
+          <button class="sheet-pill"     data-n="5"    onclick="sheetPickN(this)">5</button>
+          <button class="sheet-pill sel" data-n="10"   onclick="sheetPickN(this)">10</button>
+          <button class="sheet-pill"     data-n="15"   onclick="sheetPickN(this)">15</button>
+          <button class="sheet-pill"     data-n="20"   onclick="sheetPickN(this)">20</button>
+          <button class="sheet-pill"     data-n="30"   onclick="sheetPickN(this)">30</button>
+          <button class="sheet-pill"     data-n="9999" onclick="sheetPickN(this)">TOUT</button>
+        </div>
+      </div>
+      <div class="sheet-section">
+        <span class="sheet-lbl">⚙️ Options</span>
+        <div class="sheet-toggles">
+          <label class="opt-toggle" onclick="toggleJokers()"><div class="tbox" id="jtoggle"></div><span>Jokers</span></label>
+          <label class="opt-toggle" onclick="toggleSound()"><div class="tbox" id="stoggle"></div><span>Sons</span></label>
+        </div>
+      </div>
+      <button class="sheet-launch-btn" onclick="wizLaunchQuiz()">▶ C'EST PARTI !</button>
+    </div>
+
+    <!-- STEP 2b : DUEL -->
+    <div id="wiz-step-duel" style="display:none">
+      <div class="wiz-header">
+        <button class="wiz-back" onclick="wizShowStep('1')">◀</button>
+        <div class="wiz-title">⚔️ Duel</div>
+      </div>
+      <div class="mode-cards-grid" style="grid-template-columns:1fr 1fr;margin-top:16px;">
+        <button class="mode-card mode-card-duel" onclick="closeLaunchSheet();showScreen('duel-setup')">
+          <span class="mc-icon">🕹️</span>
+          <span class="mc-name">LOCAL</span>
+          <span class="mc-desc">2 joueurs · même clavier</span>
+        </button>
+        <button class="mode-card mode-card-duel" onclick="closeLaunchSheet();document.getElementById('screen-online-duel').style.display='flex';document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');})">
+          <span class="mc-icon">🌐</span>
+          <span class="mc-name">EN LIGNE</span>
+          <span class="mc-desc">Contre un ami à distance</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+<!-- GAME -->
+<div id="screen-game" class="screen">
+  <div class="topbar" role="toolbar" aria-label="Contrôles du jeu">
+    <button class="side-menu-btn" onclick="openSideMenu()" aria-label="Ouvrir le menu latéral">☰</button>
+    <div class="gbadge" id="gbadge" role="status" aria-live="polite">— CHILL</div>
+    <button class="pause-btn" id="pause-btn" onclick="togglePause()" aria-label="Mettre en pause" aria-pressed="false">⏸</button>
+    <button onclick="skipQuestion()" title="Passer cette question" aria-label="Passer cette question" style="background:none;border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:7px;padding:7px 9px;border-radius:4px;cursor:pointer;transition:all .12s;" onmouseover="this.style.borderColor='#ff9800';this.style.color='#ff9800'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">⏭ SKIP</button>
+  </div>
+  <div class="score-hud" id="score-hud">
+    <div class="score-side">
+      <div class="sside-box"><span class="sside-lbl">Vies</span><span class="sside-val sv-lives" id="hlives">❤❤❤❤❤</span></div>
+      <div class="sside-box"><span class="sside-lbl">Combo</span><span class="sside-val" style="color:#ff9800" id="hcombo">x1</span></div>
+    </div>
+    <div class="score-main">
+      <div class="score-fraction"><span id="hcorrect" style="color:var(--acc)">0</span><span style="color:var(--text2);font-size:14px"> / </span><span id="htotal" style="color:var(--text2)">10</span></div>
+      <div class="score-lbl" id="score-lbl">bonnes réponses</div>
+      <div id="chrono-display" style="display:none;font-family:monospace;font-size:14px;color:#ff9800;margin-top:4px;">3:00</div>
+    </div>
+    <div class="score-side" style="align-items:flex-end;">
+      <div class="sside-box"><span class="sside-lbl">Q</span><span class="sside-val hp" id="hprog" style="color:var(--acc)">1/10</span></div>
+      <div class="sside-box"><span class="sside-lbl">Record</span><span class="sside-val" style="color:var(--dim)" id="hrecord">0/10</span></div>
+    </div>
+  </div>
+  <div class="jokers-row" id="jokers-row" style="display:none">
+    <button class="joker-btn" id="joker-btn" onclick="useJoker()" aria-label="Utiliser un joker — élimine 2 mauvaises réponses">💡 JOKER <span class="jcount" id="jcount" aria-live="polite">3</span></button>
+    <span class="joker-sep">Élimine 2 mauvaises réponses</span>
+  </div>
+  <div id="speedrun-hud" class="speedrun-hud" style="display:none">
+    <span class="sr-time" id="sr-time">0.0s</span>
+    <span class="sr-record" id="sr-record"></span>
+  </div>
+  <div class="pdots" id="pdots"></div>
+  <div id="boss-bar-wrap" style="display:none">
+    <div class="boss-label" id="boss-label">BOSS PHASE 1/4</div>
+    <div class="boss-bar"><div class="boss-fill" id="boss-fill" style="width:0%"></div></div>
+  </div>
+  <div class="tbarwrap"><div class="tbar" id="tbar"></div></div>
+  <div class="bet-bar" id="bet-bar" style="display:none">
+    <span class="bet-lbl">💰 Parier sur cette question ?</span>
+    <button class="bet-btn" onclick="activateBet()">× 2 RISQUE</button>
+  </div>
+  <div id="question-area"></div>
+  <div class="fbk" id="fbk"></div>
+  <div class="botrow"><button class="next-btn" id="nextbtn">SUIVANT ▶</button><div class="hint-txt" id="hint-txt">A·B·C·D</div></div>
+</div>
+<!-- GAMEOVER -->
+<div id="screen-gameover" class="screen">
+  <div class="gotitle">GAME OVER</div>
+  <div class="gosc" id="go-score">0 / 10</div>
+  <div class="gosubb" id="go-sub">Plus de vies.</div>
+  <div class="rbtns"><button class="btng" onclick="startGame()">↩ REJOUER</button><button class="btnm" onclick="goMenu()">MENU</button></div>
+</div>
+<!-- RESULTS -->
+<div id="screen-results" class="screen">
+  <div class="restitle">RÉSULTATS</div>
+  <div class="rank" id="resrank"></div>
+  <div class="big-score"><span id="res-correct" style="color:var(--acc)">0</span><span class="den"> / <span id="res-total">10</span></span></div>
+  <div class="result-bar"><div class="result-fill" id="result-fill" style="width:0%"></div></div>
+  <div id="res-badges"></div>
+  <div id="exam-summary" style="display:none"></div>
+  <div class="time-summary" id="time-summary" style="display:none">
+    <div class="ts-box"><span class="ts-val" id="ts-avg" style="color:#fbbf24">-</span><div class="ts-lbl">Temps moyen</div></div>
+    <div class="ts-box"><span class="ts-val" id="ts-best" style="color:#00a85a">-</span><div class="ts-lbl">Plus rapide</div></div>
+    <div class="ts-box"><span class="ts-val" id="ts-acc" style="color:var(--acc)">-</span><div class="ts-lbl">Précision</div></div>
+  </div>
+  <div class="rtabs" id="res-tabs">
+    <div class="rtab active" onclick="switchTab('recap',event)">RÉCAP</div>
+    <div class="rtab" onclick="switchTab('errors',event)">ERREURS</div>
+  </div>
+  <div class="tbody active" id="tab-recap"></div>
+  <div class="tbody" id="tab-errors"></div>
+<div class="tbody" id="tab-qstats"></div>
+  <div style="text-align:center;margin-top:12px;">
+    <button class="share-btn" onclick="toggleShare()">📤 PARTAGER MON SCORE</button>
+    <button class="share-btn" id="copy-share-btn" onclick="copyShare()" style="display:none;margin-left:8px;">📋 COPIER</button>
+    <div class="copied-toast" id="copied-toast">✅ Copié !</div>
+    <div class="share-box" id="share-box" style="display:none"></div>
+  </div>
+  <div class="rbtns">
+    <button class="btng" onclick="startGame()">↩ REJOUER</button>
+    <button class="btnr" id="btnrev" onclick="startReview()" style="display:none">📌 RÉVISER ERREURS</button>
+    <button class="btnm" onclick="goMenu()">MENU</button>
+  </div>
+</div>
+
+</div>
+<!-- STATS SCREEN -->
+<div id="screen-stats" class="screen">
+  <div class="stats-title">📊 STATISTIQUES</div>
+  <div class="stats-grid">
+    <div class="stat-box"><span class="stat-box-val" id="st-total" style="color:var(--acc)">0</span><div class="stat-box-lbl">Parties</div></div>
+    <div class="stat-box"><span class="stat-box-val" id="st-pct" style="color:#00a85a">0%</span><div class="stat-box-lbl">Réussite</div></div>
+    <div class="stat-box"><span class="stat-box-val" id="st-streak" style="color:#ff9800">0</span><div class="stat-box-lbl">Streak</div></div>
+  </div>
+  <div class="graph-wrap">
+    <div class="graph-title">📈 PROGRESSION (20 DERNIÈRES PARTIES)</div>
+    <canvas id="prog-canvas" height="120" style="width:100%;display:block;"></canvas>
+  </div>
+  <div class="graph-title" style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:1px;padding:0 2px 8px;">🎯 MAÎTRISE PAR CATÉGORIE</div>
+  <div class="mastery-list" id="mastery-list"></div>
+  <div class="rbtns">
+    <button class="btng" id="btn-weak-cats" onclick="startWeakCats()" style="display:none">🎯 RÉVISER LES CATÉGORIES FAIBLES</button>
+    <button class="btnm" onclick="goMenu()">◀ MENU</button>
+  </div>
+</div>
+<!-- DUEL WIN -->
+<div class="duel-win-screen" id="duel-win">
+  <div class="duel-win-trophy" id="dw-trophy">🏆</div>
+  <div class="duel-win-title" id="dw-title">JOUEUR 1 GAGNE !</div>
+  <div class="duel-final-scores" id="dw-scores"></div>
+  <div class="duel-win-sub" id="dw-sub">Premier à 7 bonnes réponses</div>
+  <div class="rbtns" style="margin-top:20px">
+    <button class="btng" onclick="document.getElementById('duel-win').classList.remove('show');showScreen('duel-setup');">↩ REJOUER</button>
+    <button class="btnm" onclick="document.getElementById('duel-win').classList.remove('show');goMenu()">MENU</button>
+  </div>
+</div>
+<!-- EASTER EGG -->
+<div class="easter-overlay" id="easter-overlay">
+  <div class="easter-emoji">🔥</div>
+  <div class="easter-text" id="easter-text">UNSTOPPABLE !</div>
+  <div class="easter-sub">15 bonnes réponses d'affilée</div>
+</div>
+
+<!-- DUEL SETUP -->
+<div id="screen-duel-setup" class="screen">
+  <div class="duel-setup-title">⚔️ MODE DUEL</div>
+  <div class="duel-players">
+    <div class="duel-player-card p1">
+      <span class="dpc-icon">🔵</span>
+      <span class="dpc-label p1">JOUEUR 1</span>
+      <input class="dpc-input" id="duel-name-1" type="text" value="Joueur 1" maxlength="12">
+      <div class="dpc-keys">Touches : Q · W · E · R</div>
+    </div>
+    <div class="duel-player-card p2">
+      <span class="dpc-icon">🩷</span>
+      <span class="dpc-label p2">JOUEUR 2</span>
+      <input class="dpc-input" id="duel-name-2" type="text" value="Joueur 2" maxlength="12">
+      <div class="dpc-keys">Touches : U · I · O · P</div>
+    </div>
+  </div>
+  <div class="duel-target-row">
+    <span class="duel-target-lbl">OBJECTIF</span>
+    <button class="duel-tbtn sel" data-t="5" onclick="pickDuelTarget(this)">5 pts</button>
+    <button class="duel-tbtn" data-t="7" onclick="pickDuelTarget(this)">7 pts</button>
+    <button class="duel-tbtn" data-t="10" onclick="pickDuelTarget(this)">10 pts</button>
+  </div>
+  <button class="start-btn" style="max-width:400px;margin:0 auto;" onclick="launchDuel()">⚔️ C'EST PARTI !</button>
+  <div class="rbtns" style="margin-top:14px"><button class="btnm" onclick="goMenu()">◀ RETOUR</button></div>
+</div>
+<!-- MODE DISCUSSION -->
+<div id="screen-discussion" class="screen">
+
+  <!-- SETUP -->
+  <div class="disc-setup" id="disc-setup">
+    <div class="disc-setup-title">🖥️ MODE DISCUSSION</div>
+    <div style="font-size:11px;color:var(--text2);text-align:center;margin-bottom:20px;line-height:1.7;">
+      Pour le projo. L'animateur pilote, le groupe débat.<br>
+      La réponse se révèle sur clic.
+    </div>
+    <div class="disc-options">
+      <div class="disc-opt-row">
+        <span class="disc-opt-lbl">TIMER</span>
+        <div class="disc-timer-btns">
+          <button class="disc-tbtn" data-t="0" onclick="pickDiscTimer(this)">SANS</button>
+          <button class="disc-tbtn sel" data-t="30" onclick="pickDiscTimer(this)">30s</button>
+          <button class="disc-tbtn" data-t="60" onclick="pickDiscTimer(this)">1 min</button>
+          <button class="disc-tbtn" data-t="120" onclick="pickDiscTimer(this)">2 min</button>
+        </div>
+      </div>
+      <div class="disc-opt-row">
+        <span class="disc-opt-lbl">QUESTIONS</span>
+        <div class="disc-size-btns">
+          <button class="disc-tbtn" data-n="5" onclick="pickDiscN(this)">5</button>
+          <button class="disc-tbtn sel" data-n="10" onclick="pickDiscN(this)">10</button>
+          <button class="disc-tbtn" data-n="15" onclick="pickDiscN(this)">15</button>
+          <button class="disc-tbtn" data-n="20" onclick="pickDiscN(this)">20</button>
+          <button class="disc-tbtn" data-n="9999" onclick="pickDiscN(this)">TOUT</button>
+        </div>
+      </div>
+    </div>
+    <button class="start-btn" onclick="startDiscussion()">🖥️ LANCER LA SESSION</button>
+    <div class="rbtns" style="margin-top:12px"><button class="btnm" onclick="goMenu()">◀ RETOUR</button></div>
+  </div>
+
+  <!-- PLEIN ÉCRAN QUESTION -->
+  <div id="disc-game" style="display:none;flex:1;display:none;flex-direction:column;">
+    <div class="disc-fullscreen" id="disc-fullscreen" onclick="discClickReveal()">
+      <div class="disc-timer-wrap" id="disc-timer-wrap" style="display:none">
+        <div class="disc-timer-num" id="disc-timer-num">30</div>
+        <div class="disc-timer-bar"><div class="disc-timer-fill" id="disc-timer-fill" style="width:100%"></div></div>
+      </div>
+      <div class="disc-cat-pill" id="disc-cat-pill">CISCO</div>
+      <div class="disc-num" id="disc-qnum">QUESTION 1 / 10</div>
+      <div class="disc-question" id="disc-q">La question s'affiche ici</div>
+      <div class="disc-reveal" id="disc-reveal">
+        <div class="disc-answer-label">✅ RÉPONSE</div>
+        <div class="disc-answer" id="disc-ans">La réponse</div>
+        <div class="disc-explanation" id="disc-exp">L'explication complète</div>
+      </div>
+      <div class="disc-hint pulse" id="disc-hint">Clic ou Espace pour révéler →</div>
+    </div>
+    <!-- Barre animateur -->
+    <div class="disc-controls">
+      <button class="disc-ctrl-btn disc-reveal-btn" id="disc-reveal-btn" onclick="discReveal()">👁 RÉVÉLER</button>
+      <button class="disc-ctrl-btn disc-next-btn" id="disc-next-btn" onclick="discNext()" style="display:none">SUIVANT ▶</button>
+      <div class="disc-score-row" id="disc-score-row" style="display:none">
+        <span style="font-size:9px;color:var(--dim);font-family:monospace;margin-right:4px;">GROUPE :</span>
+        <button class="disc-score-btn green" onclick="discScore(1)" title="Trouvé !">✅</button>
+        <button class="disc-score-btn red" onclick="discScore(0)" title="Pas trouvé">❌</button>
+      </div>
+      <span class="disc-prog" id="disc-prog">1 / 10</span>
+      <button class="disc-ctrl-btn disc-next-btn" onclick="discQuit()" style="margin-left:auto;font-size:7px;">✕ QUITTER</button>
+    </div>
+  </div>
+
+  <!-- RÉSULTATS -->
+  <div class="disc-results" id="disc-results" style="display:none">
+    <div class="disc-res-title">SESSION TERMINÉE</div>
+    <div class="disc-res-big" id="disc-res-score">0 / 10</div>
+    <div class="disc-res-sub" id="disc-res-sub">Le groupe a trouvé 0 questions sur 10</div>
+    <div class="disc-res-list" id="disc-res-list"></div>
+    <div class="rbtns">
+      <button class="btng" onclick="startDiscussion()">↩ REJOUER</button>
+      <button class="btnm" onclick="discQuit()">MENU</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- RPG TICKET OVERLAY -->
+<div class="rpg-overlay" id="rpg-overlay">
+  <div class="rpg-top">
+    <div class="rpg-title">📋 CHOISIR UN TICKET</div>
+    <div class="rpg-pts-display">💰 <span id="rpg-score">0</span> pts</div>
+  </div>
+  <div class="rpg-sub">Choisis ton incident — plus c'est risqué, plus ça rapporte</div>
+  <div class="rpg-tickets" id="rpg-tickets"></div>
+</div>
+
+<!-- EVENT BANNER -->
+<div class="event-banner" id="event-banner">
+  <span class="event-icon" id="event-icon">⚡</span>
+  <span id="event-text">Événement !</span>
+  <span class="event-dismiss" onclick="dismissEvent()">✕</span>
+</div>
+
+<!-- CHAOS BADGE -->
+<div class="chaos-badge" id="chaos-badge" style="display:none">⚡ CHAOS MODE</div>
+
+<!-- CHAOS EVENT OVERLAY -->
+<div class="chaos-event-overlay" id="chaos-event-overlay">
+  <div class="chaos-countdown" id="chaos-countdown">⚡</div>
+  <div class="chaos-event-title" id="chaos-event-title" style="color:#c026d3">CHAOS !</div>
+  <div class="chaos-event-desc" id="chaos-event-desc">Règles modifiées</div>
+  <button onclick="dismissChaosEvent()" style="font-family:monospace;font-size:8px;padding:10px 18px;background:#c026d3;color:#fff;border:none;border-radius:5px;cursor:pointer;margin-top:8px;">CONTINUER →</button>
+</div>
+
+<!-- RPG INTRO SCREEN -->
+<div id="screen-rpg-intro" class="screen">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#c8bc9a;font-family:'Courier New',Courier,monospace;">
+    <div style="max-width:480px;width:100%;position:relative;">
+
+      <!-- Punaise -->
+      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);width:20px;height:20px;background:#8b1a1a;border-radius:50%;border:2px solid #4a0a0a;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,.4);"></div>
+
+      <!-- Note / Mémo -->
+      <div style="background:#fef9e7;border:1px solid #d4c070;padding:32px 28px 24px;box-shadow:3px 4px 12px rgba(0,0,0,.25), -1px 1px 3px rgba(0,0,0,.1);transform:rotate(-0.5deg);position:relative;">
+
+        <!-- Lignes de réglure -->
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(transparent,transparent 27px,rgba(100,140,200,.12) 28px);pointer-events:none;border-radius:2px;"></div>
+
+        <div style="position:relative;z-index:1;">
+          <!-- En-tête -->
+          <div style="text-align:center;margin-bottom:18px;border-bottom:2px solid #d4c070;padding-bottom:12px;">
+            <div style="font-size:9px;letter-spacing:4px;color:#92400e;text-transform:uppercase;margin-bottom:4px;">Mémo interne — Confidentiel</div>
+            <div style="font-size:20px;font-weight:bold;color:#1c1200;letter-spacing:1px;">BIENVENUE, TECHNICIEN</div>
+            <div style="font-size:10px;color:#7a6a4a;margin-top:4px;">Service Informatique — Prise de poste</div>
+          </div>
+
+          <!-- Corps -->
+          <div style="font-size:13px;color:#2a1a08;line-height:2;margin-bottom:18px;">
+            Tu viens d'être recruté en tant que technicien systèmes et réseaux.<br><br>
+            Des tickets d'incidents vont t'être assignés. Ton supérieur t'observe.<br><br>
+            <strong>Chaque action compte.</strong> Une bonne décision renforce sa confiance. Une erreur la fait chuter.<br><br>
+            Si tu le déçois trop... il te montrera la sortie.<br>
+            Si tu brilles... une promotion t'attend.
+          </div>
+
+          <!-- Règles -->
+          <div style="background:#fef3c7;border:1px solid #d97706;padding:10px 14px;margin-bottom:18px;font-size:12px;color:#1c1200;line-height:1.9;">
+            <div style="font-size:8px;letter-spacing:3px;color:#92400e;margin-bottom:6px;">RÈGLES DU JEU</div>
+            → Plusieurs actions possibles par ticket<br>
+            → Les actions essayées restent visibles mais grisées<br>
+            → Bonne piste : +10 confiance. Mauvaise : -10<br>
+            → Question technique après : +5 si bon, -5 si faux<br>
+            → Tu as <strong>1 joker</strong>. Tu en gagnes d'autres si tu réponds bien.
+          </div>
+
+          <!-- Nb tickets -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:10px;color:#4a3a20;flex-wrap:wrap;">
+            <span>Nombre de tickets :</span>
+            <button onclick="rpgSetTickets(3)" class="rpg-intro-n-btn" data-n="3" style="background:#d4c9a8;border:1.5px solid #8a7a5a;font-family:'Courier New',monospace;font-size:10px;padding:4px 12px;cursor:pointer;color:#1a1208;">3</button>
+            <button onclick="rpgSetTickets(5)" class="rpg-intro-n-btn sel" data-n="5" style="background:#8b1a1a;color:#fef3c7;border:1.5px solid #1a1208;font-family:'Courier New',monospace;font-size:10px;padding:4px 12px;cursor:pointer;">5</button>
+            <button onclick="rpgSetTickets(8)" class="rpg-intro-n-btn" data-n="8" style="background:#d4c9a8;border:1.5px solid #8a7a5a;font-family:'Courier New',monospace;font-size:10px;padding:4px 12px;cursor:pointer;color:#1a1208;">8</button>
+          </div>
+
+          <!-- Signature -->
+          <div style="border-top:1px dashed #c8b870;padding-top:12px;display:flex;justify-content:space-between;align-items:flex-end;">
+            <div style="font-size:9px;color:#7a6a4a;">
+              Signé : M. Durand, DSI<br>
+              <span style="font-style:italic;">Bonne chance.</span>
+            </div>
+            <div style="text-align:right;">
+              <button onclick="rpgStartFromIntro()" style="background:#8b1a1a;color:#fef3c7;border:2px solid #1a1208;font-family:'Courier New',monospace;font-size:10px;padding:10px 18px;cursor:pointer;box-shadow:3px 3px 0 #1a1208;letter-spacing:2px;font-weight:bold;transition:all .1s;">
+                PRENDRE MON PREMIER TICKET →
+              </button>
+            </div>
+          </div>
+
+          <!-- Retour -->
+          <button onclick="goMenu()" style="width:100%;margin-top:10px;padding:8px;background:none;color:#7a6a4a;border:1px dashed #8a7a5a;font-family:'Courier New',monospace;font-size:9px;cursor:pointer;letter-spacing:1px;">
+            ← retourner à l'accueil
+          </button>
+        </div>
+      </div>
+
+      <!-- Coin corné -->
+      <div style="position:absolute;bottom:0;right:0;width:0;height:0;border-style:solid;border-width:0 0 20px 20px;border-color:transparent transparent #d4c070 transparent;"></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- RPG NARRATIF SCREEN -->
+<div id="screen-rpg-narrative" class="screen">
+
+  <!-- BONUS SLOT -->
+  <div class="rpg-bonus-slot" id="rpg-bonus-slot">
+    <div class="rpg-bonus-token" id="rpg-bonus-token" onclick="toggleBonusMenu()" title="Bonus disponible">⭐</div>
+  </div>
+  <!-- Menu bonus -->
+  <div class="rpg-bonus-menu" id="rpg-bonus-menu">
+    <div class="rpg-bonus-menu-title">BONUS DISPONIBLES</div>
+    <div id="rpg-bonus-list"></div>
+  </div>
+  <!-- Lexique popup -->
+  <div class="rpg-lexique" id="rpg-lexique">
+    <div class="rpg-lexique-title">📖 LEXIQUE</div>
+    <div id="rpg-lexique-content"></div>
+  </div>
+
+  <!-- LEXIQUE PLEINE PAGE -->
+  <div class="rpg-lexique-full" id="rpg-lexique-full">
+    <div class="rpg-lex-header">
+      <span class="rpg-lex-title">📖 LEXIQUE TECHNIQUE</span>
+      <button class="rpg-lex-close" onclick="document.getElementById('rpg-lexique-full').classList.remove('show')">✕ FERMER</button>
+    </div>
+    <div class="rpg-lex-body">
+      <div class="rpg-lex-hint" id="rpg-lex-hint">💡 Les termes en surbrillance sont liés au ticket en cours.</div>
+      <div id="rpg-lex-content"></div>
+    </div>
+  </div>
+
+  <!-- BARRE DE CONFIANCE EN BAS -->
+  <div class="rpg-trust-bar-outer" id="rpg-trust-bar">
+    <span class="rpg-trust-label">CONFIANCE CHEF</span>
+    <div class="rpg-trust-track">
+      <div class="rpg-trust-fill" id="rpg-trust-fill" style="width:50%"></div>
+    </div>
+    <span class="rpg-trust-pct" id="rpg-trust-pct">50%</span>
+  </div>
+  <!-- Indicateur delta -->
+  <div class="rpg-conf-delta" id="rpg-conf-delta"></div>
+
+  <!-- TOPBAR -->
+  <div class="rpg-topbar">
+    <button class="rpg-back-btn" id="rpg-back-btn" onclick="rpgGoBack()">◀ RETOUR</button>
+    <span class="rpg-badge-box" id="rpg-badge">TECHNICIEN</span>
+    <span style="font-family:'Courier New',monospace;font-size:10px;color:#d97706;" id="rpg-joker-count">🃏 1 JOKER</span>
+    <span class="rpg-topbar-prog" id="rpg-prog">TICKET 1/5</span>
+  </div>
+
+
+  <!-- Bouton bonus flottant (droite) -->
+  <div class="rpg-bonus-btn" id="rpg-bonus-btn">
+    <div class="rpg-bonus-icon" onclick="rpgToggleBonusMenu()" title="Bonus disponibles">
+      🎁
+      <div class="rpg-bonus-count" id="rpg-bonus-count">3</div>
+    </div>
+  </div>
+  <!-- Menu des bonus -->
+  <div class="rpg-bonus-menu" id="rpg-bonus-menu">
+    <div class="rpg-bonus-menu-title">BONUS DISPONIBLES</div>
+    <div id="rpg-bonus-list"></div>
+    <button class="rpg-bonus-close" onclick="rpgToggleBonusMenu()">✕ FERMER</button>
+  </div>
+
+  <!-- VUE TICKET (liste des actions) -->
+  <div class="rpg-view rpg-view-ticket active" id="rpg-view-ticket">
+    <div class="rpg-content">
+      <div class="rpg-narrative-box" id="rpg-narrative-text">Connexion au système de tickets...</div>
+
+      <!-- TICKET JAUNE -->
+      <div class="rpg-ticket-main" id="rpg-ticket-main">
+        <div class="rpg-ticket-stripe">
+          <span class="rpg-ticket-stripe-num" id="rpg-ticket-num">TICKET #4471</span>
+          <span class="rpg-ticket-stripe-prio" id="rpg-ticket-prio">Niveau P2 — URGENT</span>
+        </div>
+        <div class="rpg-ticket-body">
+          <div class="rpg-ticket-desc-lbl">
+            <span class="rpg-ticket-status-dot"></span>
+            PROBLÈME EN COURS
+          </div>
+          <div class="rpg-ticket-desc" id="rpg-ticket-sit">Chargement...</div>
+          <div class="rpg-ticket-meta" id="rpg-ticket-meta">
+            <span>📋 Assigné à : <strong>Vous</strong></span>
+            <span>🕒 <span id="rpg-ticket-time">14:32</span></span>
+            <span>📍 <span id="rpg-ticket-loc">Site principal</span></span>
+          </div>
+        </div>
+        <!-- Référence ticket -->
+        <div id="rpg-barcode" style="font-family:'Courier New',monospace;font-size:8px;color:#b09050;letter-spacing:1px;padding:4px 0 2px;margin-top:6px;"></div>
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="rpg-actions-wrap">
+        <div class="rpg-actions-label">QUE FAIRE ?</div>
+        <div class="rpg-actions-grid" id="rpg-actions"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VUE ACTION (résultat d'un choix) -->
+  <div class="rpg-view rpg-view-action" id="rpg-view-action">
+    <div class="rpg-content">
+      <div class="rpg-action-result" id="rpg-action-result">
+        <div class="rpg-result-header" id="rpg-result-header">RÉSULTAT DE L'ACTION</div>
+        <div class="rpg-result-text" id="rpg-result-text"></div>
+
+        <!-- Sous-choix si nécessaire -->
+        <div class="rpg-subchoices" id="rpg-subchoices" style="display:none">
+          <div class="rpg-subchoice-label">QUELLE SUITE ?</div>
+          <div class="rpg-actions-grid" id="rpg-subchoice-list"></div>
+        </div>
+
+        <!-- Question technique -->
+        <div class="rpg-inline-question" id="rpg-inline-q" style="display:none">
+          <div class="rpg-inline-q-label">✅ BONNE PISTE — AS-TU BIEN COMPRIS POURQUOI ?</div>
+          <div class="rpg-inline-q-text" id="rpg-inline-q-text"></div>
+          <div class="rpg-inline-opts" id="rpg-inline-opts"></div>
+          <div class="rpg-inline-expl" id="rpg-inline-expl"></div>
+        </div>
+
+        <!-- Résolution -->
+        <div class="rpg-resolution" id="rpg-resolution" style="display:none">
+          <span class="rpg-resolution-label" id="rpg-resolution-label">RÉSOLUTION</span>
+          <div id="rpg-resolution-text"></div>
+        </div>
+
+        <!-- Bouton suivant -->
+        <button class="rpg-next-btn" id="rpg-next-btn" onclick="rpgNextTicket()">TICKET SUIVANT ▶</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- RPG FIN -->
+<div id="screen-rpg-end" class="screen" style="display:none;align-items:center;justify-content:center;min-height:100vh;padding:30px;background:#d4c9a8;">
+  <div class="rpg-end-container">
+    <div style="font-size:11px;letter-spacing:3px;color:#8b1a1a;margin-bottom:12px;">RAPPORT DE FIN DE SESSION</div>
+    <div class="rpg-end-title" id="rpg-end-title">RÉSULTATS</div>
+    <div class="rpg-end-sub" id="rpg-end-sub">Fin de session</div>
+    <hr class="rpg-end-divider">
+    <div class="rpg-end-grid">
+      <div class="rpg-end-stat">
+        <span class="rpg-end-val" id="rpg-end-conf">50%</span>
+        <div class="rpg-end-lbl">Confiance finale</div>
+      </div>
+      <div class="rpg-end-stat">
+        <span class="rpg-end-val" id="rpg-end-ok" style="color:#4a7a20">0</span>
+        <div class="rpg-end-lbl">Tickets résolus</div>
+      </div>
+      <div class="rpg-end-stat">
+        <span class="rpg-end-val" id="rpg-end-fail" style="color:#8b2010">0</span>
+        <div class="rpg-end-lbl">Tickets ratés</div>
+      </div>
+    </div>
+    <hr class="rpg-end-divider">
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <button onclick="startRPGNarrative()" style="background:#8b1a1a;color:#fef3c7;border:2px solid #5a0a0a;font-family:'Courier New',monospace;font-size:11px;padding:11px 22px;cursor:pointer;box-shadow:3px 3px 0 #3a0808;letter-spacing:2px;transition:all .1s;">↩ REJOUER</button>
+      <button onclick="goMenu()" style="background:#f5ede0;color:#4a3a20;border:2px solid #8a7a5a;font-family:'Courier New',monospace;font-size:11px;padding:11px 22px;cursor:pointer;box-shadow:2px 2px 0 #8a7a5a;letter-spacing:2px;transition:all .1s;">QUITTER</button>
+    </div>
+    <div style="margin-top:14px;font-size:9px;color:#9a8a6a;letter-spacing:1px;">
+      Signé : M. Durand, DSI · Service Informatique
+    </div>
+  </div>
+</div>
+
+<!-- SIDE MENU -->
+<div class="side-ovl" id="side-ovl" onclick="closeSideMenu()"></div>
+<div class="side-panel" id="side-panel">
+  <div class="side-header">
+    <span class="side-title">TSSRQUIZZ</span>
+    <span class="side-sub" id="side-context">En cours de partie...</span>
+  </div>
+  <div class="side-body">
+    <button class="side-btn" onclick="closeSideMenu();togglePause&&typeof paused!=='undefined'&&paused?togglePause():null;goMenu()">
+      <span class="sbi">🏠</span>
+      <span class="sbl"><span class="sbname">MENU PRINCIPAL</span><span class="sbdesc">Retourner à l'accueil</span></span>
+    </button>
+    <button class="side-btn" id="sb-resume" onclick="closeSideMenu();if(typeof togglePause==='function')togglePause();">
+      <span class="sbi">▶️</span>
+      <span class="sbl"><span class="sbname">REPRENDRE</span><span class="sbdesc">Continuer la partie</span></span>
+    </button>
+    <div class="side-sep"></div>
+    <button class="side-btn" onclick="closeSideMenu();startGame()">
+      <span class="sbi">↩</span>
+      <span class="sbl"><span class="sbname">REJOUER</span><span class="sbdesc">Recommencer avec les mêmes options</span></span>
+    </button>
+    <button class="side-btn" id="sb-joker" onclick="closeSideMenu();useJoker()">
+      <span class="sbi">💡</span>
+      <span class="sbl"><span class="sbname" id="sb-joker-lbl">JOKER</span><span class="sbdesc">Éliminer 2 mauvaises réponses</span></span>
+    </button>
+    <div class="side-sep"></div>
+    <button class="side-btn" onclick="closeSideMenu();showStatsScreen()">
+      <span class="sbi">📊</span>
+      <span class="sbl"><span class="sbname">STATISTIQUES</span><span class="sbdesc">Ta progression et maîtrise</span></span>
+    </button>
+    <button class="side-btn" onclick="closeSideMenu();goMenu()">
+      <span class="sbi">⚙️</span>
+      <span class="sbl"><span class="sbname">PARAMÈTRES</span><span class="sbdesc">Changer catégorie / mode</span></span>
+    </button>
+  </div>
+  <div class="side-footer">
+    <div id="fb-auth-section">
+      <div id="fb-user-info"></div>
+      <button id="fb-login-btn" onclick="window._fbSkipLogin=false;var ls=document.getElementById('fb-login-screen');if(ls)ls.style.display='flex';document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');})" style="display:flex;">🔐 SE CONNECTER</button>
+      <button id="fb-logout-btn" onclick="window.fbLogout&&window.fbLogout()">↩ SE DÉCONNECTER</button>
+      <div id="fb-sync-status">
+        <div class="fb-sync-dot"></div>
+        <span id="fb-sync-text">Synchro active</span>
+      </div>
+    </div>
+    <div style="font-size:9px;color:var(--dim);text-align:center;font-family:monospace;margin-top:10px;">Esc pour fermer</div>
+  </div>
+</div>
+
+<!-- SRS SCREEN -->
+<div id="screen-srs" class="screen">
+  <div style="text-align:center;margin-bottom:16px;">
+    <div style="font-family:monospace;font-size:12px;color:var(--acc);margin-bottom:4px;">🎯 RÉVISION CIBLÉE</div>
+    <div style="font-size:10px;color:var(--text2);">Adapté à tes erreurs — s'améliore à chaque session</div>
+  </div>
+  <div class="srs-stats-grid">
+    <div class="srs-stat-box"><span class="srs-stat-val srs-due" id="srs-due" style="color:#fb923c">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">À revoir</div></div>
+    <div class="srs-stat-box"><span class="srs-stat-val" id="srs-new" style="color:#38bdf8">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Nouveaux</div></div>
+    <div class="srs-stat-box"><span class="srs-stat-val" id="srs-mastered" style="color:#4ade80">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Maîtrisés</div></div>
+    <div class="srs-stat-box"><span class="srs-stat-val" id="srs-total" style="color:var(--acc)">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Vues total</div></div>
+  </div>
+  <div style="font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Clique une catégorie pour réviser les questions à retravailler</div>
+  <div class="srs-cat-rows" id="srs-cat-rows"></div>
+  <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center;">
+    <button onclick="startSRSSession('mix')" style="background:var(--acc);color:var(--bg);border:none;font-family:monospace;font-size:8px;padding:12px 20px;border-radius:5px;cursor:pointer;letter-spacing:1px;">🎯 TOUT RÉVISER (TOUTES CATÉGORIES)</button>
+    <button onclick="goMenu()" style="background:var(--panel);color:var(--text2);border:1.5px solid var(--border2);font-family:monospace;font-size:8px;padding:12px 20px;border-radius:5px;cursor:pointer;letter-spacing:1px;">◀ MENU</button>
+  </div>
+</div>
+
+
+<!-- ===== RÉGLAGES ===== -->
+<div id="screen-settings" class="screen">
+  <div style="text-align:center;margin-bottom:20px;">
+    <div style="font-family:monospace;font-size:12px;color:var(--acc);">⚙️ RÉGLAGES</div>
+  </div>
+  <div style="max-width:500px;margin:0 auto;">
+    <div class="settings-section">
+      <span class="settings-section-title">🎨 Thème</span>
+      <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+        <button onclick="toggleDarkLight()" id="settings-theme-toggle"
+          style="background:var(--panel);border:1.5px solid var(--border2);border-radius:24px;padding:10px 20px;cursor:pointer;font-family:monospace;font-size:11px;color:var(--text);display:flex;align-items:center;gap:8px;transition:all .2s;">
+          <span id="settings-theme-icon">🌙</span>
+          <span id="settings-theme-label">MODE SOMBRE</span>
+        </button>
+        <span style="font-family:monospace;font-size:8px;color:var(--dim);">Clique pour basculer</span>
+      </div>
+    </div>
+    <div class="settings-section">
+      <span class="settings-section-title">🔊 Audio</span>
+      <div class="settings-toggle-row" onclick="toggleSound()">
+        <div><div class="settings-toggle-label">Effets sonores</div><div class="settings-toggle-sub">Sons de validation, erreurs, combos</div></div>
+        <div class="tbox" id="stoggle-settings"></div>
+      </div>
+      <div class="settings-toggle-row" onclick="toggleLofi()">
+        <div><div class="settings-toggle-label">🎵 Musique Lo-Fi</div><div class="settings-toggle-sub">Ambiance musicale pendant le quiz</div></div>
+        <button id="lofi-btn-settings" style="background:none;border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:7px;padding:5px 10px;border-radius:4px;cursor:pointer;">OFF</button>
+      </div>
+    </div>
+    <div class="settings-section">
+      <span class="settings-section-title">👤 Compte</span>
+      <div class="settings-toggle-row">
+        <div><div class="settings-toggle-label" id="settings-email-display">—</div><div class="settings-toggle-sub">Compte connecté</div></div>
+        <button onclick="fbLogout()" style="background:rgba(220,38,38,.1);border:1.5px solid #dc2626;color:#dc2626;font-family:monospace;font-size:7px;padding:7px 12px;border-radius:4px;cursor:pointer;">DÉCO</button>
+      </div>
+    </div>
+    <div style="text-align:center;"><button onclick="goMenu()" style="background:var(--panel);border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:8px;padding:12px 20px;border-radius:5px;cursor:pointer;">◀ MENU</button></div>
+  </div>
+</div>
+
+<!-- ===== PROFIL ===== -->
+<div id="screen-profile" class="screen">
+  <div class="avatar-picker" id="avatar-picker" onclick="if(event.target===this)closeAvatarPicker()">
+    <div class="avatar-picker-box">
+      <div style="font-family:monospace;font-size:9px;color:var(--acc);text-align:center;margin-bottom:14px;">CHOISIR TON AVATAR</div>
+      <div class="avatar-grid" id="avatar-grid"></div>
+      <button onclick="closeAvatarPicker()" style="width:100%;padding:10px;background:var(--panel);border:1.5px solid var(--border2);border-radius:6px;font-family:monospace;font-size:8px;color:var(--text2);cursor:pointer;">FERMER</button>
+    </div>
+  </div>
+  <div style="max-width:500px;margin:0 auto;padding:0 4px;">
+    <div class="profile-card">
+      <div class="profile-banner" id="profile-banner"></div>
+      <div class="profile-avatar-wrap" id="profile-avatar-display" onclick="openAvatarPicker()">😊</div>
+      <div class="profile-info">
+        <div class="profile-name" id="profile-name-display">—</div>
+        <div class="profile-title-badge" id="profile-title-display">DÉBUTANT</div>
+        <div class="profile-promo" id="profile-promo-display"></div>
+      </div>
+    </div>
+    <div class="profile-stats-row">
+      <div class="profile-stat"><span class="profile-stat-val" id="prof-mastered" style="color:#4ade80">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Maîtrisés</div></div>
+      <div class="profile-stat"><span class="profile-stat-val" id="prof-streak" style="color:#fb923c">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Streak</div></div>
+      <div class="profile-stat"><span class="profile-stat-val" id="prof-badges" style="color:var(--acc)">0</span><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Badges</div></div>
+    </div>
+    <div class="profile-form">
+      <div style="font-family:monospace;font-size:9px;color:var(--acc);margin-bottom:16px;">✏️ MODIFIER MON PROFIL</div>
+      <span class="profile-form-lbl">Pseudo</span>
+      <input class="profile-input" id="prof-pseudo-input" type="text" maxlength="20" placeholder="Ton pseudo...">
+      <span class="profile-form-lbl">Promo / Groupe</span>
+      <input class="profile-input" id="prof-promo-input" type="text" maxlength="30" placeholder="Ex: TSSR B2 — AFPA Niort">
+      <span class="profile-form-lbl">Thème</span>
+
+      <button class="profile-save-btn" onclick="saveProfile()">💾 SAUVEGARDER</button>
+      <div id="prof-save-msg" style="display:none;text-align:center;font-family:monospace;font-size:9px;color:#4ade80;margin-top:8px;">✅ Profil sauvegardé !</div>
+    </div>
+    <div style="text-align:center;margin-top:16px;"><button onclick="goMenu()" style="background:var(--panel);border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:8px;padding:12px 20px;border-radius:5px;cursor:pointer;">◀ MENU</button></div>
+  </div>
+</div>
+
+<!-- ===== LEADERBOARD ===== -->
+<div id="screen-leaderboard" class="screen">
+  <div style="text-align:center;margin-bottom:16px;">
+    <div style="font-family:monospace;font-size:12px;color:var(--acc);margin-bottom:4px;">🏆 LEADERBOARD</div>
+    <div style="font-size:9px;color:var(--text2);">Ta promo en temps réel</div>
+  </div>
+  <div id="lb-my-rank-banner"></div>
+  <div class="lb-tabs">
+    <button class="lb-tab active" id="lb-tab-mastered" onclick="lbSwitchTab('mastered')">⭐ MAÎTRISÉS</button>
+    <button class="lb-tab" id="lb-tab-rate" onclick="lbSwitchTab('rate')">🎯 RÉUSSITE</button>
+    <button class="lb-tab" id="lb-tab-streak" onclick="lbSwitchTab('streak')">🔥 STREAK</button>
+    <button class="lb-tab" id="lb-tab-badges" onclick="lbSwitchTab('badges')">🏅 BADGES</button>
+  </div>
+  <div class="lb-list" id="lb-list"><div style="text-align:center;padding:32px;font-family:monospace;font-size:9px;color:var(--text2);">⏳ Chargement...</div></div>
+  <div style="display:flex;gap:8px;justify-content:center;">
+    <button onclick="loadLeaderboard()" style="background:var(--a2);border:1.5px solid var(--acc);color:var(--acc);font-family:monospace;font-size:8px;padding:10px 16px;border-radius:5px;cursor:pointer;">🔄 ACTUALISER</button>
+    <button onclick="goMenu()" style="background:var(--panel);border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:8px;padding:10px 16px;border-radius:5px;cursor:pointer;">◀ MENU</button>
+  </div>
+</div>
+
+<!-- ===== OBJECTIFS ===== -->
+
+<!-- PROMO SCREEN -->
+<div id="screen-promo" class="screen">
+  <div style="padding:24px 0;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+      <button onclick="goMenu()" style="background:none;border:1.5px solid var(--border2);border-radius:6px;padding:8px 12px;font-family:monospace;font-size:9px;color:var(--text2);cursor:pointer;">◀ RETOUR</button>
+      <span style="font-family:monospace;font-size:10px;color:var(--acc);letter-spacing:2px;">🎓 PROMOS</span>
+    </div>
+
+    <!-- TABS -->
+    <div style="display:flex;gap:0;border:1.5px solid var(--border2);border-radius:8px;overflow:hidden;margin-bottom:20px;">
+      <button id="promo-tab-create" onclick="promoSwitchTab('create')"
+        style="flex:1;padding:11px;font-family:monospace;font-size:8px;cursor:pointer;border:none;background:var(--acc);color:var(--bg);letter-spacing:1px;transition:all .15s;">
+        ➕ CRÉER MA PROMO
+      </button>
+      <button id="promo-tab-join" onclick="promoSwitchTab('join')"
+        style="flex:1;padding:11px;font-family:monospace;font-size:8px;cursor:pointer;border:none;background:transparent;color:var(--text2);letter-spacing:1px;transition:all .15s;">
+        🔗 REJOINDRE
+      </button>
+    </div>
+
+    <!-- PANEL CRÉER -->
+    <div id="promo-panel-create">
+      <div style="font-family:monospace;font-size:8px;color:var(--text2);margin-bottom:16px;line-height:1.8;">
+        Crée ta promo et partage le code à tes camarades.<br>
+        Tu deviens admin — tu peux voir les stats de ta promo.
+      </div>
+      <input id="promo-create-name" type="text" placeholder="Nom de la promo (ex: TSSR 2025 Lyon)"
+        style="width:100%;padding:12px 14px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:6px;font-family:monospace;font-size:12px;color:var(--text);outline:none;box-sizing:border-box;margin-bottom:10px;">
+      <input id="promo-create-school" type="text" placeholder="Établissement (optionnel)"
+        style="width:100%;padding:12px 14px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:6px;font-family:monospace;font-size:12px;color:var(--text);outline:none;box-sizing:border-box;margin-bottom:14px;">
+      <button onclick="promoCreate()"
+        style="width:100%;padding:14px;background:var(--acc);border:none;border-radius:8px;font-family:monospace;font-size:9px;color:var(--bg);cursor:pointer;letter-spacing:1px;">
+        CRÉER LA PROMO
+      </button>
+      <div id="promo-create-result" style="margin-top:14px;display:none;background:var(--panel);border:1.5px solid var(--border2);border-radius:8px;padding:16px;text-align:center;">
+        <div style="font-family:monospace;font-size:8px;color:var(--text2);margin-bottom:8px;">CODE DE TA PROMO</div>
+        <div id="promo-code-display" style="font-family:monospace;font-size:22px;color:var(--acc);letter-spacing:6px;margin-bottom:12px;"></div>
+        <button onclick="promoCodeCopy()"
+          style="padding:8px 18px;background:none;border:1.5px solid var(--border2);border-radius:6px;font-family:monospace;font-size:8px;color:var(--text2);cursor:pointer;">
+          📋 COPIER LE CODE
+        </button>
+      </div>
+    </div>
+
+    <!-- PANEL REJOINDRE -->
+    <div id="promo-panel-join" style="display:none;">
+      <div style="font-family:monospace;font-size:8px;color:var(--text2);margin-bottom:16px;line-height:1.8;">
+        Entre le code de ta promo pour la rejoindre.<br>
+        Tu apparaîtras dans le classement de ta promo.
+      </div>
+      <!-- Liste des promos disponibles -->
+      <div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;">PROMOS DISPONIBLES</div>
+      <div id="promo-list" style="margin-bottom:16px;display:flex;flex-direction:column;gap:6px;">
+        <div style="font-family:monospace;font-size:9px;color:var(--text2);padding:12px;background:var(--panel);border-radius:6px;text-align:center;">Chargement…</div>
+      </div>
+      <div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;">OU ENTRE UN CODE DIRECTEMENT</div>
+      <div style="display:flex;gap:8px;">
+        <input id="promo-join-code" type="text" placeholder="Code promo (6 lettres)"
+          style="flex:1;padding:12px 14px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:6px;font-family:monospace;font-size:14px;color:var(--text);outline:none;box-sizing:border-box;letter-spacing:4px;text-transform:uppercase;">
+        <button onclick="promoJoin()"
+          style="padding:12px 18px;background:var(--acc);border:none;border-radius:6px;font-family:monospace;font-size:9px;color:var(--bg);cursor:pointer;letter-spacing:1px;white-space:nowrap;">
+          REJOINDRE
+        </button>
+      </div>
+      <div id="promo-join-result" style="margin-top:12px;font-family:monospace;font-size:9px;display:none;"></div>
+    </div>
+
+    <!-- MA PROMO (si déjà dans une promo) -->
+    <div id="promo-my-section" style="margin-top:24px;display:none;">
+      <div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin-bottom:10px;">MA PROMO</div>
+      <div id="promo-my-card" style="background:var(--panel);border:1.5px solid var(--acc);border-radius:10px;padding:16px;">
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- DUEL EN LIGNE -->
+<div id="screen-online-duel" class="screen" style="display:none;">
+  <div class="online-topbar">
+    <button onclick="cancelOnlineSession()" style="background:none;border:1.5px solid var(--border2);border-radius:8px;padding:8px 12px;font-family:monospace;font-size:9px;color:var(--text2);cursor:pointer;letter-spacing:1px;">✕ FERMER</button>
+    <div class="online-topbar-title">⚔️ DUEL EN LIGNE</div>
+    <div style="width:80px;"></div>
+  </div>
+
+  <!-- SETUP PANEL -->
+  <div id="online-setup-panel">
+    <div class="online-duel-setup">
+      <div class="online-setup-hero">
+        <div class="online-setup-emoji">⚔️</div>
+        <div class="online-setup-title">Affronte un pote en direct</div>
+        <div class="online-setup-sub">Créez une session, partagez le code, jouez la même question simultanément</div>
+      </div>
+
+      <button id="online-create-btn" class="online-cta-create" onclick="createOnlineSession()">
+        ✚ CRÉER UNE SESSION
+      </button>
+
+      <div class="menu-divider">ou rejoindre</div>
+
+      <input id="online-join-input" class="online-join-input" type="text" maxlength="6"
+        placeholder="ABCD12" oninput="this.value=this.value.toUpperCase()">
+      <button class="online-cta-join" onclick="joinOnlineSession()">
+        → REJOINDRE
+      </button>
+
+      <!-- Code affiché après création -->
+      <div id="online-code-box" style="display:none;">
+        <div class="online-code-display" onclick="copyOnlineCode()">
+          <div class="online-code-lbl-top">CODE DE SESSION (clique pour copier)</div>
+          <div class="online-code-num" id="online-code-num">······</div>
+          <div class="online-code-lbl">Partage ce code avec ton ami</div>
+          <div class="online-code-copied" id="online-copied">📋 Copié !</div>
+        </div>
+      </div>
+
+      <!-- Attente adversaire -->
+      <div id="online-waiting" style="display:none;">
+        <div class="online-waiting">
+          <div class="online-waiting-text">En attente de l'adversaire…</div>
+          <div class="online-waiting-dots">
+            <div class="online-waiting-dot"></div>
+            <div class="online-waiting-dot"></div>
+            <div class="online-waiting-dot"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="online-error-area"></div>
+    </div>
+  </div>
+
+  <!-- VOTE PANEL -->
+  <div id="online-vote-panel" style="display:none;">
+    <div id="online-vote-area"></div>
+  </div>
+
+  <!-- ROUND RECAP PANEL -->
+  <div id="online-round-panel" style="display:none;">
+    <div id="online-round-area"></div>
+  </div>
+
+  <!-- GAME PANEL -->
+  <div id="online-game-panel" style="display:none;">
+    <div id="online-hud" class="online-hud-v2"></div>
+    <div class="tbarwrap" style="margin-bottom:12px;"><div class="tbar" style="width:100%;background:var(--acc);height:4px;border-radius:2px;" id="tbar-online-bar"></div></div>
+    <div id="online-question-area"></div>
+  </div>
+
+  <!-- FINISH PANEL -->
+  <div id="online-finish-panel" style="display:none;">
+    <div id="online-finish-area"></div>
+  </div>
+</div>
+
+<div id="screen-quests" class="screen">
+  <div style="text-align:center;margin-bottom:16px;">
+    <div style="font-family:monospace;font-size:12px;color:var(--acc);margin-bottom:4px;">🎯 OBJECTIFS</div>
+    <div style="font-size:9px;color:var(--text2);">Défis quotidiens et hebdomadaires</div>
+  </div>
+  <div id="quests-content"></div>
+  <div style="text-align:center;margin-top:8px;"><button onclick="goMenu()" style="background:var(--panel);border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:8px;padding:12px 20px;border-radius:5px;cursor:pointer;">◀ MENU</button></div>
+</div>
+
+<div class="flash" id="flash"></div>
+<div class="povl" id="povl">
+  <div class="ptitle">⏸ PAUSE</div>
+  <button class="pbtn" onclick="togglePause()">▶ REPRENDRE</button>
+  <button class="pbtn2" onclick="goMenu()">MENU</button>
+</div>
+<!-- ============ SCRIPTS PRINCIPAUX — defer pour perf ============ -->
+<script src="js/data.js" defer></script>
+<script src="js/mechanics.js" defer></script>
+<script src="js/srs.js" defer></script>
+<script src="js/profile.js" defer></script>
+<script src="js/game.js" defer></script>
