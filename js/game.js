@@ -1600,14 +1600,14 @@ function revealOnlineQuestion(data){
 }
 
 // ---------- HOST ADVANCE (compute scores + next q or round end or finish) ----------
-async function hostAdvance(data){
+async function hostAdvance(data, isSkip){
   var cfg=data.config||{};
   var curQ=data.currentQ||{};
   var correct = (curQ.t === 'tf') ? ((curQ.a===true || curQ.a===0) ? 0 : 1) : curQ.a;
   var hostA = data.host&&data.host.answer;
   var guestA = data.guest&&data.guest.answer;
-  var hostOk = hostA && hostA.choice == correct;
-  var guestOk= guestA && guestA.choice == correct;
+  var hostOk = !isSkip && hostA && hostA.choice == correct;
+  var guestOk= !isSkip && guestA && guestA.choice == correct;
 
   // Score computation
   var hScore = data.host&&data.host.score || 0;
@@ -1722,12 +1722,14 @@ function renderOnlineHUD(data, me, them, isHost){
     '<div class="ohud-mid">'+
       '<span class="ohud-mid-q">Q '+qIdx+(totalQ?' / '+totalQ:'')+'</span>'+
       (cfg.mode==='rounds'?'<span class="ohud-mid-round">Round '+((data.roundIdx||0)+1)+'/'+cfg.totalRounds+'</span>':'')+
+      (isHost ? '<button class="ohud-skip" onclick="hostSkipOnlineQuestion()" title="Passer cette question (Host)">⏭ SKIP</button>' : '')+
     '</div>'+
     '<div class="ohud-side ohud-them">'+
       (them&&them.answer?'<span class="ohud-flag ok">✓</span>':'<span class="ohud-flag wait">…</span>')+
       '<span class="ohud-score">'+(hideScores?'??':themScore)+'</span>'+
       '<span class="ohud-name">'+themName+'</span>'+
     '</div>';
+}
 }
 
 // ---------- FINISH ----------
@@ -6347,4 +6349,39 @@ window.hostManualStart = function(){
   if(onlineSession.role === 'host'){
     _onlineUpdate({status:'starting'});
   }
+};
+
+window.hostSkipOnlineQuestion = async function(){
+  if(onlineSession.role !== 'host') return;
+  if(!confirm("Passer cette question ? (Personne ne marquera de points)")) return;
+  try {
+    var docRef = window._fbDoc(window._fbDb, 'duels', onlineSession.code);
+    var snap = await window._fbGetDoc(docRef);
+    if(!snap.exists()) return;
+    var data = snap.data();
+    await _onlineUpdate({ reveal: true });
+    setTimeout(function(){ hostAdvance(data, true); }, 1500);
+    showToast("Question passée par l'hôte");
+  } catch(e){ console.error("Skip error", e); }
+};
+
+window.viewBugReports = async function(){
+  if(!window._fbDb) return;
+  try {
+    showToast("Chargement des rapports...");
+    var colRef = window._fbCollection(window._fbDb, 'reports');
+    var q = window._fbQuery(colRef, window._fbOrderBy('timestamp', 'desc'), window._fbLimit(20));
+    var snap = await window._fbGetDocs(q);
+    if(snap.empty){ alert("Aucun rapport trouvé."); return; }
+    var txt = "--- DERNIERS RAPPORTS ---\n\n";
+    snap.forEach(function(doc){
+      var d = doc.data();
+      txt += "[" + new Date(d.timestamp).toLocaleString() + "] " + d.type + "\n";
+      txt += "Q: " + d.questionText + "\n";
+      txt += "User: " + d.userPseudo + "\n";
+      txt += "------------------------\n";
+    });
+    console.log(txt);
+    alert("Les rapports ont été affichés dans la CONSOLE (F12).\n\n" + txt.substring(0, 500) + "...");
+  } catch(e){ alert("Erreur : " + e.message); }
 };

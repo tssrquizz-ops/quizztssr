@@ -193,3 +193,21 @@ body::before {
   to { opacity: 0; transform: translate(-50%, -20px); }
 }
 
+/* Skip button online */
+.ohud-skip {
+  background: none;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  font-family: monospace;
+  font-size: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 5px;
+  transition: all .2s;
+  letter-spacing: 1px;
+}
+.ohud-skip:hover {
+  background: #ef4444;
+  color: #fff;
+}
