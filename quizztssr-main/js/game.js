@@ -1212,6 +1212,29 @@ function handleOnlineSessionUpdate(data){
     return;
   }
 
+  // 3b. READY TO START — host must click launch
+  if(data.status==='ready_to_start'){
+    _showOnlinePanel('setup');
+    var wMsg = document.getElementById('online-waiting-msg');
+    var wAnim = document.getElementById('online-waiting-anim');
+    var hBtn = document.getElementById('online-host-start-btn');
+    var cBox = document.getElementById('online-code-box');
+    var cBtn = document.getElementById('online-create-btn');
+    if(cBtn) cBtn.style.display='none';
+    if(cBox) cBox.style.display='none';
+    document.getElementById('online-waiting').style.display='block';
+    if(isHost){
+      if(wMsg) wMsg.textContent='Configuration terminée !';
+      if(wAnim) wAnim.style.display='none';
+      if(hBtn) hBtn.style.display='block';
+    } else {
+      if(wMsg) wMsg.textContent="L'hôte va lancer la partie...";
+      if(wAnim) wAnim.style.display='flex';
+      if(hBtn) hBtn.style.display='none';
+    }
+    return;
+  }
+
   // 4. ROUND_END — recap entre rounds
   if(data.status==='round_end'){
     _showOnlinePanel('round');
@@ -1354,7 +1377,7 @@ async function computeAndStartConfig(data){
     config={mode:'qbq', qPerRound:1, totalRounds:count, target:0, speedBonus:speedBonus};
   }
 
-  await _onlineUpdate({status:'starting', config:config, qIdx:0, roundIdx:0});
+  await _onlineUpdate({status:'ready_to_start', config:config, qIdx:0, roundIdx:0});
 }
 
 // ---------- ROUND RECAP ----------
@@ -1423,7 +1446,7 @@ async function hostGenerateQuestionsAndStart(data){
       CATS[k].qs.forEach(function(q){ all.push(Object.assign({},q,{_cat:CATS[k].label})); });
     }); return all;
   })();
-  pool = src.filter(function(q){ return q.t==='qcm' || q.t==='debug' || q.t==='tf' || q.t==='fill' || q.t==='calc'; });
+  pool = src; // Allow all question types in online duel
   if(pool.length<totalQ){ pool=src.slice(); }
   pool=shuffle(pool).slice(0,totalQ);
   onlineSession.questionsPool=pool;
@@ -2473,10 +2496,7 @@ function launchDuel(){
   duelScores=[0,0]; duelTurn=0; duelAnswered=false; duelQIdx=0; duelCurQ=null;
 
   var cat=CATS[selCat], pool=cat.qs;
-  // Duel: only use qcm and debug questions (both have opts array)
-  pool=pool.filter(function(q){return q.t==='qcm'||q.t==='debug';});
   if(selDiff!=='all') pool=pool.filter(function(q){return q.d===parseInt(selDiff);});
-  if(!pool.length) pool=cat.qs.filter(function(q){return q.t==='qcm'||q.t==='debug';});
   if(!pool.length) pool=cat.qs; // ultimate fallback
   session=freshShuffle(pool).slice(0,50);
   markShown(session);
@@ -6322,3 +6342,9 @@ function showToast(msg, type) {
     setTimeout(function() { t.remove(); }, 300);
   }, 3000);
 }
+
+window.hostManualStart = function(){
+  if(onlineSession.role === 'host'){
+    _onlineUpdate({status:'starting'});
+  }
+};

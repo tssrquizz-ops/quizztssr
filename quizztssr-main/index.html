@@ -1287,12 +1287,16 @@ document.addEventListener('DOMContentLoaded', function() {
       <!-- Attente adversaire -->
       <div id="online-waiting" style="display:none;">
         <div class="online-waiting">
-          <div class="online-waiting-text">En attente de l'adversaire…</div>
-          <div class="online-waiting-dots">
+          <div id="online-waiting-msg" class="online-waiting-text">En attente de l'adversaire…</div>
+          <div id="online-waiting-anim" class="online-waiting-dots">
             <div class="online-waiting-dot"></div>
             <div class="online-waiting-dot"></div>
             <div class="online-waiting-dot"></div>
           </div>
+          <!-- Bouton de lancement pour l'hôte -->
+          <button id="online-host-start-btn" class="online-cta-create" style="display:none;margin-top:20px;width:100%;" onclick="hostManualStart()">
+            ⚔️ COMMENCER LA PARTIE
+          </button>
         </div>
       </div>
 
