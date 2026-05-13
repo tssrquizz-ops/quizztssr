@@ -1730,7 +1730,6 @@ function renderOnlineHUD(data, me, them, isHost){
       '<span class="ohud-name">'+themName+'</span>'+
     '</div>';
 }
-}
 
 // ---------- FINISH ----------
 function showOnlineFinish(data){
