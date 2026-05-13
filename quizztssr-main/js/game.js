@@ -1690,7 +1690,10 @@ async function hostAdvance(data, isSkip){
     });
     return;
   }
-  var qData={ idx:nextIdx, q:next.q, opts:next.opts||[], a:next.a, x:next.x||'', t:next.t||'qcm',
+  var correctIdx = (next.a !== undefined) ? next.a : (next.correct || next.items || 0);
+  if(next.t==='tf') correctIdx = (next.a===true || next.a===0) ? 0 : 1;
+
+  var qData={ idx:nextIdx, q:next.q, opts:next.opts||[], a:correctIdx, x:next.x||'', t:next.t||'qcm',
               shuffleSeed:Math.floor(Math.random()*999999) };
   await _onlineUpdate({
     qIdx:nextIdx, currentQ:qData, reveal:false,
