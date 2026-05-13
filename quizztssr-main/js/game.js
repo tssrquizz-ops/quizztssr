@@ -1471,10 +1471,14 @@ function renderOnlineQuestion(qData){
     var optsCls = isTF ? 'opts opts-vf' : 'opts';
     optsHtml = '<div class="'+optsCls+'">'+
       pairs.map(function(opt,ki){
+        var raw = opt.t;
+        var optHtml = (typeof raw === 'object' && raw && raw.v !== undefined)
+          ? safeQuestionHtml(String(raw.v)) + (raw.sub ? '<span class="calc-sub">' + escapeUserHtml(raw.sub) + '</span>' : '')
+          : safeQuestionHtml(String(raw));
         return '<button class="opt online-opt'+(isTF?' opt-tf':'')+'" data-orig="'+opt.i+'" data-correct="'+qData.a+'" '+
                'onclick="submitOnlineAnswer('+opt.i+',this)">'+
                (isTF?'':('<span class="okey">'+keys[ki]+'</span>'))+
-               '<span>'+safeQuestionHtml(String(opt.t))+'</span></button>';
+               '<span>'+optHtml+'</span></button>';
       }).join('')+
     '</div>';
   } else {
@@ -1482,11 +1486,18 @@ function renderOnlineQuestion(qData){
     optsHtml = '<div style="font-family:monospace;font-size:10px;color:var(--text2);padding:20px;text-align:center;">Réponds dans les '+escapeUserHtml(String(qData.x))+'s</div>';
   }
 
-  area.innerHTML =
-    '<div class="qcard online-qcard"><div class="qnum">Question '+((qData.idx||0)+1)+'</div>'+
-      '<div class="qtext">'+safeQuestionHtml(qData.q)+'</div></div>'+
-    optsHtml+
-    '<div id="online-feedback" class="online-feedback"></div>';
+    area.innerHTML =
+      '<div class="qcard online-qcard"><div class="qnum">Question '+((qData.idx||0)+1)+'</div>'+
+        '<div class="qtext">'+safeQuestionHtml(qData.q)+'</div></div>'+
+      optsHtml+
+      '<div id="online-feedback" class="online-feedback"></div>'+
+      '<div class="q-feedback-row">'+
+        '<button class="q-f-btn bug" onclick="reportBug(window._lastRenderedQ)" title="Signaler un problème">⚠️ Bug</button>'+
+        '<div class="q-f-votes">'+
+          '<button class="q-f-btn vote" onclick="voteQ(window._lastRenderedQ, 1)" title="Utile">👍</button>'+
+          '<button class="q-f-btn vote" onclick="voteQ(window._lastRenderedQ, -1)" title="Pas utile">👎</button>'+
+        '</div>'+
+      '</div>';
 
   // Timer 25s shared
   // Timer visuel dans le panel online
@@ -1937,6 +1948,18 @@ function showQ(){
       default:       renderQCM(q,area);
     }
   }
+
+  // feedback row
+  var fRow = document.createElement('div');
+  fRow.className = 'q-feedback-row';
+  fRow.innerHTML = `
+    <button class="q-f-btn bug" onclick="reportBug(session[idx])" title="Signaler un problème">⚠️ Bug</button>
+    <div class="q-f-votes">
+      <button class="q-f-btn vote" onclick="voteQ(session[idx], 1)" title="Utile">👍</button>
+      <button class="q-f-btn vote" onclick="voteQ(session[idx], -1)" title="Pas utile">👎</button>
+    </div>
+  `;
+  area.appendChild(fRow);
 
   // timer — support _customTimer depuis le launcher quiz
   var _timerBase = (window._customTimer !== undefined && window._customTimer !== null) ? window._customTimer : cfg.timer;
@@ -6231,3 +6254,70 @@ function updateMenuTopbar(){
   }, true);
 })();
 
+
+// --- Question Feedback Functions ---
+function getQId(q) {
+  if (!q || !q.q) return 'unknown';
+  var str = q.q;
+  var hash = 0;
+  for (var i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return 'q_' + Math.abs(hash);
+}
+
+window.reportBug = async function(q) {
+  if (!window._fbUser) { showToast('Connecte-toi pour signaler un bug', 'err'); return; }
+  var reason = prompt("Quel est le problème avec cette question ? (Optionnel)");
+  if (reason === null) return;
+  
+  try {
+    var qid = getQId(q);
+    var report = {
+      qid: qid,
+      qText: q.q,
+      reason: reason || 'Non précisé',
+      uid: window._fbUser.uid,
+      pseudo: (lsGet('tssr5_profile',{}).pseudo) || window._fbUser.email,
+      ts: window._fbServerTs ? window._fbServerTs() : new Date().toISOString()
+    };
+    await window._fbSetDoc(window._fbDoc(window._fbDb, 'reports', qid + '_' + Date.now()), report);
+    showToast('Signalement envoyé ! Merci 🙏', 'ok');
+  } catch (e) {
+    console.error(e);
+    showToast('Erreur lors du signalement', 'err');
+  }
+};
+
+window.voteQ = async function(q, val) {
+  if (!window._fbUser) { showToast('Connecte-toi pour voter', 'err'); return; }
+  try {
+    var qid = getQId(q);
+    var docRef = window._fbDoc(window._fbDb, 'question_stats', qid);
+    var snap = await window._fbGetDoc(docRef);
+    var data = snap.exists() ? snap.data() : { up: 0, down: 0 };
+    
+    if (val > 0) data.up = (data.up || 0) + 1;
+    else data.down = (data.down || 0) + 1;
+    
+    await window._fbSetDoc(docRef, data, { merge: true });
+    showToast('Merci pour ton vote !', 'ok');
+  } catch (e) {
+    console.error(e);
+    showToast('Erreur lors du vote', 'err');
+  }
+};
+
+function showToast(msg, type) {
+  var t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);padding:12px 20px;border-radius:30px;background:var(--panel);border:1px solid var(--border2);color:var(--text);font-size:10px;font-family:monospace;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,0.5);animation:toastIn 0.3s forwards;';
+  if (type === 'err') t.style.borderColor = '#ef4444';
+  if (type === 'ok') t.style.borderColor = '#22c55e';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function() {
+    t.style.animation = 'toastOut 0.3s forwards';
+    setTimeout(function() { t.remove(); }, 300);
+  }, 3000);
+}
