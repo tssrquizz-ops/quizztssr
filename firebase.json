@@ -1,0 +1,19 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "download",
+      "data.js",
+      "mechanics.js",
+      "srs.js",
+      "profile.js",
+      "firebase-init.js"
+    ]
+  }
+}
