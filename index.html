@@ -18,10 +18,10 @@
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.googleapis.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com;">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="TSSR Quiz — Application d'entraînement aux examens TSSR : réseaux, Windows Server, sécurité, et bien plus.">
+<meta name="description" content="TSSRQUIZZ — Application d'entraînement aux examens TSSR : réseaux, Windows Server, sécurité, et bien plus.">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="fr_FR">
-<meta property="og:title" content="TSSR QUIZ — Entraînement examens TSSR">
+<meta property="og:title" content="TSSRQUIZZ — Entraînement examens TSSR">
 <meta property="og:description" content="Quiz interactif : 380+ questions, révision espacée, classement, modes variés.">
 <meta property="og:url" content="https://tssrquizz-2744f.web.app/">
 <meta name="twitter:card" content="summary_large_image">
@@ -62,8 +62,8 @@
 /* ── TOPBAR ── */
 .menu-topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 18px;}
 .menu-topbar-center{flex:1;text-align:center;}
-.menu-logo-small{font-family:monospace;font-size:14px;font-weight:700;color:var(--text);letter-spacing:3px;text-transform:uppercase;}
-.menu-logo-small span{font-size:8px;opacity:.35;letter-spacing:1px;vertical-align:middle;margin-left:4px;font-weight:400;}
+.menu-logo-small{font-family:'Press Start 2P',cursive;font-size:12px;background:linear-gradient(to right, var(--acc), #8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;text-transform:uppercase;filter:drop-shadow(0 0 8px var(--a2));}
+.menu-logo-small span{font-family:'DM Mono',monospace;font-size:8px;color:var(--text2);opacity:.6;letter-spacing:1px;margin-left:8px;font-weight:400;-webkit-text-fill-color:var(--text2);vertical-align:middle;}
 .menu-ham-btn{background:none;border:1.5px solid var(--border2);border-radius:8px;padding:9px 11px;cursor:pointer;display:flex;flex-direction:column;gap:4px;transition:border-color .15s;}
 .menu-ham-btn span{display:block;width:18px;height:2px;background:var(--text2);border-radius:2px;transition:all .2s;}
 .menu-ham-btn:hover{border-color:var(--acc);}
@@ -98,7 +98,7 @@
 <body class="vt-light cat-reseau ui-arcade">
 <!-- Lien d'évitement pour navigation clavier (accessibilité) -->
 <a href="#main-content" class="skip-link">Aller au contenu principal</a>
-<div id="app" role="application" aria-label="TSSR Quiz">
+<div id="app" role="application" aria-label="TSSRQUIZZ">
 
 <!-- ============ ÉCRAN LOGIN PLEIN PAGE ============ -->
 <div id="fb-login-screen">
@@ -281,7 +281,8 @@ document.addEventListener('DOMContentLoaded', function() {
       </button>
     </div>
     <div class="menu-topbar-center">
-      <div class="menu-logo-small" style="font-family:'Press Start 2P',cursive;font-size:12px;background:linear-gradient(to right, var(--acc), #8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;text-transform:uppercase;filter:drop-shadow(0 0 8px var(--a2));">TSSRQUIZZ<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text2);opacity:.6;letter-spacing:1px;margin-left:8px;font-weight:400;-webkit-text-fill-color:var(--text2);vertical-align:middle;">v14</span></div>
+      <!-- VERSION_TAG: v14 — ne pas supprimer -->
+      <div class="menu-logo-small">TSSRQUIZZ<span>v14</span></div>
     </div>
     <div class="menu-topbar-right" style="display:flex;align-items:center;gap:8px;">
       <button id="theme-toggle-btn" onclick="toggleDarkLight()" title="Basculer thème clair/sombre" aria-label="Basculer entre le thème clair et sombre"
@@ -1001,7 +1002,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="side-ovl" id="side-ovl" onclick="closeSideMenu()"></div>
 <div class="side-panel" id="side-panel">
   <div class="side-header">
-    <span class="side-title">TSSR QUIZ</span>
+    <span class="side-title">TSSRQUIZZ</span>
     <span class="side-sub" id="side-context">En cours de partie...</span>
   </div>
   <div class="side-body">
