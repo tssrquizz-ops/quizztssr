@@ -1429,8 +1429,10 @@ async function hostGenerateQuestionsAndStart(data){
   onlineSession.questionsPool=pool;
 
   // Send first question
-  var first=pool[0];
-  var qData={ idx:0, q:first.q, opts:first.opts||[], a:first.a, x:first.x||'', t:first.t||'qcm',
+  var correctIdx = first.a;
+  if(first.t==='tf') correctIdx = (first.a===true || first.a===0) ? 0 : 1;
+
+  var qData={ idx:0, q:first.q, opts:first.opts||[], a:correctIdx, x:first.x||'', t:first.t||'qcm',
               shuffleSeed:Math.floor(Math.random()*999999) };
   await new Promise(function(r){setTimeout(r,3000);}); // wait for countdown
   await _onlineUpdate({
@@ -1527,7 +1529,7 @@ window.submitOnlineAnswer = async function(chosen, btnEl){
 function revealOnlineQuestion(data){
   clearInterval(timerInt);
   var curQ=data.currentQ;
-  var correct = curQ&&curQ.a;
+  var correct = (curQ && curQ.t === 'tf') ? ((curQ.a===true || curQ.a===0) ? 0 : 1) : (curQ && curQ.a);
   // Show correct + my error
   document.querySelectorAll('.online-opt').forEach(function(b){
     b.disabled=true;
@@ -1566,7 +1568,7 @@ function revealOnlineQuestion(data){
 async function hostAdvance(data){
   var cfg=data.config||{};
   var curQ=data.currentQ||{};
-  var correct = curQ.a;
+  var correct = (curQ.t === 'tf') ? ((curQ.a===true || curQ.a===0) ? 0 : 1) : curQ.a;
   var hostA = data.host&&data.host.answer;
   var guestA = data.guest&&data.guest.answer;
   var hostOk = hostA && hostA.choice===correct;
@@ -1636,7 +1638,10 @@ async function hostAdvance(data){
       if(!onlineSession.code) return;
       var next = pool[nextIdx];
       if(!next){ await _onlineUpdate({status:'finished'}); return; }
-      var qData={ idx:nextIdx, q:next.q, opts:next.opts||[], a:next.a, x:next.x||'', t:next.t||'qcm',
+      var correctIdx = next.a;
+      if(next.t==='tf') correctIdx = (next.a===true || next.a===0) ? 0 : 1;
+
+      var qData={ idx:nextIdx, q:next.q, opts:next.opts||[], a:correctIdx, x:next.x||'', t:next.t||'qcm',
                   shuffleSeed:Math.floor(Math.random()*999999) };
       await _onlineUpdate({
         status:'playing', qIdx:nextIdx, currentQ:qData, reveal:false,
