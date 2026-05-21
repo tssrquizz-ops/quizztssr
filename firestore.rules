@@ -58,5 +58,17 @@ service cloud.firestore {
       );
       allow delete: if request.auth != null && resource.data.host.uid == request.auth.uid;
     }
+
+    match /reports/{reportId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null;
+      allow update, delete: if isAdmin();
+    }
+
+    match /question_stats/{questionId} {
+      allow read: if true;
+      allow create, update: if request.auth != null;
+      allow delete: if isAdmin();
+    }
   }
 }

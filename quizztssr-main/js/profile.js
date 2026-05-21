@@ -147,10 +147,10 @@ function renderLeaderboard(){
   var scoreLabels={mastered:'maîtrisés',rate:'% réussite',streak:'j. streak',badges:'badges'};
   var myRank=sorted.findIndex(function(x){return x.uid===myUid;})+1;
   var bannerEl=document.getElementById('lb-my-rank-banner');
-  if(bannerEl) bannerEl.innerHTML=myRank>0?'<div class="lb-my-rank">Tu es #'+myRank+' sur '+sorted.length+' joueurs — '+(sorted[myRank-1][_lbTab]||0)+' '+scoreLabels[_lbTab]+'</div>':'';
+  if(bannerEl) bannerEl.innerHTML=window.safeHTML?window.safeHTML(myRank>0?'<div class="lb-my-rank">Tu es #'+myRank+' sur '+sorted.length+' joueurs — '+(sorted[myRank-1][_lbTab]||0)+' '+scoreLabels[_lbTab]+'</div>':''):'';
   var list=document.getElementById('lb-list');
   if(!sorted.length){list.innerHTML='<div style="text-align:center;padding:24px;font-family:monospace;font-size:9px;color:var(--text2);">Aucun joueur pour l\'instant</div>';return;}
-  list.innerHTML=sorted.map(function(user,i){
+  var html = sorted.map(function(user,i){
     var rank=i+1,isMe=user.uid===myUid;
     var rankDisp=rankIcons[rank]||('<span style="font-size:11px;color:var(--dim);">#'+rank+'</span>');
     return '<div class="lb-row'+(isMe?' lb-me':'')+'">'+
@@ -164,6 +164,7 @@ function renderLeaderboard(){
       '</span><span class="lb-score-lbl">'+scoreLabels[_lbTab]+'</span></div>'+
     '</div>';
   }).join('');
+  list.innerHTML = window.safeHTML ? window.safeHTML(html) : html;
 }
 
 function showLeaderboard(){ showScreen('leaderboard'); loadLeaderboard(); }
@@ -224,11 +225,12 @@ function buildQuestsScreen(){
   var doneW=WEEKLY.filter(function(q){return q.done;}).length;
   var content=document.getElementById('quests-content');
   if(!content) return;
-  content.innerHTML=
+  var html = 
     '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">📅 AUJOURD\'HUI ('+doneD+'/'+DAILY.length+')</div>'+
     DAILY.map(renderQ).join('')+
     '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin:16px 0 8px;">📆 CETTE SEMAINE ('+doneW+'/'+WEEKLY.length+')</div>'+
     WEEKLY.map(renderQ).join('');
+  content.innerHTML = window.safeHTML ? window.safeHTML(html) : html;
 }
 function showQuestsScreen(){buildQuestsScreen();showScreen('quests');}
 

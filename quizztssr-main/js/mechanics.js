@@ -156,7 +156,7 @@ function renderMultiblank(q, area) {
       '<span class="mbk-blank" id="mbk-blank-' + i + '" data-bidx="' + i + '">?</span>'
     );
   });
-  codeDiv.innerHTML = codeHtml;
+  codeDiv.innerHTML = window.safeHTML ? window.safeHTML(codeHtml) : codeHtml;
   area.appendChild(codeDiv);
 
   // Groups of options for each blank
@@ -462,7 +462,7 @@ function renderHotspot(q, area) {
       '<span class="hs-marker" id="hs-m-' + i + '" onclick="hsClickMarker(' + i + ')">[' + (i+1) + ']</span>'
     );
   });
-  diagDiv.innerHTML = diagHtml;
+  diagDiv.innerHTML = window.safeHTML ? window.safeHTML(diagHtml) : diagHtml;
   area.appendChild(diagDiv);
 
   // Progress

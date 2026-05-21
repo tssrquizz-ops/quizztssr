@@ -119,11 +119,12 @@ function showSRSScreen() {
     var pct = cat.qs.length > 0 ? Math.round(seen / cat.qs.length * 100) : 0;
     var row = document.createElement('div');
     row.className = 'srs-cat-row';
-    row.innerHTML =
+    var rowHtml =
       '<span class="srs-cat-name">' + cat.icon + ' ' + cat.label + '</span>' +
       (due > 0 ? '<span class="srs-cat-due">'+due+' à revoir</span>' : '') +
       '<div class="srs-cat-bar"><div class="srs-cat-fill" style="width:'+pct+'%"></div></div>' +
       '<span style="font-family:monospace;font-size:8px;color:var(--dim);">'+pct+'%</span>';
+    row.innerHTML = window.safeHTML ? window.safeHTML(rowHtml) : rowHtml;
     row.onclick = (function(cid){ return function(){
       selCat = cid;
       selMode = 'srs_mode';
@@ -181,7 +182,8 @@ function buildQStatsTab() {
       '<div class="qstat-streak" title="' + statusLabels[status] + '">' + statusLabels[status] + '</div>' +
       '</div>';
   });
-  tab.innerHTML = rows.join('') || '<div style="padding:16px;text-align:center;font-size:10px;color:var(--dim)">Pas encore de données pour ces questions</div>';
+  var html = rows.join('') || '<div style="padding:16px;text-align:center;font-size:10px;color:var(--dim)">Pas encore de données pour ces questions</div>';
+  tab.innerHTML = window.safeHTML ? window.safeHTML(html) : html;
 }
 
 
@@ -196,6 +198,6 @@ function skipQuestion(){
   var fbk = el('fbk');
   fbk.className = 'fbk show';
   fbk.style.cssText = 'border:1.5px solid #ff9800;background:rgba(255,152,0,.08);color:#cc7700;display:block;';
-  fbk.innerHTML = '⏭ Question passée.';
+  fbk.textContent = '⏭ Question passée.';
   el('nextbtn').className = 'next-btn show';
 }

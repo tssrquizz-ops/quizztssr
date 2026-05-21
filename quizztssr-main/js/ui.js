@@ -18,11 +18,8 @@
  * @param {object|null} user - Objet Firebase User ou null si déconnecté
  */
 window.fbUpdateAuthUI = function(user) {
-  // Mettre à jour le profil menu (fonctions définies dans game.js)
-  setTimeout(function() {
-    if (typeof updateMenuProfile === 'function') updateMenuProfile();
-    if (typeof updateMenuTopbar === 'function') updateMenuTopbar();
-  }, 300);
+  // Remplacement du setTimeout arbitraire par un événement robuste
+  document.dispatchEvent(new CustomEvent('authStateChanged', { detail: user }));
 
   var loginBtn  = document.getElementById('fb-login-btn');
   var logoutBtn = document.getElementById('fb-logout-btn');

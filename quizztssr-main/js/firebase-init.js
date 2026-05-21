@@ -62,18 +62,32 @@ window.fbLoadUserData = async function(uid) {
     var snap = await getDoc(doc(db, 'users', uid));
     if (snap.exists()) {
       var d = snap.data();
+      // Fonction utilitaire locale pour éviter la répétition du try/catch et gérer le quota
+      var safeLsSet = function(key, val) {
+        try { localStorage.setItem(key, val); }
+        catch(e) {
+          if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+            console.warn('Quota localStorage dépassé ! Nettoyage de l\'historique...');
+            try { localStorage.removeItem('tssr5_history'); } catch(e3){}
+            try { localStorage.setItem(key, val); } catch(e2) {
+              console.error('Impossible de sauvegarder', key, 'le stockage est plein.');
+            }
+          }
+        }
+      };
+
       var map = {srs:'tssr5_qdb',stats:'tssr5_stats',streak:'tssr5_streak',
                  badges:'tssr5_badges',history:'tssr5_history',hs:'tssr5_hs'};
       Object.keys(map).forEach(function(k){
-        if(d[k]!==undefined) try{localStorage.setItem(map[k],JSON.stringify(d[k]));}catch(e){}
+        if(d[k]!==undefined) safeLsSet(map[k],JSON.stringify(d[k]));
       });
       if (d.prefs) {
         // vt (thème) : géré uniquement en local — pas chargé depuis Firestore
-        if (d.prefs.ui)     try{localStorage.setItem('tssr5_ui', d.prefs.ui);}catch(e){}
-        if (d.prefs.sound  !== undefined) try{localStorage.setItem('tssr5_sound',  JSON.stringify(d.prefs.sound));}catch(e){}
-        if (d.prefs.qcount !== undefined) try{localStorage.setItem('tssr5_qcount', JSON.stringify(d.prefs.qcount));}catch(e){}
+        if (d.prefs.ui)     safeLsSet('tssr5_ui', d.prefs.ui);
+        if (d.prefs.sound  !== undefined) safeLsSet('tssr5_sound',  JSON.stringify(d.prefs.sound));
+        if (d.prefs.qcount !== undefined) safeLsSet('tssr5_qcount', JSON.stringify(d.prefs.qcount));
       }
-      if (d.profile) try{localStorage.setItem('tssr5_profile', JSON.stringify(d.profile));}catch(e){}
+      if (d.profile) safeLsSet('tssr5_profile', JSON.stringify(d.profile));
     }
     // Recharger vars globales
     try{window.hsD     = JSON.parse(localStorage.getItem('tssr5_hs')    ||'{}');}catch(e){}

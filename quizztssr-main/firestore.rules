@@ -21,7 +21,12 @@ service cloud.firestore {
 
     match /leaderboard/{entryId} {
       allow read: if true;
-      allow create, update: if request.auth != null && request.auth.uid == entryId;
+      allow create, update: if request.auth != null && request.auth.uid == entryId
+        && (!('totalPlayed' in request.resource.data) || request.resource.data.totalPlayed is number)
+        && (!('totalCorrect' in request.resource.data) || request.resource.data.totalCorrect is number)
+        && (!('mastered' in request.resource.data) || request.resource.data.mastered is number)
+        && (!('streak' in request.resource.data) || request.resource.data.streak is number)
+        && (!('badges' in request.resource.data) || request.resource.data.badges is number);
       allow delete: if isAdmin();
     }
 
@@ -29,13 +34,13 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null
         && request.resource.data.ownerUid == request.auth.uid;
-      // Propriétaire ou membre existant ; ou « rejoindre » : membres = ancienne liste ⊂ nouvelle et contient soi.
+      // Seul le propriétaire peut modifier la promo librement.
+      // Les autres ne peuvent que s'ajouter à la liste des membres.
       allow update: if request.auth != null && (
         resource.data.ownerUid == request.auth.uid ||
-        request.auth.uid in resource.data.members ||
         (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']) &&
           request.resource.data.members.hasAll(resource.data.members) &&
-          request.resource.data.members.size() >= resource.data.members.size() &&
           request.auth.uid in request.resource.data.members
         )
       );
@@ -57,6 +62,18 @@ service cloud.firestore {
         )
       );
       allow delete: if request.auth != null && resource.data.host.uid == request.auth.uid;
+    }
+
+    match /reports/{reportId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null;
+      allow update, delete: if isAdmin();
+    }
+
+    match /question_stats/{questionId} {
+      allow read: if true;
+      allow create, update: if request.auth != null;
+      allow delete: if isAdmin();
     }
   }
 }
