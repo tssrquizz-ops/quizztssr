@@ -80,6 +80,42 @@
     reader.readAsText(file);
   };
 
+  // Export all questions as JSON download
+  window.adminExportHandler = function(){
+    const cats = window.CATS || {};
+    const keys = Object.keys(cats).filter(function(k){ return k !== 'mix'; });
+    if (!keys.length) { alert('Aucune catégorie trouvée.'); return; }
+
+    var exportData = {};
+    var totalQ = 0;
+    keys.forEach(function(k) {
+      var cat = cats[k];
+      var qs = (cat.qs || []).map(function(q) {
+        var copy = Object.assign({}, q);
+        delete copy._cat; // remove internal field
+        return copy;
+      });
+      exportData[k] = {
+        label: cat.label || cat.name || k,
+        icon: cat.icon || '',
+        questions: qs
+      };
+      totalQ += qs.length;
+    });
+
+    var json = JSON.stringify(exportData, null, 2);
+    var blob = new Blob([json], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'quizztssr_questions_' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    alert('✅ Export terminé ! ' + totalQ + ' question(s) dans ' + keys.length + ' catégorie(s).');
+  };
+
   // UI injection for admin panel
   window.injectImportUI = function(){
     const panel = document.getElementById('admin-panel-body');
@@ -101,7 +137,7 @@
     });
 
     container.innerHTML =
-      '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin-bottom:10px;">IMPORT DE QUESTIONS</div>' +
+      '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin-bottom:10px;">IMPORT / EXPORT DE QUESTIONS</div>' +
       '<div style="background:var(--panel);border:1.5px solid var(--border2);border-radius:8px;padding:12px;">' +
         '<div style="font-family:monospace;font-size:9px;color:var(--text);margin-bottom:8px;">📥 Importer des questions (JSON / CSV)</div>' +
         '<div style="display:flex;flex-direction:column;gap:8px;">' +
@@ -115,7 +151,10 @@
               catOptions +
             '</select>' +
           '</div>' +
-          '<button onclick="adminImportHandler()" style="background:var(--acc);color:var(--bg);border:none;border-radius:6px;padding:10px 16px;font-family:monospace;font-size:9px;cursor:pointer;width:100%;letter-spacing:1px;">📥 IMPORTER</button>' +
+          '<div style="display:flex;gap:6px;">' +
+            '<button onclick="adminImportHandler()" style="flex:1;background:var(--acc);color:var(--bg);border:none;border-radius:6px;padding:10px 16px;font-family:monospace;font-size:9px;cursor:pointer;letter-spacing:1px;">📥 IMPORTER</button>' +
+            '<button onclick="adminExportHandler()" style="flex:1;background:none;color:var(--acc);border:1.5px solid var(--acc);border-radius:6px;padding:10px 16px;font-family:monospace;font-size:9px;cursor:pointer;letter-spacing:1px;">📤 EXPORTER JSON</button>' +
+          '</div>' +
           '<div id="admin-import-status" style="font-family:monospace;font-size:9px;color:var(--text2);display:none;"></div>' +
         '</div>' +
       '</div>';
