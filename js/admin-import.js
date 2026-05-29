@@ -84,20 +84,42 @@
   window.injectImportUI = function(){
     const panel = document.getElementById('admin-panel-body');
     if (!panel) return;
+    // Avoid duplicate injection
+    if (document.getElementById('admin-import-section')) return;
+
     const container = document.createElement('div');
-    container.style.marginTop = '12px';
-    container.innerHTML = `
-      <div style="font-weight:bold;margin-bottom:4px;">📥 Importer des questions (JSON/CSV)</div>
-      <input id="admin-import-file" type="file" accept=".json,.csv" style="margin-bottom:4px;" />
-      <select id="admin-import-format" style="margin-right:4px;">
-        <option value="json">JSON</option>
-        <option value="csv">CSV</option>
-      </select>
-      <select id="admin-import-cat" style="margin-right:4px;">
-        ${Object.entries(window.CATS || {}).map(([id,name]) => `<option value="${id}">${name}</option>`).join('')}
-      </select>
-      <button onclick="adminImportHandler()" style="padding:4px 8px;background:var(--acc);color:var(--bg);border:none;border-radius:4px;cursor:pointer;">Importer</button>
-    `;
+    container.id = 'admin-import-section';
+    container.style.cssText = 'margin-top:16px;';
+
+    // Build category options from CATS (skip 'mix')
+    let catOptions = '';
+    const cats = window.CATS || {};
+    Object.keys(cats).forEach(function(id) {
+      if (id === 'mix') return;
+      const label = cats[id].label || cats[id].name || id;
+      catOptions += '<option value="' + id + '">' + label + '</option>';
+    });
+
+    container.innerHTML =
+      '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin-bottom:10px;">IMPORT DE QUESTIONS</div>' +
+      '<div style="background:var(--panel);border:1.5px solid var(--border2);border-radius:8px;padding:12px;">' +
+        '<div style="font-family:monospace;font-size:9px;color:var(--text);margin-bottom:8px;">📥 Importer des questions (JSON / CSV)</div>' +
+        '<div style="display:flex;flex-direction:column;gap:8px;">' +
+          '<input id="admin-import-file" type="file" accept=".json,.csv" style="font-family:monospace;font-size:9px;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:6px;" />' +
+          '<div style="display:flex;gap:6px;">' +
+            '<select id="admin-import-format" style="flex:1;font-family:monospace;font-size:9px;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:6px;">' +
+              '<option value="json">JSON</option>' +
+              '<option value="csv">CSV</option>' +
+            '</select>' +
+            '<select id="admin-import-cat" style="flex:2;font-family:monospace;font-size:9px;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:6px;">' +
+              catOptions +
+            '</select>' +
+          '</div>' +
+          '<button onclick="adminImportHandler()" style="background:var(--acc);color:var(--bg);border:none;border-radius:6px;padding:10px 16px;font-family:monospace;font-size:9px;cursor:pointer;width:100%;letter-spacing:1px;">📥 IMPORTER</button>' +
+          '<div id="admin-import-status" style="font-family:monospace;font-size:9px;color:var(--text2);display:none;"></div>' +
+        '</div>' +
+      '</div>';
+
     panel.appendChild(container);
   };
 })();
