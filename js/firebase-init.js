@@ -142,6 +142,49 @@ window.fbSaveUserData = async function() {
   } catch(err) { console.warn('[Firebase] save error:', err); }
 };
 
+// ── Charger les questions depuis Firestore ──
+window.fbLoadQuestions = async function() {
+  try {
+    console.log('[Firebase] Loading questions from Firestore...');
+    var snap = await getDocs(collection(db, 'categories'));
+    
+    // Attendre que window.CATS soit défini (chargé par js/data.js en fin de document)
+    while (!window.CATS) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    if (!snap.empty) {
+      snap.forEach(function(doc) {
+        var data = doc.data();
+        var catId = doc.id;
+        if (window.CATS[catId]) {
+          window.CATS[catId].qs = data.qs || [];
+        } else {
+          window.CATS[catId] = data;
+        }
+      });
+      // Re-construire la catégorie 'mix'
+      if (window.CATS.mix) {
+        window.CATS.mix.qs = [];
+        var ids = Object.keys(window.CATS).filter(function(k){return k!=='mix';});
+        ids.forEach(function(id){
+          if (window.CATS[id] && window.CATS[id].qs) {
+            window.CATS.mix.qs = window.CATS.mix.qs.concat(window.CATS[id].qs.map(function(q){
+              return Object.assign({}, q, {_cat: window.CATS[id].label});
+            }));
+          }
+        });
+      }
+      console.log('[Firebase] Questions loaded successfully from Firestore.');
+    } else {
+      console.warn('[Firebase] No categories found in Firestore, using hardcoded fallback.');
+    }
+  } catch(err) {
+    console.error('[Firebase] Error loading questions from Firestore:', err);
+  }
+};
+window.fbQuestionsPromise = window.fbLoadQuestions();
+
 // ── Auth state ──
 onAuthStateChanged(auth, async function(user) {
   if (user) {

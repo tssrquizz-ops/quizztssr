@@ -200,9 +200,16 @@ function buildOnlineQData(q, idx2) {
 // PANNEAU ADMIN (Firestore : collection admins/{uid})
 // ============================================================
 async function openAdminPanel(){
-  // Redirection directe vers les rapports pour corriger les questions
-  if(typeof viewBugReports === 'function') viewBugReports();
-  else alert('Fonction de rapports non chargée.');
+  if (!window._fbUser) {
+    alert('Tu dois être connecté.');
+    return;
+  }
+  var isAdmin = typeof window.fbCheckAdmin === 'function' ? await window.fbCheckAdmin() : false;
+  if (!isAdmin) {
+    alert("Accès refusé : tu n'es pas administrateur dans Firestore (collection 'admins').");
+    return;
+  }
+  showAdminPanel();
 }
 
 function showAdminPanel(){
@@ -229,7 +236,52 @@ function showAdminPanel(){
   body2.innerHTML='<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin-bottom:10px;">UTILISATEURS</div>'+
     '<div id="admin-users-list">Chargement...</div>'+
     '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin:16px 0 10px;">PROMOS</div>'+
-    '<div id="admin-promos-list">Chargement...</div>';
+    '<div id="admin-promos-list">Chargement...</div>'+
+    '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin:16px 0 10px;">BASE DE DONNÉES</div>'+
+    '<button id="admin-sync-qs-btn" style="background:var(--acc);color:var(--bg);border:none;border-radius:6px;padding:10px 16px;font-family:monospace;font-size:9px;cursor:pointer;width:100%;letter-spacing:1px;margin-bottom:5px;">📤 SYNCHRONISER LES QUESTIONS VERS FIRESTORE</button>'+
+    '<div id="admin-sync-qs-status" style="font-family:monospace;font-size:9px;color:var(--text2);margin-top:6px;display:none;"></div>';
+
+  var syncBtn = body2.querySelector('#admin-sync-qs-btn');
+  if (syncBtn) {
+    syncBtn.onclick = async function() {
+      if (!confirm('Voulez-vous vraiment écraser les questions sur Firestore avec les questions locales de js/data.js ?')) return;
+      var statusEl = body2.querySelector('#admin-sync-qs-status');
+      statusEl.style.display = 'block';
+      statusEl.style.color = 'var(--text2)';
+      statusEl.textContent = '⏳ Initialisation de la synchronisation...';
+      syncBtn.disabled = true;
+      try {
+        var db = window._fbDb;
+        var setDocFn = window._fbSetDoc;
+        var docFn = window._fbDoc;
+        if (!db || !setDocFn || !docFn) {
+          throw new Error('Firebase non initialisé.');
+        }
+        var keys = Object.keys(window.CATS).filter(function(k){return k!=='mix';});
+        for (var i = 0; i < keys.length; i++) {
+          var key = keys[i];
+          statusEl.textContent = '⏳ Envoi de la catégorie ' + (i+1) + '/' + keys.length + ' : ' + key + '...';
+          var catData = Object.assign({}, window.CATS[key]);
+          if (catData.qs) {
+            catData.qs = catData.qs.map(function(q) {
+              var qCopy = Object.assign({}, q);
+              delete qCopy._cat;
+              return qCopy;
+            });
+          }
+          await setDocFn(docFn(db, 'categories', key), catData);
+        }
+        statusEl.textContent = '✅ Synchronisation terminée avec succès !';
+        statusEl.style.color = '#4ade80';
+      } catch(err) {
+        statusEl.textContent = '❌ Erreur: ' + err.message;
+        statusEl.style.color = '#f87171';
+        console.error('Sync failed:', err);
+      } finally {
+        syncBtn.disabled = false;
+      }
+    };
+  }
 
   box.appendChild(header);
   box.appendChild(body2);
@@ -590,7 +642,10 @@ function closeLaunchSheet(e){
   if(ovl) ovl.classList.remove('open');
 }
 
-function initMenu(){
+async function initMenu(){
+  if (window.fbQuestionsPromise) {
+    await window.fbQuestionsPromise;
+  }
   vTheme=lsGet('tssr5_vt','vt-light');
   soundOn=lsGet('tssr5_sound',true);
   jokersEnabled=lsGet('tssr5_jokers',true);
