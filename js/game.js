@@ -233,13 +233,14 @@ function showAdminPanel(){
 
   var body2=document.createElement('div');
   body2.style.cssText='padding:16px 20px;overflow-y:auto;flex:1;';
-  body2.innerHTML='<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin-bottom:10px;">UTILISATEURS</div>'+
-    '<div id="admin-users-list">Chargement...</div>'+
-    '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin:16px 0 10px;">PROMOS</div>'+
-    '<div id="admin-promos-list">Chargement...</div>'+
-    '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin:16px 0 10px;">BASE DE DONNÉES</div>'+
-    '<button id="admin-sync-qs-btn" style="background:var(--acc);color:var(--bg);border:none;border-radius:6px;padding:10px 16px;font-family:monospace;font-size:9px;cursor:pointer;width:100%;letter-spacing:1px;margin-bottom:5px;">📤 SYNCHRONISER LES QUESTIONS VERS FIRESTORE</button>'+
-    '<div id="admin-sync-qs-status" style="font-family:monospace;font-size:9px;color:var(--text2);margin-top:6px;display:none;"></div>';
+  body2.innerHTML='\u003cdiv style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin-bottom:10px;"\u003eUTILISATEURS\u003c/div\u003e'+
+'      \u003cdiv id="admin-users-list"\u003eChargement...\u003c/div\u003e'+
+'      \u003cdiv style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin:16px 0 10px;"\u003ePROMOS\u003c/div\u003e'+
+'      \u003cdiv id="admin-promos-list"\u003eChargement...\u003c/div\u003e'+
+'      \u003cdiv style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin:16px 0 10px;"\u003eBASE DE DONNÉES\u003c/div\u003e'+
+'      \u003cbutton id="admin-sync-qs-btn" style="background:var(--acc);color:var(--bg);border:none;border-radius:6px;padding:10px 16px;font-family:monospace;font-size:9px;cursor:pointer;width:100%;letter-spacing:1px;margin-bottom:5px;"\u003e📤 SYNCHRONISER LES QUESTIONS VERS FIRESTORE\u003c/button\u003e'+
+'      \u003cdiv id="admin-sync-qs-status" style="font-family:monospace;font-size:9px;color:var(--text2);margin-top:6px;display:none;"\u003e\u003c/div\u003e';
+if (typeof window.injectImportUI === 'function') { window.injectImportUI(); }
 
   var syncBtn = body2.querySelector('#admin-sync-qs-btn');
   if (syncBtn) {
