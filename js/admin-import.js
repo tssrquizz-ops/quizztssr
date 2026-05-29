@@ -1,89 +1,252 @@
-// admin-import.js – Bulk import of quiz questions (JSON or CSV) into Firestore
-// This script is loaded on the admin panel and injects an import UI.
+// admin-import.js – Import / Export de questions pour le panneau admin
+// Gère : JSON (format export ou tableau plat) et CSV
+// Auto-détecte les catégories : ajoute aux existantes ou crée les nouvelles
 
 (function(){
-  // Helper to parse CSV into array of objects
+
+  // ── CSV Parser ──
   function parseCSV(content) {
-    const lines = content.trim().split(/\r?\n/);
-    const headers = lines[0].split(',').map(h => h.trim());
-    const rows = lines.slice(1).map(line => {
-      const cols = line.split(',');
-      const obj = {};
-      headers.forEach((h,i) => obj[h] = cols[i] ? cols[i].trim() : '');
-      return obj;
-    });
+    var lines = content.trim().split(/\r?\n/);
+    if (lines.length < 2) return [];
+    var headers = lines[0].split(',').map(function(h){ return h.trim(); });
+    var rows = [];
+    for (var i = 1; i < lines.length; i++) {
+      var cols = lines[i].split(',');
+      var obj = {};
+      headers.forEach(function(h, idx){ obj[h] = cols[idx] ? cols[idx].trim() : ''; });
+      rows.push(obj);
+    }
     return rows;
   }
 
-  // Validate question object shape
-  function validateQuestion(q) {
-    const required = ['question','answer','category'];
-    for (const f of required) {
-      if (!q[f] || typeof q[f] !== 'string' || q[f].trim() === '') return false;
+  // ── Normalise un JSON importé en { catId: { label, icon, qs: [...] } } ──
+  function normalizeImport(parsed, format) {
+    var result = {}; // catId → { label, icon, qs }
+
+    if (format === 'csv') {
+      // CSV : chaque ligne a un champ "cat" ou "category"
+      var rows = parseCSV(parsed);
+      rows.forEach(function(row) {
+        var catId = (row.cat || row.category || '').trim();
+        if (!catId) return;
+        if (!result[catId]) result[catId] = { label: catId, icon: '', qs: [] };
+        var q = {};
+        Object.keys(row).forEach(function(k) {
+          if (k === 'cat' || k === 'category') return;
+          // Try to parse JSON values (for arrays like options)
+          try { q[k] = JSON.parse(row[k]); } catch(e) { q[k] = row[k]; }
+        });
+        result[catId].qs.push(q);
+      });
+      return result;
     }
-    return true;
-  }
 
-  // Upload a batch of questions to Firestore under the chosen category
-  async function uploadQuestions(questions, catId) {
-    const db = window._fbDb; // Firebase DB instance
-    const batch = window._fbWriteBatch(db);
-    const now = Date.now();
-    questions.forEach((q, idx) => {
-      const docRef = window._fbDoc(db, 'categories', catId, 'questions', `${now}_${idx}`);
-      batch.set(docRef, q);
+    // JSON
+    var data = JSON.parse(parsed);
+
+    // Format 1 : format export { catId: { label, icon, questions: [...] } }
+    if (!Array.isArray(data) && typeof data === 'object') {
+      var keys = Object.keys(data);
+      // Check if it looks like export format (values have "questions" or "qs" arrays)
+      var isExportFormat = keys.some(function(k) {
+        var v = data[k];
+        return v && typeof v === 'object' && (Array.isArray(v.questions) || Array.isArray(v.qs));
+      });
+
+      if (isExportFormat) {
+        keys.forEach(function(catId) {
+          if (catId === 'mix') return;
+          var cat = data[catId];
+          var qs = cat.questions || cat.qs || [];
+          // Nettoyer les questions
+          qs = qs.map(function(q) {
+            var copy = Object.assign({}, q);
+            delete copy._cat;
+            return copy;
+          });
+          result[catId] = {
+            label: cat.label || cat.name || catId,
+            icon: cat.icon || '',
+            qs: qs
+          };
+        });
+        return result;
+      }
+    }
+
+    // Format 2 : tableau plat [{ q, o, a, cat, ... }, ...]
+    var items = Array.isArray(data) ? data : [data];
+    items.forEach(function(item) {
+      var catId = (item.cat || item.category || '').trim();
+      if (!catId) return;
+      if (!result[catId]) result[catId] = { label: catId, icon: '', qs: [] };
+      var q = Object.assign({}, item);
+      delete q.cat;
+      delete q.category;
+      delete q._cat;
+      result[catId].qs.push(q);
     });
-    await window._fbCommitBatch(batch);
+
+    return result;
   }
 
-  // Main import handler
+  // ── Import Handler ──
   window.adminImportHandler = async function(){
-    const fileInput = document.getElementById('admin-import-file');
-    const formatSel = document.getElementById('admin-import-format');
-    const catSel = document.getElementById('admin-import-cat');
+    var fileInput = document.getElementById('admin-import-file');
+    var formatSel = document.getElementById('admin-import-format');
+    var statusEl  = document.getElementById('admin-import-status');
 
-    if (!fileInput.files.length) { alert('Veuillez sélectionner un fichier.'); return; }
-    const file = fileInput.files[0];
-    const format = formatSel.value; // 'json' or 'csv'
-    const catId = catSel.value;
+    if (!fileInput || !fileInput.files.length) {
+      alert('Veuillez sélectionner un fichier.'); return;
+    }
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      let raw = e.target.result;
-      let items = [];
+    var file = fileInput.files[0];
+    var format = formatSel ? formatSel.value : 'json';
+
+    // Show status
+    if (statusEl) { statusEl.style.display = 'block'; statusEl.style.color = 'var(--text2)'; statusEl.textContent = '⏳ Lecture du fichier...'; }
+
+    var reader = new FileReader();
+    reader.onload = async function(e) {
       try {
-        if (format === 'json') {
-          const parsed = JSON.parse(raw);
-          items = Array.isArray(parsed) ? parsed : [parsed];
-        } else {
-          items = parseCSV(raw);
-        }
-        items = items.map(it => ({
-          question: it.question || it.q || '',
-          answer: it.answer || it.a || '',
-          category: it.category || it.cat || catId,
-          ...it
-        }));
-        const invalid = items.filter(q => !validateQuestion(q));
-        if (invalid.length) {
-          alert(`Found ${invalid.length} invalid question(s). Import cancelled.`);
+        var raw = e.target.result;
+        var grouped = normalizeImport(raw, format);
+        var catIds = Object.keys(grouped);
+
+        if (!catIds.length) {
+          alert('Aucune question valide trouvée dans le fichier.\nVérifiez que chaque question a un champ "cat" ou "category".');
+          if (statusEl) statusEl.style.display = 'none';
           return;
         }
-        await uploadQuestions(items, catId);
-        alert(`Successfully imported ${items.length} question(s).`);
-        if (typeof loadAdminData === 'function') loadAdminData();
+
+        // Count totals
+        var totalQ = 0;
+        catIds.forEach(function(k){ totalQ += grouped[k].qs.length; });
+
+        // Confirm
+        var newCats = catIds.filter(function(k){ return !window.CATS || !window.CATS[k]; });
+        var existingCats = catIds.filter(function(k){ return window.CATS && window.CATS[k]; });
+
+        var msg = '📥 Import de ' + totalQ + ' question(s) dans ' + catIds.length + ' catégorie(s) :\n\n';
+        if (existingCats.length) {
+          msg += '➕ Ajout aux catégories existantes :\n';
+          existingCats.forEach(function(k){
+            var label = (window.CATS[k].label || k);
+            msg += '   • ' + label + ' (+' + grouped[k].qs.length + ' questions)\n';
+          });
+        }
+        if (newCats.length) {
+          msg += '\n🆕 Nouvelles catégories à créer :\n';
+          newCats.forEach(function(k){
+            msg += '   • ' + (grouped[k].label || k) + ' (' + grouped[k].qs.length + ' questions)\n';
+          });
+        }
+        msg += '\nContinuer ?';
+
+        if (!confirm(msg)) {
+          if (statusEl) statusEl.style.display = 'none';
+          return;
+        }
+
+        // Firebase refs
+        var db = window._fbDb;
+        var setDocFn = window._fbSetDoc;
+        var docFn = window._fbDoc;
+        if (!db || !setDocFn || !docFn) {
+          throw new Error('Firebase non initialisé.');
+        }
+
+        var created = 0, updated = 0;
+
+        for (var i = 0; i < catIds.length; i++) {
+          var catId = catIds[i];
+          var importCat = grouped[catId];
+
+          if (statusEl) statusEl.textContent = '⏳ Traitement ' + (i+1) + '/' + catIds.length + ' : ' + (importCat.label || catId) + '...';
+
+          if (window.CATS && window.CATS[catId]) {
+            // ── Catégorie existante → fusionner ──
+            var existing = window.CATS[catId];
+            var mergedQs = (existing.qs || []).slice(); // copie
+
+            // Ajouter les nouvelles questions
+            importCat.qs.forEach(function(newQ) {
+              mergedQs.push(newQ);
+            });
+
+            // Mettre à jour en mémoire
+            existing.qs = mergedQs;
+
+            // Écrire sur Firestore
+            var catData = Object.assign({}, existing);
+            catData.qs = mergedQs.map(function(q) {
+              var copy = Object.assign({}, q);
+              delete copy._cat;
+              return copy;
+            });
+            await setDocFn(docFn(db, 'categories', catId), catData);
+            updated++;
+
+          } else {
+            // ── Nouvelle catégorie → créer ──
+            var newCat = {
+              label: importCat.label || catId,
+              icon: importCat.icon || '📁',
+              qs: importCat.qs.map(function(q) {
+                var copy = Object.assign({}, q);
+                delete copy._cat;
+                return copy;
+              })
+            };
+
+            // Ajouter en mémoire
+            if (!window.CATS) window.CATS = {};
+            window.CATS[catId] = {
+              label: newCat.label,
+              icon: newCat.icon,
+              qs: newCat.qs.slice()
+            };
+
+            // Écrire sur Firestore
+            await setDocFn(docFn(db, 'categories', catId), newCat);
+            created++;
+          }
+        }
+
+        // Re-construire la catégorie 'mix'
+        if (window.CATS && window.CATS.mix) {
+          window.CATS.mix.qs = [];
+          var ids = Object.keys(window.CATS).filter(function(k){return k!=='mix';});
+          ids.forEach(function(id){
+            if (window.CATS[id] && window.CATS[id].qs) {
+              window.CATS.mix.qs = window.CATS.mix.qs.concat(window.CATS[id].qs.map(function(q){
+                return Object.assign({}, q, {_cat: window.CATS[id].label});
+              }));
+            }
+          });
+        }
+
+        // Résultat
+        var resultMsg = '✅ Import terminé !\n' + totalQ + ' question(s) importées.\n';
+        if (updated) resultMsg += '➕ ' + updated + ' catégorie(s) mise(s) à jour.\n';
+        if (created) resultMsg += '🆕 ' + created + ' catégorie(s) créée(s).\n';
+
+        if (statusEl) { statusEl.textContent = resultMsg.replace(/\n/g, ' '); statusEl.style.color = '#4ade80'; }
+        alert(resultMsg);
+
       } catch(err) {
-        console.error(err);
-        alert('Import failed: ' + err.message);
+        console.error('Import error:', err);
+        if (statusEl) { statusEl.textContent = '❌ Erreur: ' + err.message; statusEl.style.color = '#f87171'; }
+        alert('❌ Import échoué : ' + err.message);
       }
     };
     reader.readAsText(file);
   };
 
-  // Export all questions as JSON download
+  // ── Export Handler ──
   window.adminExportHandler = function(){
-    const cats = window.CATS || {};
-    const keys = Object.keys(cats).filter(function(k){ return k !== 'mix'; });
+    var cats = window.CATS || {};
+    var keys = Object.keys(cats).filter(function(k){ return k !== 'mix'; });
     if (!keys.length) { alert('Aucune catégorie trouvée.'); return; }
 
     var exportData = {};
@@ -92,7 +255,7 @@
       var cat = cats[k];
       var qs = (cat.qs || []).map(function(q) {
         var copy = Object.assign({}, q);
-        delete copy._cat; // remove internal field
+        delete copy._cat;
         return copy;
       });
       exportData[k] = {
@@ -116,41 +279,31 @@
     alert('✅ Export terminé ! ' + totalQ + ' question(s) dans ' + keys.length + ' catégorie(s).');
   };
 
-  // UI injection for admin panel
+  // ── UI injection ──
   window.injectImportUI = function(){
-    const panel = document.getElementById('admin-panel-body');
+    var panel = document.getElementById('admin-panel-body');
     if (!panel) return;
-    // Avoid duplicate injection
     if (document.getElementById('admin-import-section')) return;
 
-    const container = document.createElement('div');
+    var container = document.createElement('div');
     container.id = 'admin-import-section';
     container.style.cssText = 'margin-top:16px;';
-
-    // Build category options from CATS (skip 'mix')
-    let catOptions = '';
-    const cats = window.CATS || {};
-    Object.keys(cats).forEach(function(id) {
-      if (id === 'mix') return;
-      const label = cats[id].label || cats[id].name || id;
-      catOptions += '<option value="' + id + '">' + label + '</option>';
-    });
 
     container.innerHTML =
       '<div style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin-bottom:10px;">IMPORT / EXPORT DE QUESTIONS</div>' +
       '<div style="background:var(--panel);border:1.5px solid var(--border2);border-radius:8px;padding:12px;">' +
         '<div style="font-family:monospace;font-size:9px;color:var(--text);margin-bottom:8px;">📥 Importer des questions (JSON / CSV)</div>' +
+        '<div style="font-family:monospace;font-size:8px;color:var(--text2);margin-bottom:10px;line-height:1.5;">' +
+          '• Les catégories sont détectées depuis le fichier<br>' +
+          '• Catégorie existante → questions ajoutées<br>' +
+          '• Nouvelle catégorie → créée automatiquement' +
+        '</div>' +
         '<div style="display:flex;flex-direction:column;gap:8px;">' +
           '<input id="admin-import-file" type="file" accept=".json,.csv" style="font-family:monospace;font-size:9px;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:6px;" />' +
-          '<div style="display:flex;gap:6px;">' +
-            '<select id="admin-import-format" style="flex:1;font-family:monospace;font-size:9px;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:6px;">' +
-              '<option value="json">JSON</option>' +
-              '<option value="csv">CSV</option>' +
-            '</select>' +
-            '<select id="admin-import-cat" style="flex:2;font-family:monospace;font-size:9px;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:6px;">' +
-              catOptions +
-            '</select>' +
-          '</div>' +
+          '<select id="admin-import-format" style="font-family:monospace;font-size:9px;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:6px;">' +
+            '<option value="json">Format JSON</option>' +
+            '<option value="csv">Format CSV</option>' +
+          '</select>' +
           '<div style="display:flex;gap:6px;">' +
             '<button onclick="adminImportHandler()" style="flex:1;background:var(--acc);color:var(--bg);border:none;border-radius:6px;padding:10px 16px;font-family:monospace;font-size:9px;cursor:pointer;letter-spacing:1px;">📥 IMPORTER</button>' +
             '<button onclick="adminExportHandler()" style="flex:1;background:none;color:var(--acc);border:1.5px solid var(--acc);border-radius:6px;padding:10px 16px;font-family:monospace;font-size:9px;cursor:pointer;letter-spacing:1px;">📤 EXPORTER JSON</button>' +
@@ -161,4 +314,5 @@
 
     panel.appendChild(container);
   };
+
 })();
