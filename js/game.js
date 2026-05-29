@@ -1442,6 +1442,7 @@ function handleOnlineSessionUpdate(data){
   // 5. PLAYING
   if(data.status==='playing'){
     _showOnlinePanel('game');
+    onlineSession._hostStarting = false; // Reset guard for future use
     onlineSession.config=data.config;
     onlineSession.qIdx=data.qIdx||0;
     onlineSession.roundIdx=data.roundIdx||0;
@@ -1818,12 +1819,11 @@ function hostAdvance(data){
   if(onlineSession.role!=='host')return;
   var upd = {};
   var players = Object.values(data.players);
-  var pids = Object.keys(data.players);
-  
+
   players.forEach(function(p){
     var pts = (p.answer && p.answer.pts) ? p.answer.pts : 0;
     upd['players.'+p.uid+'.score'] = (p.score||0) + pts;
-    upd['players.'+p.uid+'.answer'] = null; // reset
+    upd['players.'+p.uid+'.answer'] = null;
   });
 
   var c = data.config;
@@ -1832,17 +1832,42 @@ function hostAdvance(data){
     if(winner) { upd.status='finished'; _onlineUpdate(upd); return; }
   }
 
+  // Helper: build a safe, serializable question object
+  function makeSafeQ(entry){
+    var raw = entry.q;
+    return { q: raw.q, a: raw.a, w: raw.w || [], t: raw.t, d: raw.d, idx: raw.idx, x: raw.x || '' };
+  }
+
   var nIdx = (data.qIdx||0) + 1;
+  var pool = onlineSession.questionsPool;
+
   if(c.mode==='qbq'){
-    if(nIdx >= c.qPerRound) { upd.status='finished'; }
-    else { upd.qIdx=nIdx; upd.currentQ = {cat:onlineSession.questionsPool[nIdx].c, idx:onlineSession.questionsPool[nIdx].q.idx, obj:onlineSession.questionsPool[nIdx].q}; upd.reveal=false; }
+    if(nIdx >= c.qPerRound || nIdx >= pool.length) {
+      upd.status='finished';
+    } else {
+      upd.qIdx = nIdx;
+      upd.currentQ = { cat: pool[nIdx].c, idx: pool[nIdx].q.idx, obj: makeSafeQ(pool[nIdx]) };
+      upd.reveal = false;
+    }
   } else if(c.mode==='rounds') {
     if(nIdx % c.qPerRound === 0){
       var nRound = (data.roundIdx||0) + 1;
       if(nRound >= c.totalRounds) { upd.status='finished'; }
       else { upd.status='round_end'; upd.roundIdx=nRound; upd.qIdx=nIdx; }
+    } else if(nIdx >= pool.length) {
+      upd.status='finished';
     } else {
-      upd.qIdx=nIdx; upd.currentQ = {cat:onlineSession.questionsPool[nIdx].c, idx:onlineSession.questionsPool[nIdx].q.idx, obj:onlineSession.questionsPool[nIdx].q}; upd.reveal=false;
+      upd.qIdx = nIdx;
+      upd.currentQ = { cat: pool[nIdx].c, idx: pool[nIdx].q.idx, obj: makeSafeQ(pool[nIdx]) };
+      upd.reveal = false;
+    }
+  } else if(c.mode==='course') {
+    if(nIdx >= pool.length) {
+      upd.status = 'finished';
+    } else {
+      upd.qIdx = nIdx;
+      upd.currentQ = { cat: pool[nIdx].c, idx: pool[nIdx].q.idx, obj: makeSafeQ(pool[nIdx]) };
+      upd.reveal = false;
     }
   }
 
