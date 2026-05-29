@@ -111,19 +111,29 @@ function playRankSound(rank){
 
 // ====== STREAK ======
 function updateStreak(){
-  var today=new Date().toDateString();
-  if(streakD.lastDate===today){
+  var d = new Date();
+  var today = d.toDateString();
+  d.setDate(d.getDate() - 1);
+  var yesterday = d.toDateString();
+
+  if(streakD.lastDate === today){
     // already played today, no change
-  } else if(streakD.lastDate===new Date(Date.now()-86400000).toDateString()){
+  } else if(streakD.lastDate === yesterday){
     // played yesterday → increment
     streakD.current++;
-    if(streakD.current>streakD.best)streakD.best=streakD.current;
-  } else if(streakD.lastDate!==today){
+    if(streakD.current > streakD.best) streakD.best = streakD.current;
+  } else if(streakD.lastDate !== today){
     // missed days → reset
-    streakD.current=1;
+    streakD.current = 1;
   }
-  streakD.lastDate=today;
-  lsSet('tssr5_streak',streakD);
+  streakD.lastDate = today;
+  lsSet('tssr5_streak', streakD);
+  
+  // Sync UI headers directly if they exist
+  var sn = document.getElementById('streak-num'); if(sn) sn.textContent = streakD.current + ' jour' + (streakD.current > 1 ? 's' : '');
+  var sb = document.getElementById('streak-best'); if(sb) sb.textContent = 'Best: ' + (streakD.best || 0);
+  var ps = document.getElementById('prof-streak'); if(ps) ps.textContent = streakD.current || 0;
+  var sts = document.getElementById('st-streak'); if(sts) sts.textContent = streakD.current + 'j';
 }
 
 function applyBody(){
@@ -798,7 +808,7 @@ function updateMenuProfile(){
   var mp=document.getElementById('menu-pseudo');
   var mt=document.getElementById('menu-title-badge');
   if(ma) ma.textContent=data.avatar||'😊';
-  if(mp) mp.textContent=data.pseudo||(window._fbUser?(window._fbUser.displayName||window._fbUser.email.split('@')[0]):'');
+  if(mp) mp.textContent=data.pseudo||(window._fbUser?(window._fbUser.displayName||(window._fbUser.email?window._fbUser.email.split('@')[0]:'Joueur')):'Invité');
   if(mt){mt.textContent=title.label;mt.className=title.cls;}
 }
 
@@ -1142,7 +1152,7 @@ async function createOnlineSession(){
   onlineSession.uid=window._fbUser.uid;
 
   var profile=lsGet('tssr5_profile',{});
-  var pseudo=profile.pseudo||window._fbUser.email.split('@')[0];
+  var pseudo=profile.pseudo||(window._fbUser.email?window._fbUser.email.split('@')[0]:'Joueur');
 
   try{
     await window._fbSetDoc(window._fbDoc(window._fbDb,'duels',code),{
@@ -1179,7 +1189,7 @@ async function joinOnlineSession(){
   if(code.length!==6){showOnlineError('Code invalide (6 caractères).');return;}
 
   var profile=lsGet('tssr5_profile',{});
-  var pseudo=profile.pseudo||window._fbUser.email.split('@')[0];
+  var pseudo=profile.pseudo||(window._fbUser.email?window._fbUser.email.split('@')[0]:'Joueur');
 
   try{
     var docRef=window._fbDoc(window._fbDb,'duels',code);
