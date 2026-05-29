@@ -697,9 +697,23 @@ function showScreen(n){
   var target=document.getElementById('screen-'+n);
   if(!target){ console.warn('showScreen: screen-'+n+' introuvable'); return; }
   target.classList.add('active');
-  // screen-menu : laisser le CSS décider du display (flex colonne)
   target.style.display = (n==='menu') ? '' : 'flex';
   try{window.scrollTo(0,0);}catch(e){}
+  // Lobby: start listening when entering online-duel screen, stop when leaving
+  if(n === 'online-duel') {
+    if(typeof loadOpenSessions === 'function') loadOpenSessions();
+  } else {
+    if(typeof unsubLobby !== 'undefined' && unsubLobby) { unsubLobby(); unsubLobby = null; }
+  }
+}
+
+function copyOnlineCode(){
+  var code = document.getElementById('online-code-num');
+  if(!code) return;
+  navigator.clipboard && navigator.clipboard.writeText(code.textContent).then(function(){
+    var c = document.getElementById('online-copied');
+    if(c){c.classList.add('show');setTimeout(function(){c.classList.remove('show');},2000);}
+  });
 }
 function goMenu(){
   clearInterval(timerInt);paused=false;el('povl').classList.remove('show');
@@ -1108,7 +1122,7 @@ function getQTimer(q,baseTimer){
 }
 
 // ============================================================
-// DUEL EN LIGNE V2 — Vote + Rounds + Speed bonus + Visuel propre
+// DUEL EN LIGNE V2 — Multijoueur (jusqu'à 5) + Lobby
 // ============================================================
 var onlineSession={
   code:null, uid:null, role:null, // 'host' ou 'guest'
@@ -1120,8 +1134,9 @@ var onlineSession={
   qStartTs:0,             // timestamp local start question
   myAnswered:false,       // bool
   revealing:false,        // bool guard
-  perRoundScores:[]       // [[host_round1, host_round2,...], [guest_round1,...]]
+  perRoundScores:{}       // map uid -> [score_round1, score_round2,...]
 };
+var unsubLobby = null;
 
 var ONLINE_MODES={
   rounds:  { label:'🏁 ROUNDS',     desc:'5 questions × 3 rounds. Dernier round caché ! 🔥' },
@@ -1153,13 +1168,17 @@ async function createOnlineSession(){
 
   var profile=lsGet('tssr5_profile',{});
   var pseudo=profile.pseudo||(window._fbUser.email?window._fbUser.email.split('@')[0]:'Joueur');
+  var isPrivate=document.getElementById('online-private-cb')?document.getElementById('online-private-cb').checked:false;
+
+  var players = {};
+  players[window._fbUser.uid] = { uid:window._fbUser.uid, pseudo:pseudo, score:0, ready:false, vote:null, answer:null, role:'host' };
 
   try{
     await window._fbSetDoc(window._fbDoc(window._fbDb,'duels',code),{
       code:code,
-      host:{ uid:window._fbUser.uid, pseudo:pseudo, score:0, ready:false,
-             vote:null, answer:null },
-      guest:null,
+      host: window._fbUser.uid,
+      players: players,
+      isPublic: !isPrivate,
       status:'waiting',
       qIdx:0, roundIdx:0,
       currentQ:null,
@@ -1182,10 +1201,13 @@ async function createOnlineSession(){
   }
 }
 
-async function joinOnlineSession(){
+async function joinOnlineSession(forcedCode){
   if(!window._fbUser){showOnlineError('Tu dois être connecté.');return;}
-  var inp=document.getElementById('online-join-input');
-  var code=(inp?inp.value:'').trim().toUpperCase();
+  var code = forcedCode;
+  if(!code) {
+    var inp=document.getElementById('online-join-input');
+    code=(inp?inp.value:'').trim().toUpperCase();
+  }
   if(code.length!==6){showOnlineError('Code invalide (6 caractères).');return;}
 
   var profile=lsGet('tssr5_profile',{});
@@ -1197,17 +1219,31 @@ async function joinOnlineSession(){
     if(!snap.exists()){showOnlineError('Session introuvable. Vérifie le code.');return;}
     var data=snap.data();
     if(data.status!=='waiting'){showOnlineError('Cette session a déjà commencé.');return;}
-    if(data.host.uid===window._fbUser.uid){showOnlineError('Tu ne peux pas jouer contre toi-même !');return;}
+    
+    var pCount = data.players ? Object.keys(data.players).length : 0;
+    var alreadyIn = data.players && data.players[window._fbUser.uid];
+    if(!alreadyIn && pCount >= 5){
+      showOnlineError('Cette session est pleine (5 joueurs max).');return;
+    }
 
     onlineSession.code=code;
-    onlineSession.role='guest';
+    onlineSession.role= (data.host === window._fbUser.uid) ? 'host' : 'guest';
     onlineSession.uid=window._fbUser.uid;
 
-    await window._fbUpdateDoc(docRef,{
-      guest:{ uid:window._fbUser.uid, pseudo:pseudo, score:0, ready:false,
-              vote:null, answer:null },
-      status:'voting'
-    });
+    if(!alreadyIn){
+      var upd = {};
+      upd['players.'+window._fbUser.uid] = { uid:window._fbUser.uid, pseudo:pseudo, score:0, ready:false, vote:null, answer:null, role:onlineSession.role };
+      await window._fbUpdateDoc(docRef, upd);
+    }
+    
+    // Switch to waiting view
+    document.getElementById('online-create-btn').style.display='none';
+    var box=document.getElementById('online-code-box');
+    if(box) box.style.display='none';
+    document.getElementById('online-waiting').style.display='flex';
+    var wMsg = document.getElementById('online-waiting-msg');
+    if(wMsg) wMsg.textContent="En attente de l'hôte...";
+    
     listenOnlineSession(code);
   }catch(err){
     var c=err.code||err.message||'';
@@ -1216,7 +1252,40 @@ async function joinOnlineSession(){
   }
 }
 
+function loadOpenSessions(){
+  if(unsubLobby) unsubLobby();
+  if(!window._fbDb || !window._fbCollection) return;
+  var listArea = document.getElementById('online-lobby-list');
+  if(!listArea) return;
+  
+  var q = window._fbQuery(window._fbCollection(window._fbDb, 'duels'), window._fbWhere('status', '==', 'waiting'), window._fbWhere('isPublic', '==', true));
+  unsubLobby = window._fbOnSnapshot(q, function(snap) {
+    if(snap.empty){
+      listArea.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:0.85rem;padding:10px;">Aucune session publique en attente.</div>';
+      return;
+    }
+    var html = '';
+    snap.forEach(function(doc){
+      var d = doc.data();
+      var pCount = d.players ? Object.keys(d.players).length : 1;
+      var hostName = 'Joueur';
+      if(d.players && d.players[d.host]) hostName = d.players[d.host].pseudo;
+      
+      var isFull = pCount >= 5;
+      var btnHtml = isFull ? '<button disabled style="background:var(--border2);color:var(--text2);border:none;border-radius:4px;padding:4px 8px;cursor:not-allowed;">Plein</button>'
+                           : '<button onclick="joinOnlineSession(\''+d.code+'\')" style="background:var(--primary);color:#000;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-weight:bold;">Rejoindre</button>';
+                           
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg3);padding:8px;border-radius:8px;border:1px solid var(--border2);">'
+            + '<div style="font-size:0.9rem;font-family:var(--font-title);"><span style="color:var(--primary);">'+hostName+'</span> <span style="color:var(--text2);font-size:0.8rem;">('+pCount+'/5)</span></div>'
+            + btnHtml
+            + '</div>';
+    });
+    listArea.innerHTML = html;
+  });
+}
+
 function listenOnlineSession(code){
+  if(unsubLobby) { unsubLobby(); unsubLobby = null; }
   if(!window._fbDb||!window._fbDoc) return;
   if(typeof window._fbOnSnapshot==='function'){
     var ref=window._fbDoc(window._fbDb,'duels',code);
@@ -1228,47 +1297,94 @@ function listenOnlineSession(code){
       console.warn('onSnapshot error',err);
       showOnlineError('Connexion : '+(err.message||err.code||'erreur'));
     });
-    onlineSession.unsubscribe=function(){ if(unsub) unsub(); };
-    return;
+    onlineSession.unsubscribe=unsub;
   }
-  var pollInt=setInterval(async function(){
-    if(!onlineSession.code){clearInterval(pollInt);return;}
-    try{
-      var snap=await window._fbGetDoc(window._fbDoc(window._fbDb,'duels',code));
-      if(!snap.exists()){clearInterval(pollInt);return;}
-      handleOnlineSessionUpdate(snap.data());
-    }catch(e){console.warn('poll error',e);}
-  },1500);
-  onlineSession.unsubscribe=function(){clearInterval(pollInt);};
 }
 
-function _showOnlinePanel(name){
-  ['setup','vote','round','game','finish'].forEach(function(p){
-    var el2=document.getElementById('online-'+p+'-panel');
-    if(el2) el2.style.display=(p===name)?'':'none';
+function cancelOnlineSession(){
+  if(onlineSession.unsubscribe) onlineSession.unsubscribe();
+  if(onlineSession.code && onlineSession.role==='host' && window._fbDeleteDoc){
+    window._fbDeleteDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code)).catch(function(){});
+  }
+  onlineSession={code:null,uid:null,role:null,unsubscribe:null,config:null,qIdx:0,roundIdx:0,questionsPool:[],qStartTs:0,myAnswered:false,revealing:false,perRoundScores:{}};
+  
+  // Reset all panels
+  var setupPanel = document.getElementById('online-setup-panel');
+  if(setupPanel) setupPanel.style.display='block';
+  var createBtn = document.getElementById('online-create-btn');
+  if(createBtn) createBtn.style.display='block';
+  var codeBox = document.getElementById('online-code-box');
+  if(codeBox) codeBox.style.display='none';
+  var waitingEl = document.getElementById('online-waiting');
+  if(waitingEl) waitingEl.style.display='none';
+  var lobbyArea = document.getElementById('online-lobby-area');
+  if(lobbyArea) lobbyArea.style.display='block';
+  var joinInput = document.getElementById('online-join-input');
+  if(joinInput) joinInput.value='';
+  var roster = document.getElementById('online-player-roster');
+  if(roster) roster.innerHTML='';
+  var hBtn = document.getElementById('online-host-start-btn');
+  if(hBtn) hBtn.style.display='none';
+  ['vote','round','game','finish'].forEach(function(x){
+    var e=document.getElementById('online-'+x+'-panel'); if(e) e.style.display='none';
   });
+  showScreen('menu');
 }
+
 
 function handleOnlineSessionUpdate(data){
   var isHost=onlineSession.role==='host';
-  var me=isHost?data.host:data.guest;
-  var them=isHost?data.guest:data.host;
-
+  var playersList = data.players ? Object.values(data.players) : [];
+  
   // 1. WAITING
-  if(data.status==='waiting'){ _showOnlinePanel('setup'); return; }
+  if(data.status==='waiting'){ 
+    _showOnlinePanel('setup');
+    // Show the waiting section
+    var wSection = document.getElementById('online-waiting');
+    if(wSection) wSection.style.display='flex';
+    // Hide lobby (we're now in a session)
+    var lobbyArea = document.getElementById('online-lobby-area');
+    if(lobbyArea) lobbyArea.style.display='none';
 
-  // 2. VOTING — guest joined, both vote for mode/count
+    var wMsg = document.getElementById('online-waiting-msg');
+    var hBtn = document.getElementById('online-host-start-btn');
+
+    // Build player roster
+    var rosterEl = document.getElementById('online-player-roster');
+    if(rosterEl) {
+      var rHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px;">';
+      playersList.forEach(function(p){
+        var crown = p.uid === data.host ? ' 👑' : '';
+        rHtml += '<div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;font-size:0.85rem;color:var(--text);">'+p.pseudo+crown+'</div>';
+      });
+      rHtml += '</div>';
+      rosterEl.innerHTML = rHtml;
+    }
+
+    if(isHost) {
+      if(playersList.length > 1) {
+        if(wMsg) wMsg.textContent = playersList.length + '/5 joueurs – Prêts à commencer !';
+        if(hBtn) hBtn.style.display='block';
+      } else {
+        if(wMsg) wMsg.textContent = 'En attente de joueurs... (1/5)';
+        if(hBtn) hBtn.style.display='none';
+      }
+    } else {
+      if(wMsg) wMsg.textContent = playersList.length + ' joueur(s) présent(s) – En attente de l\'hôte...';
+      if(hBtn) hBtn.style.display='none';
+    }
+    return; 
+  }
+
+
+  // 2. VOTING — config by host
   if(data.status==='voting'){
     _showOnlinePanel('vote');
-    renderVotePanel(data, me, them, isHost);
-    // host applique la config quand les deux ont voté
-    if(isHost && data.host && data.host.vote && data.guest && data.guest.vote){
-      computeAndStartConfig(data);
-    }
+    renderVotePanel(data, isHost);
     return;
   }
 
-  // 3. STARTING — host génère la pool de questions
+  // 3. STARTING — host génère la pool
   if(data.status==='starting'){
     _showOnlinePanel('round');
     renderRoundRecap(data, true /*starting*/);
@@ -1276,7 +1392,7 @@ function handleOnlineSessionUpdate(data){
     return;
   }
 
-  // 3b. READY TO START — host must click launch
+  // 3b. READY TO START
   if(data.status==='ready_to_start'){
     _showOnlinePanel('setup');
     var wMsg = document.getElementById('online-waiting-msg');
@@ -1290,7 +1406,7 @@ function handleOnlineSessionUpdate(data){
     if(isHost){
       if(wMsg) wMsg.textContent='Configuration terminée !';
       if(wAnim) wAnim.style.display='none';
-      if(hBtn) hBtn.style.display='block';
+      if(hBtn) { hBtn.style.display='block'; hBtn.onclick=hostStartNow; }
     } else {
       if(wMsg) wMsg.textContent="L'hôte va lancer la partie...";
       if(wAnim) wAnim.style.display='flex';
@@ -1299,7 +1415,7 @@ function handleOnlineSessionUpdate(data){
     return;
   }
 
-  // 4. ROUND_END — recap entre rounds
+  // 4. ROUND_END
   if(data.status==='round_end'){
     _showOnlinePanel('round');
     renderRoundRecap(data, false);
@@ -1312,8 +1428,8 @@ function handleOnlineSessionUpdate(data){
     onlineSession.config=data.config;
     onlineSession.qIdx=data.qIdx||0;
     onlineSession.roundIdx=data.roundIdx||0;
-    renderOnlineHUD(data, me, them, isHost);
-    // Render new question if it changed
+    renderOnlineHUD(data);
+    
     var curQ=data.currentQ;
     var needRerender = !window._lastRenderedQ || window._lastRenderedQ.idx !== (curQ&&curQ.idx);
     if(curQ && needRerender){
@@ -1323,14 +1439,13 @@ function handleOnlineSessionUpdate(data){
       onlineSession.revealing=false;
       renderOnlineQuestion(curQ);
     }
-    // Reveal phase : both answered ou data.reveal=true
-    var bothAnswered = (data.host && data.host.answer != null) && (data.guest && data.guest.answer != null);
-    if((bothAnswered || data.reveal) && !onlineSession.revealing){
+    
+    var allAnswered = playersList.every(function(p){ return p.answer != null; });
+    if((allAnswered || data.reveal) && !onlineSession.revealing){
       onlineSession.revealing=true;
       revealOnlineQuestion(data);
-      // host advance after reveal pause
       if(isHost){
-        setTimeout(function(){ hostAdvance(data); }, 2800);
+        setTimeout(function(){ hostAdvance(data); }, 3000);
       }
     }
     return;
@@ -1339,533 +1454,388 @@ function handleOnlineSessionUpdate(data){
   // 6. FINISHED
   if(data.status==='finished'){
     _showOnlinePanel('finish');
-    showOnlineFinish(data);
+    buildOnlineFinish(data);
     return;
   }
 }
 
-// ---------- VOTE PANEL ----------
-function renderVotePanel(data, me, them, isHost){
-  var area=document.getElementById('online-vote-area');
-  if(!area) return;
-  var myVote=me&&me.vote||{};
-  var theirVote=them&&them.vote||{};
-  var theirReady = !!(them&&them.vote&&them.vote.mode&&them.vote.count);
-
-  var modeBtns=Object.keys(ONLINE_MODES).map(function(k){
-    var sel=myVote.mode===k?'sel':'';
-    return '<button class="ovote-btn '+sel+'" onclick="onlineVoteMode(\''+k+'\')" data-testid="online-vote-'+k+'">'+
-      '<div class="ovote-btn-title">'+ONLINE_MODES[k].label+'</div>'+
-      '<div class="ovote-btn-desc">'+ONLINE_MODES[k].desc+'</div></button>';
-  }).join('');
-
-  var cntBtns=ONLINE_COUNTS.map(function(n){
-    var sel=myVote.count===n?'sel':'';
-    return '<button class="ovote-cnt '+sel+'" onclick="onlineVoteCount('+n+')">'+n+'</button>';
-  }).join('');
-
-  var speedSel = myVote.speedBonus===false ? '' : 'sel';
-
-  area.innerHTML=
-    '<div class="ovote-header">'+
-      '<div class="ovote-vs">'+
-        '<div class="ovote-player ovote-me"><span class="ovote-pname">'+escapeUserHtml(me&&me.pseudo||'Moi')+'</span><span class="ovote-pstatus">'+(myVote.mode?'✓ Voté':'À toi')+'</span></div>'+
-        '<div class="ovote-vs-mid">VS</div>'+
-        '<div class="ovote-player ovote-them"><span class="ovote-pname">'+escapeUserHtml(them&&them.pseudo||'Adversaire')+'</span><span class="ovote-pstatus">'+(theirReady?'✓ A voté':'En attente…')+'</span></div>'+
-      '</div>'+
-      '<h2 class="ovote-h">📊 Votez ensemble la config</h2>'+
-      '<p class="ovote-sub">Si vos votes diffèrent, on tire au hasard parmi les choix.</p>'+
-    '</div>'+
-    '<div class="ovote-section"><div class="ovote-lbl">MODE DE JEU</div>'+
-      '<div class="ovote-modes">'+modeBtns+'</div></div>'+
-    '<div class="ovote-section"><div class="ovote-lbl">NOMBRE DE QUESTIONS / OBJECTIF</div>'+
-      '<div class="ovote-counts">'+cntBtns+'</div></div>'+
-    '<div class="ovote-section"><label class="ovote-toggle '+speedSel+'" onclick="onlineVoteSpeed()" data-testid="online-vote-speed">'+
-      '<div class="ovote-tbox"></div><span><strong>Bonus de vitesse</strong> : +1 point pour le plus rapide à chaque question correcte 🚀</span></label></div>'+
-    '<button class="ovote-cancel" onclick="cancelOnlineSession()">Annuler</button>';
-}
-
-window.onlineVoteMode = async function(mode){
-  if(window.playClickSoft) window.playClickSoft();
-  var key = onlineSession.role==='host'?'host':'guest';
-  var snap = await window._fbGetDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code));
-  if(!snap.exists()) return;
-  var d = snap.data();
-  var prev = (d[key]&&d[key].vote) || {speedBonus:true};
-  prev.mode = mode;
-  var u={}; u[key+'.vote']=prev;
-  _onlineUpdate(u);
-};
-
-window.onlineVoteCount = async function(n){
-  if(window.playClickSoft) window.playClickSoft();
-  var key = onlineSession.role==='host'?'host':'guest';
-  var snap = await window._fbGetDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code));
-  if(!snap.exists()) return;
-  var d = snap.data();
-  var prev = (d[key]&&d[key].vote) || {speedBonus:true};
-  prev.count = n;
-  var u={}; u[key+'.vote']=prev;
-  _onlineUpdate(u);
-};
-
-window.onlineVoteSpeed = async function(){
-  if(window.playClickSoft) window.playClickSoft();
-  var key = onlineSession.role==='host'?'host':'guest';
-  var snap = await window._fbGetDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code));
-  if(!snap.exists()) return;
-  var d = snap.data();
-  var prev = (d[key]&&d[key].vote) || {speedBonus:true};
-  prev.speedBonus = !(prev.speedBonus===false?false:true); // flip
-  var u={}; u[key+'.vote']=prev;
-  _onlineUpdate(u);
-};
-
-async function computeAndStartConfig(data){
-  // Choose the agreed config (random if they disagree)
-  var hv=data.host.vote||{}, gv=data.guest.vote||{};
-  var mode = (hv.mode===gv.mode) ? hv.mode : (Math.random()<0.5?hv.mode:gv.mode);
-  if(!mode) mode='rounds';
-  var count = (hv.count===gv.count) ? hv.count : (Math.random()<0.5?(hv.count||7):(gv.count||7));
-  if(!count) count=7;
-  var speedBonus = !(hv.speedBonus===false || gv.speedBonus===false); // OFF si l'un des deux a OFF
-
-  var config;
-  if(mode==='rounds'){
-    config={mode:'rounds', qPerRound:5, totalRounds:Math.max(1,Math.round(count/5))||3, target:0, speedBonus:speedBonus};
-    config.totalRounds = Math.max(2, Math.min(5, Math.round(count/5)));
-    config.qPerRound = Math.max(3, Math.round(count/config.totalRounds));
-  } else if(mode==='course'){
-    config={mode:'course', qPerRound:0, totalRounds:1, target:count, speedBonus:speedBonus};
-  } else {
-    config={mode:'qbq', qPerRound:1, totalRounds:count, target:0, speedBonus:speedBonus};
-  }
-
-  await _onlineUpdate({status:'ready_to_start', config:config, qIdx:0, roundIdx:0});
-}
-
-// ---------- ROUND RECAP ----------
-function renderRoundRecap(data, isStart){
-  var area=document.getElementById('online-round-area');
-  if(!area) return;
-  var cfg=data.config||{};
-  var hostName = data.host&&data.host.pseudo || 'Host';
-  var guestName= data.guest&&data.guest.pseudo|| 'Guest';
-  var hScore = data.host&&data.host.score || 0;
-  var gScore = data.guest&&data.guest.score || 0;
-  var hideScores = (cfg.mode==='rounds') && (data.roundIdx===cfg.totalRounds-1) && !isStart;
-
-  var label;
-  if(isStart) label='🚀 Match prêt — '+(ONLINE_MODES[cfg.mode]?ONLINE_MODES[cfg.mode].label:'');
-  else if(data.status==='round_end' && data.roundIdx<cfg.totalRounds-1) label='Round '+(data.roundIdx+1)+'/'+cfg.totalRounds+' terminé';
-  else label='Dernier round — scores cachés 🤐';
-
-  area.innerHTML=
-    '<div class="oround-pulse">'+escapeUserHtml(label)+'</div>'+
-    '<div class="oround-vs">'+
-      '<div class="oround-side"><div class="oround-name">'+escapeUserHtml(hostName)+'</div>'+
-        '<div class="oround-score'+(hideScores?' hide':'')+'">'+(hideScores?'??':hScore)+'</div></div>'+
-      '<div class="oround-mid">VS</div>'+
-      '<div class="oround-side"><div class="oround-name">'+escapeUserHtml(guestName)+'</div>'+
-        '<div class="oround-score'+(hideScores?' hide':'')+'">'+(hideScores?'??':gScore)+'</div></div>'+
-    '</div>'+
-    (cfg.mode==='rounds'?'<div class="oround-meta">'+cfg.qPerRound+' questions × '+cfg.totalRounds+' rounds'+(cfg.speedBonus?' · ⚡ bonus vitesse':'')+'</div>':
-     cfg.mode==='course'?'<div class="oround-meta">Premier à '+cfg.target+' bonnes réponses'+(cfg.speedBonus?' · ⚡ bonus vitesse':'')+'</div>':
-     '<div class="oround-meta">'+cfg.totalRounds+' questions · plus rapide gagne'+(cfg.speedBonus?' · ⚡ bonus vitesse':'')+'</div>')+
-    '<div class="oround-cd" id="oround-cd">3</div>';
-
-  // Countdown 3 → 2 → 1
-  var cd=3;
-  var cdEl=document.getElementById('oround-cd');
-  clearInterval(window._oroundCd);
-  window._oroundCd=setInterval(function(){
-    cd--;
-    if(cdEl) cdEl.textContent=cd>0?cd:'GO !';
-    if(cd<=0){
-      clearInterval(window._oroundCd);
-      // host advance to playing
-      if(onlineSession.role==='host'){
-        setTimeout(function(){
-          if(data.status==='starting'||data.status==='round_end'){
-            // already host action, no-op for guest
-          }
-        },200);
-      }
-    }
-  },900);
-}
-
-// ---------- HOST GENERATE POOL ----------
-async function hostGenerateQuestionsAndStart(data){
-  if(window._lastGenForCode===onlineSession.code) return; // single shot
-  window._lastGenForCode=onlineSession.code;
-  var cfg=data.config;
-  var totalQ = (cfg.mode==='course') ? cfg.target+10 : (cfg.qPerRound*cfg.totalRounds || cfg.totalRounds);
-  totalQ=Math.max(5, totalQ);
-
-  var pool=[];
-  var cat = data.cat || selCat || 'mix';
-  var src = (cat && CATS[cat] && cat!=='mix') ? CATS[cat].qs : (function(){
-    var all=[]; Object.keys(CATS).forEach(function(k){ if(k==='mix') return;
-      CATS[k].qs.forEach(function(q){ all.push(Object.assign({},q,{_cat:CATS[k].label})); });
-    }); return all;
-  })();
-  pool = src; // Allow all question types in online duel
-  if(pool.length<totalQ){ pool=src.slice(); }
-  pool=shuffle(pool).slice(0,totalQ);
-  onlineSession.questionsPool=pool;
-
-  // Send first question
-  var first = pool[0];
-  var correctIdx = (first.a !== undefined) ? first.a : (first.correct || first.items || 0);
-  if(first.t==='tf') correctIdx = (first.a===true || first.a===0) ? 0 : 1;
-
-  var qData={ idx:0, q:first.q, opts:first.opts||[], a:correctIdx, x:first.x||'', t:first.t||'qcm',
-              shuffleSeed:Math.floor(Math.random()*999999) };
-  await new Promise(function(r){setTimeout(r,3000);}); // wait for countdown
-  await _onlineUpdate({
-    status:'playing', qIdx:0, roundIdx:0, currentQ:qData, reveal:false,
-    'host.answer': null, 'guest.answer': null,
-    questionsPoolSize: pool.length
+function _showOnlinePanel(id){
+  ['setup','vote','round','game','finish'].forEach(function(x){
+    var e=document.getElementById('online-'+x+'-panel');
+    if(e) e.style.display = (x===id)?'block':'none';
   });
 }
 
-// ---------- RENDER QUESTION ----------
-function renderOnlineQuestion(qData){
-  var area=document.getElementById('online-question-area');
-  if(!area) return;
-  // Firestore peut convertir les arrays en objets {0:'val', 1:'val'}
-  if(qData.opts && !Array.isArray(qData.opts)){
-    qData.opts = Object.keys(qData.opts).sort(function(a,b){return +a-+b;}).map(function(k){return qData.opts[k];});
-  }
-  if(qData.t==='tf' && (!qData.opts || !qData.opts.length)){
-    qData.opts=['VRAI','FAUX'];
-    qData.a=(qData.a===true||qData.a===0)?0:1;
-  }
-
-
-  var isTF   = qData.t === 'tf';
-  var optsHtml = '';
-
-  if(qData.opts && qData.opts.length > 0){
-    // QCM, debug, tf — shuffle déterministe
-    var seed = qData.shuffleSeed||0;
-    var rng=(function(s){return function(){ s=(s*9301+49297)%233280; return s/233280;};})(seed);
-    var pairs = qData.opts.map(function(t,i){return {t:t,i:i};});
-    if(!isTF){
-      for(var i=pairs.length-1;i>0;i--){ var j=Math.floor(rng()*(i+1)); var tmp=pairs[i];pairs[i]=pairs[j];pairs[j]=tmp; }
-    }
-    var keys=['A','B','C','D'];
-    var optsCls = isTF ? 'opts opts-vf' : 'opts';
-    optsHtml = '<div class="'+optsCls+'">'+
-      pairs.map(function(opt,ki){
-        var raw = opt.t;
-        var optHtml = (typeof raw === 'object' && raw && raw.v !== undefined)
-          ? safeQuestionHtml(String(raw.v)) + (raw.sub ? '<span class="calc-sub">' + escapeUserHtml(raw.sub) + '</span>' : '')
-          : safeQuestionHtml(String(raw));
-        return '<button class="opt online-opt'+(isTF?' opt-tf':'')+'" data-orig="'+opt.i+'" data-correct="'+qData.a+'" '+
-               'onclick="submitOnlineAnswer('+opt.i+',this)">'+
-               (isTF?'':('<span class="okey">'+keys[ki]+'</span>'))+
-               '<span>'+optHtml+'</span></button>';
-      }).join('')+
-    '</div>';
-  } else {
-    // Types sans opts prédéfinis : afficher message
-    optsHtml = '<div style="font-family:monospace;font-size:10px;color:var(--text2);padding:20px;text-align:center;">Réponds dans les '+escapeUserHtml(String(qData.x))+'s</div>';
-  }
-
-    area.innerHTML =
-      '<div class="qcard online-qcard"><div class="qnum">Question '+((qData.idx||0)+1)+'</div>'+
-        '<div class="qtext">'+safeQuestionHtml(qData.q)+'</div></div>'+
-      optsHtml+
-      '<div id="online-feedback" class="online-feedback"></div>'+
-      '<div class="q-feedback-row">'+
-        '<button class="q-f-btn bug" onclick="reportBug(window._lastRenderedQ)" title="Signaler un problème">⚠️ Bug</button>'+
-        '<div class="q-f-votes">'+
-          '<button class="q-f-btn vote" onclick="voteQ(window._lastRenderedQ, 1)" title="Utile">👍</button>'+
-          '<button class="q-f-btn vote" onclick="voteQ(window._lastRenderedQ, -1)" title="Pas utile">👎</button>'+
-        '</div>'+
-      '</div>';
-
-  // Timer 25s shared
-  // Timer visuel dans le panel online
-  var tbWrap=document.querySelector('#online-game-panel .tbarwrap');
-  if(tbWrap) tbWrap.innerHTML='<div id="tbar-od" class="tbar" style="width:100%;background:#00d87a;height:4px;border-radius:2px;transition:none;"></div>';
-  var tb=document.getElementById('tbar-od');
-  clearInterval(timerInt);
-  var TOT=25, tLeft=TOT;
-  timerInt=setInterval(function(){
-    tLeft-=0.1;
-    var p=Math.max(0,(tLeft/TOT)*100);
-    if(tb){tb.style.width=p+'%';if(p<50)tb.style.background='#ff9800';if(p<20)tb.style.background='#dc2626';}
-    if(tLeft<=0){
-      clearInterval(timerInt);
-      if(!onlineSession.myAnswered) submitOnlineAnswer(-1,null);
-    }
-  },100);
+function hostManualStart(){
+  if(onlineSession.role!=='host')return;
+  _onlineUpdate({status:'voting'});
 }
 
-window.submitOnlineAnswer = async function(chosen, btnEl){
-  if(onlineSession.myAnswered) return;
-  onlineSession.myAnswered=true;
-  clearInterval(timerInt);
-  if(window.playClick) window.playClick();
-  var elapsed = (Date.now() - onlineSession.qStartTs) / 1000;
-  // Disable all opts
-  document.querySelectorAll('.online-opt').forEach(function(b){ b.disabled=true; });
-  if(btnEl) btnEl.classList.add('chosen');
+function hostStartNow(){
+  if(onlineSession.role!=='host')return;
+  _onlineUpdate({status:'starting'});
+}
 
-  var key = onlineSession.role==='host'?'host':'guest';
-  try{
-    var u={};
-    u[key+'.answer'] = { choice:chosen, time:elapsed, ts: Date.now() };
-    await _onlineUpdate(u);
-    var fb=document.getElementById('online-feedback');
-    if(fb) fb.innerHTML='<div class="ofeed-wait">⏳ En attente de l\'adversaire…</div>';
-  }catch(e){ console.warn('submit answer error',e); }
-};
+// ─── CONFIG PANEL (ex-Vote) ───
+function renderVotePanel(data, isHost){
+  var area=document.getElementById('online-vote-area');
+  if(!area)return;
+  
+  if(!isHost){
+    area.innerHTML='<div class="online-waiting"><div class="online-waiting-text">L\'hôte configure la partie...</div><div class="online-waiting-dots"><div class="online-waiting-dot"></div><div class="online-waiting-dot"></div><div class="online-waiting-dot"></div></div></div>';
+    return;
+  }
+
+  var html='<div class="vote-title" style="margin-bottom:20px;text-align:center;font-family:var(--font-title);color:var(--text);font-size:1.2rem;">⚙️ Configuration</div>';
+  
+  html+='<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">MODE DE JEU :</div>';
+  html+='<div class="vote-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">';
+  Object.keys(ONLINE_MODES).forEach(function(m){
+    var sel = (onlineSession.localMode===m) ? ' border:2px solid var(--primary);background:var(--bg3);' : 'border:2px solid var(--border);';
+    html+='<button onclick="setOnlineVote(\'mode\',\''+m+'\')" style="padding:15px;border-radius:12px;cursor:pointer;'+sel+'color:var(--text);">'
+        + '<div style="font-weight:bold;margin-bottom:4px;pointer-events:none;">'+ONLINE_MODES[m].label+'</div>'
+        + '<div style="font-size:0.8rem;color:var(--text2);pointer-events:none;">'+ONLINE_MODES[m].desc+'</div></button>';
+  });
+  html+='</div>';
+
+  html+='<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">QUESTIONS (par round ou total) :</div>';
+  html+='<div style="display:flex;gap:10px;margin-bottom:20px;justify-content:center;">';
+  ONLINE_COUNTS.forEach(function(c){
+    var sel = (onlineSession.localCount===c) ? ' border:2px solid var(--primary);background:var(--bg3);' : 'border:2px solid var(--border);';
+    html+='<button onclick="setOnlineVote(\'count\','+c+')" style="padding:10px 20px;border-radius:8px;font-weight:bold;color:var(--text);cursor:pointer;'+sel+'">'+c+'</button>';
+  });
+  html+='</div>';
+
+  html+='<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">OPTIONS :</div>';
+  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:30px;justify-content:center;">';
+  var sbCheck = onlineSession.localSpeedBonus ? 'checked' : '';
+  html+='<label style="color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px;">'
+      + '<input type="checkbox" id="online-speed-cb" onchange="onlineSession.localSpeedBonus=this.checked" style="accent-color:var(--primary);width:18px;height:18px;" '+sbCheck+'>'
+      + 'Bonus de vitesse (score dégressif selon le temps)</label>';
+  html+='</div>';
+
+  html+='<button onclick="validateOnlineConfig()" style="width:100%;padding:15px;border-radius:12px;background:var(--primary);color:#000;font-weight:bold;font-size:1.1rem;cursor:pointer;border:none;">⚔️ VALIDER & JOUER</button>';
+  
+  area.innerHTML=html;
+}
+
+window.setOnlineVote = function(type, val){
+  if(type==='mode') onlineSession.localMode = val;
+  if(type==='count') onlineSession.localCount = val;
+  var d={status:'voting', players:{}};
+  handleOnlineSessionUpdate(d); // re-render fast
+}
+
+window.validateOnlineConfig = function(){
+  if(!onlineSession.localMode) onlineSession.localMode='rounds';
+  if(!onlineSession.localCount) onlineSession.localCount=5;
+  var cfg = {
+    mode: onlineSession.localMode,
+    qPerRound: (onlineSession.localMode==='rounds') ? onlineSession.localCount : 0,
+    totalRounds: (onlineSession.localMode==='rounds') ? 3 : 1,
+    target: (onlineSession.localMode==='course') ? onlineSession.localCount : 0,
+    speedBonus: !!onlineSession.localSpeedBonus
+  };
+  if(cfg.mode==='qbq'){ cfg.qPerRound=onlineSession.localCount; cfg.totalRounds=1; }
+  
+  _onlineUpdate({
+    config: cfg,
+    status: 'ready_to_start'
+  });
+}
+
+function computeAndStartConfig(data){} // Legacy, not used.
+
+// ─── STARTING ───
+async function hostGenerateQuestionsAndStart(data){
+  var cfg=data.config;
+  var totalQ=0;
+  if(cfg.mode==='rounds') totalQ = cfg.qPerRound * cfg.totalRounds;
+  else if(cfg.mode==='course') totalQ = cfg.target * 3; // buffer large
+  else if(cfg.mode==='qbq') totalQ = cfg.qPerRound;
+  
+  var catList = Object.keys(CATS).filter(function(k){return k!=='mix';});
+  var pool = [];
+  var usedSet = new Set();
+  var pIdx = 0;
+  while(pool.length < totalQ && pIdx < 500){
+    pIdx++;
+    var c = catList[Math.floor(Math.random()*catList.length)];
+    if(!CATS[c]||!CATS[c].questions||CATS[c].questions.length===0) continue;
+    var q = CATS[c].questions[Math.floor(Math.random()*CATS[c].questions.length)];
+    var k = c+'-'+q.idx;
+    if(usedSet.has(k)) continue;
+    usedSet.add(k);
+    pool.push({c:c, q:q});
+  }
+  onlineSession.questionsPool = pool;
+  
+  var firstQ = pool[0];
+  var upd = {
+    status:'playing',
+    qIdx:0, roundIdx:0,
+    currentQ:{ cat:firstQ.c, idx:firstQ.q.idx, obj:firstQ.q },
+    reveal:false
+  };
+  Object.keys(data.players).forEach(function(uid){
+    upd['players.'+uid+'.score'] = 0;
+    upd['players.'+uid+'.answer'] = null;
+  });
+  
+  setTimeout(function(){ _onlineUpdate(upd); }, 3000); // Intro round
+}
+
+// ─── ROUND RECAP ───
+function renderRoundRecap(data, starting){
+  var area=document.getElementById('online-round-area');
+  if(!area)return;
+  var html='';
+  if(starting){
+    html+='<div style="font-size:2rem;font-weight:900;text-align:center;color:var(--primary);margin-top:20vh;font-family:var(--font-title);letter-spacing:2px;text-transform:uppercase;">PRÉPAREZ-VOUS</div>';
+    if(data.config) html+='<div style="text-align:center;color:var(--text2);margin-top:10px;">Mode : '+ONLINE_MODES[data.config.mode].label+'</div>';
+  } else {
+    html+='<div style="font-size:1.8rem;font-weight:900;text-align:center;color:var(--text);margin-top:10vh;font-family:var(--font-title);">FIN DU ROUND '+(data.roundIdx+1)+'</div>';
+    var players = Object.values(data.players).sort(function(a,b){return b.score - a.score;});
+    
+    html+='<div style="display:flex;flex-direction:column;gap:15px;margin-top:30px;">';
+    players.forEach(function(p, idx){
+      var crown = idx===0 ? '👑 ' : '';
+      html+='<div style="display:flex;justify-content:space-between;background:var(--bg3);padding:15px;border-radius:12px;border:1px solid '+(idx===0?'var(--primary)':'var(--border)')+';">'
+          + '<div style="font-weight:bold;color:var(--text);">'+crown+p.pseudo+'</div>'
+          + '<div style="color:var(--primary);font-weight:900;">'+p.score+' pts</div>'
+          + '</div>';
+    });
+    html+='</div>';
+    
+    if(onlineSession.role==='host'){
+      html+='<div style="text-align:center;margin-top:30px;"><button onclick="hostNextRound()" style="background:var(--primary);color:#000;padding:12px 30px;border-radius:30px;border:none;font-weight:bold;cursor:pointer;">ROND SUIVANT →</button></div>';
+    } else {
+      html+='<div style="text-align:center;margin-top:30px;color:var(--text2);font-size:0.9rem;">En attente de l\'hôte...</div>';
+    }
+  }
+  area.innerHTML=html;
+}
+
+window.hostNextRound = function(){
+  if(onlineSession.role!=='host')return;
+  _onlineUpdate({status:'playing', reveal:false});
+}
+
+// ─── IN GAME ───
+function renderOnlineHUD(data){
+  var hud=document.getElementById('online-hud');
+  if(!hud)return;
+  var players = Object.values(data.players).sort(function(a,b){return b.score - a.score;});
+  var html = '';
+  
+  players.forEach(function(p, i){
+    var ansState = p.answer != null ? '<div style="width:8px;height:8px;border-radius:50%;background:var(--success);margin:0 auto;margin-top:4px;"></div>' : '';
+    html += '<div style="display:flex;flex-direction:column;align-items:center;background:var(--bg3);padding:5px 10px;border-radius:8px;border:1px solid '+(p.uid===window._fbUser.uid?'var(--primary)':'var(--border2)')+';">'
+          + '<div style="font-size:0.75rem;color:var(--text2);max-width:50px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+p.pseudo+'</div>'
+          + '<div style="font-weight:bold;color:var(--text);">'+p.score+'</div>'
+          + ansState
+          + '</div>';
+  });
+  hud.innerHTML = '<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">' + html + '</div>';
+}
+
+function renderOnlineQuestion(q){
+  var area=document.getElementById('online-question-area');
+  var obj=q.obj;
+  var tbar=document.querySelector('#online-game-panel .tbar');
+  if(tbar){ tbar.style.transition='none'; tbar.style.width='100%'; tbar.style.background='var(--primary)'; }
+
+  var html='<div style="font-size:1.1rem;font-weight:600;margin-bottom:20px;text-align:center;">'+safeQuestionHtml(obj.q)+'</div>';
+  var mechs=['qcm','tf','word','calc']; // limited
+  var m=obj.t; if(mechs.indexOf(m)===-1) m='qcm';
+  
+  window._curOnlineQ = obj;
+
+  html+='<div id="online-opts" style="display:flex;flex-direction:column;gap:10px;">';
+  if(m==='qcm'){
+    var o=[obj.a].concat(obj.w||[]);
+    shuffle(o);
+    window._curOnlineOpts = o;
+    o.forEach(function(opt,i){
+      html+='<button class="opt-btn" id="oopt'+i+'" onclick="onlineAnswer('+i+')">'+safeQuestionHtml(opt)+'</button>';
+    });
+  } else if(m==='tf'){
+    window._curOnlineOpts = ['Vrai','Faux'];
+    html+='<button class="opt-btn" id="oopt0" onclick="onlineAnswer(0)">Vrai</button>';
+    html+='<button class="opt-btn" id="oopt1" onclick="onlineAnswer(1)">Faux</button>';
+  } else if(m==='word' || m==='calc'){
+    html+='<input type="text" id="oopt-input" style="width:100%;padding:15px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:1.2rem;text-align:center;font-weight:bold;margin-bottom:10px;" placeholder="Réponse..." onkeydown="if(event.key===\'Enter\')onlineAnswer(\'input\')">';
+    html+='<button class="opt-btn" onclick="onlineAnswer(\'input\')" style="background:var(--primary);color:#000;">VALIDER</button>';
+  }
+  html+='</div>';
+  area.innerHTML=html;
+
+  // Timer visuel
+  setTimeout(function(){
+    var timer=getQTimer(obj,20);
+    if(tbar){ tbar.style.transition='width '+timer+'s linear'; tbar.style.width='0%'; }
+  }, 50);
+}
+
+window.onlineAnswer = function(val){
+  if(onlineSession.myAnswered || onlineSession.revealing) return;
+  onlineSession.myAnswered=true;
+  
+  var obj=window._curOnlineQ;
+  var ansText = '';
+  if(obj.t==='qcm' || obj.t==='tf'){
+    var o = window._curOnlineOpts;
+    ansText = o[val];
+    var b=document.getElementById('oopt'+val);
+    if(b) b.style.border='2px solid var(--primary)';
+  } else {
+    var inp = document.getElementById('oopt-input');
+    ansText = inp ? inp.value.trim() : '';
+  }
+
+  var elapsed = (Date.now() - onlineSession.qStartTs)/1000;
+  var maxT = getQTimer(obj,20);
+  
+  var isCorrect = false;
+  if(obj.t==='tf') isCorrect = ((ansText==='Vrai') === !!obj.a);
+  else if(obj.t==='word' || obj.t==='calc') {
+    var valid = [String(obj.a).toLowerCase()].concat((obj.w||[]).map(function(s){return String(s).toLowerCase();}));
+    isCorrect = valid.indexOf(ansText.toLowerCase())>-1;
+  }
+  else isCorrect = (ansText === obj.a);
+
+  var pts = 0;
+  if(isCorrect){
+    pts = 100;
+    if(onlineSession.config.speedBonus){
+      var timeBonus = Math.max(0, maxT - elapsed);
+      pts += Math.floor((timeBonus/maxT)*50); // jusqu'à +50
+    }
+  }
+
+  var upd = {};
+  upd['players.'+window._fbUser.uid+'.answer'] = {
+    txt: ansText,
+    ok: isCorrect,
+    pts: pts
+  };
+  _onlineUpdate(upd);
+}
 
 function revealOnlineQuestion(data){
-  clearInterval(timerInt);
-  var curQ=data.currentQ;
-  var correct = (curQ && curQ.t === 'tf') ? ((curQ.a===true || curQ.a===0) ? 0 : 1) : (curQ && curQ.a);
-  // Show correct + my error
-  document.querySelectorAll('.online-opt').forEach(function(b){
-    b.disabled=true;
-    if(+b.getAttribute('data-orig') == correct) b.classList.add('ok');
-  });
-  // Show their answer marker (if available)
-  var key = onlineSession.role==='host'?'guest':'host';
-  var their = data[key]&&data[key].answer;
-  if(their && their.choice!=null && their.choice!==correct){
-    document.querySelectorAll('.online-opt').forEach(function(b){
-      if(+b.getAttribute('data-orig') == their.choice) b.classList.add('them-err');
-    });
-  }
-  // Feedback
-  var hostA = data.host&&data.host.answer;
-  var guestA= data.guest&&data.guest.answer;
-  var myA   = onlineSession.role==='host'?hostA:guestA;
-  var theirA= onlineSession.role==='host'?guestA:hostA;
-  var meOk  = myA && myA.choice == correct;
-  var themOk= theirA && theirA.choice == correct;
-
-  var msg='';
-  if(meOk && themOk){
-    var faster = (myA.time<=theirA.time);
-    msg = faster ? '✅ Tu es le plus rapide ! '+(data.config&&data.config.speedBonus?'+ Bonus ⚡':'')
-                 : '✅ Bonne réponse, mais ton adversaire a été plus rapide';
-  } else if(meOk){ msg='✅ Bonne réponse !'; }
-  else if(themOk){ msg='❌ Raté — adversaire a trouvé.'; }
-  else { msg='❌ Personne n\'a trouvé. Bonne réponse en vert.'; }
-  var fb=document.getElementById('online-feedback');
-  if(fb) fb.innerHTML='<div class="ofeed-result">'+escapeUserHtml(msg)+'</div>'+
-                     (curQ.x?'<div class="ofeed-exp">'+safeQuestionHtml(curQ.x)+'</div>':'');
-}
-
-// ---------- HOST ADVANCE (compute scores + next q or round end or finish) ----------
-async function hostAdvance(data, isSkip){
-  var cfg=data.config||{};
-  var curQ=data.currentQ||{};
-  var correct = (curQ.t === 'tf') ? ((curQ.a===true || curQ.a===0) ? 0 : 1) : curQ.a;
-  var hostA = data.host&&data.host.answer;
-  var guestA = data.guest&&data.guest.answer;
-  var hostOk = !isSkip && hostA && hostA.choice == correct;
-  var guestOk= !isSkip && guestA && guestA.choice == correct;
-
-  // Score computation
-  var hScore = data.host&&data.host.score || 0;
-  var gScore = data.guest&&data.guest.score || 0;
-  if(cfg.mode==='qbq'){
-    // Mode rapide : seul le plus rapide marque
-    if(hostOk && guestOk){
-      if(hostA.time<=guestA.time) hScore+=1; else gScore+=1;
-    } else if(hostOk){ hScore+=1; }
-    else if(guestOk){ gScore+=1; }
-  } else {
-    if(hostOk) hScore+=1;
-    if(guestOk) gScore+=1;
-    // Speed bonus
-    if(cfg.speedBonus && hostOk && guestOk){
-      if(hostA.time<guestA.time) hScore+=1;
-      else if(guestA.time<hostA.time) gScore+=1;
-    }
-  }
-
-  // Decide next state
-  var nextIdx = (data.qIdx||0) + 1;
-  var pool = onlineSession.questionsPool;
-  var roundIdx = data.roundIdx||0;
-  var newStatus='playing';
-  var newRoundIdx=roundIdx;
-  var doRoundEnd=false;
-  var doFinish=false;
-
-  if(cfg.mode==='course'){
-    if(hScore>=cfg.target || gScore>=cfg.target) doFinish=true;
-    if(nextIdx>=pool.length) doFinish=true;
-  } else if(cfg.mode==='qbq'){
-    if(nextIdx>=cfg.totalRounds) doFinish=true;
-  } else if(cfg.mode==='rounds'){
-    var qInRound = nextIdx % cfg.qPerRound;
-    if(qInRound===0){
-      newRoundIdx = roundIdx+1;
-      if(newRoundIdx>=cfg.totalRounds) doFinish=true;
-      else doRoundEnd=true;
-    }
-  }
-
-  if(doFinish){
-    await _onlineUpdate({
-      status:'finished',
-      'host.score':hScore, 'guest.score':gScore,
-      'host.answer':null,'guest.answer':null,
-      reveal:false
-    });
-    return;
-  }
-  if(doRoundEnd){
-    await _onlineUpdate({
-      status:'round_end',
-      roundIdx:newRoundIdx,
-      'host.score':hScore, 'guest.score':gScore,
-      'host.answer':null, 'guest.answer':null,
-      reveal:false
-    });
-    // Pause then move to next round
-    setTimeout(async function(){
-      if(!onlineSession.code) return;
-      var next = pool[nextIdx];
-      if(!next){ await _onlineUpdate({status:'finished'}); return; }
-      var correctIdx = (next.a !== undefined) ? next.a : (next.correct || next.items || 0);
-      if(next.t==='tf') correctIdx = (next.a===true || next.a===0) ? 0 : 1;
-
-      var qData={ idx:nextIdx, q:next.q, opts:next.opts||[], a:correctIdx, x:next.x||'', t:next.t||'qcm',
-                  shuffleSeed:Math.floor(Math.random()*999999) };
-      await _onlineUpdate({
-        status:'playing', qIdx:nextIdx, currentQ:qData, reveal:false,
-        'host.answer':null,'guest.answer':null
+  var tbar=document.querySelector('#online-game-panel .tbar');
+  if(tbar){ tbar.style.transition='none'; }
+  
+  var obj = data.currentQ.obj;
+  var players = Object.values(data.players);
+  var opts = document.querySelectorAll('#online-opts .opt-btn');
+  
+  if(obj.t==='qcm' || obj.t==='tf'){
+    opts.forEach(function(b){
+      var txt = b.textContent;
+      var isGood = (obj.t==='tf') ? ((txt==='Vrai') === !!obj.a) : (txt === obj.a);
+      if(isGood) {
+        b.style.background = 'var(--success)';
+        b.style.color = '#fff';
+      } else {
+        b.style.opacity = '0.4';
+      }
+      
+      // Montrer qui a voté quoi
+      players.forEach(function(p){
+        if(p.answer && p.answer.txt === txt){
+          var badge = document.createElement('div');
+          badge.textContent = p.pseudo;
+          badge.style.position = 'absolute';
+          badge.style.right = '-10px';
+          badge.style.top = '-10px';
+          badge.style.background = 'var(--bg2)';
+          badge.style.border = '1px solid var(--border)';
+          badge.style.padding = '2px 6px';
+          badge.style.borderRadius = '8px';
+          badge.style.fontSize = '0.6rem';
+          b.style.position = 'relative';
+          b.appendChild(badge);
+        }
       });
-    }, 4500);
-    return;
-  }
-  // Normal advance
-  var next = pool[nextIdx];
-  if(!next){
-    await _onlineUpdate({
-      status:'finished',
-      'host.score':hScore,'guest.score':gScore
     });
-    return;
+  } else {
+    var area = document.getElementById('online-opts');
+    var h = '<div style="font-size:1.2rem;color:var(--success);font-weight:bold;margin-bottom:15px;text-align:center;">Réponse : '+obj.a+'</div>';
+    players.forEach(function(p){
+      if(p.answer){
+        var c = p.answer.ok ? 'var(--success)' : 'var(--error)';
+        h+='<div style="color:'+c+';font-size:0.9rem;">'+p.pseudo+' : '+p.answer.txt+' ('+p.answer.pts+' pts)</div>';
+      }
+    });
+    if(area) area.innerHTML = h;
   }
-  var correctIdx = (next.a !== undefined) ? next.a : (next.correct || next.items || 0);
-  if(next.t==='tf') correctIdx = (next.a===true || next.a===0) ? 0 : 1;
+}
 
-  var qData={ idx:nextIdx, q:next.q, opts:next.opts||[], a:correctIdx, x:next.x||'', t:next.t||'qcm',
-              shuffleSeed:Math.floor(Math.random()*999999) };
-  await _onlineUpdate({
-    qIdx:nextIdx, currentQ:qData, reveal:false,
-    'host.score':hScore,'guest.score':gScore,
-    'host.answer':null,'guest.answer':null
+function hostAdvance(data){
+  if(onlineSession.role!=='host')return;
+  var upd = {};
+  var players = Object.values(data.players);
+  var pids = Object.keys(data.players);
+  
+  players.forEach(function(p){
+    var pts = (p.answer && p.answer.pts) ? p.answer.pts : 0;
+    upd['players.'+p.uid+'.score'] = (p.score||0) + pts;
+    upd['players.'+p.uid+'.answer'] = null; // reset
   });
+
+  var c = data.config;
+  if(c.mode==='course'){
+    var winner = players.find(function(p){ return (p.score + ((p.answer&&p.answer.pts)?p.answer.pts:0)) >= (c.target*100); });
+    if(winner) { upd.status='finished'; _onlineUpdate(upd); return; }
+  }
+
+  var nIdx = (data.qIdx||0) + 1;
+  if(c.mode==='qbq'){
+    if(nIdx >= c.qPerRound) { upd.status='finished'; }
+    else { upd.qIdx=nIdx; upd.currentQ = {cat:onlineSession.questionsPool[nIdx].c, idx:onlineSession.questionsPool[nIdx].q.idx, obj:onlineSession.questionsPool[nIdx].q}; upd.reveal=false; }
+  } else if(c.mode==='rounds') {
+    if(nIdx % c.qPerRound === 0){
+      var nRound = (data.roundIdx||0) + 1;
+      if(nRound >= c.totalRounds) { upd.status='finished'; }
+      else { upd.status='round_end'; upd.roundIdx=nRound; upd.qIdx=nIdx; }
+    } else {
+      upd.qIdx=nIdx; upd.currentQ = {cat:onlineSession.questionsPool[nIdx].c, idx:onlineSession.questionsPool[nIdx].q.idx, obj:onlineSession.questionsPool[nIdx].q}; upd.reveal=false;
+    }
+  }
+
+  _onlineUpdate(upd);
 }
 
-// ---------- HUD ----------
-function renderOnlineHUD(data, me, them, isHost){
-  var hud=document.getElementById('online-hud');
-  if(!hud) return;
-  var cfg=data.config||{};
-  var hideScores = (cfg.mode==='rounds') && (data.roundIdx===cfg.totalRounds-1);
-  var meScore = me?me.score:0, themScore = them?them.score:0;
-  var meName = me?me.pseudo:'Moi', themName = them?them.pseudo:'Adv.';
-  var qIdx=(data.qIdx||0)+1, totalQ = onlineSession.questionsPool.length||data.questionsPoolSize||'?';
-
-  hud.innerHTML =
-    '<div class="ohud-side ohud-me">'+
-      '<span class="ohud-name">'+meName+'</span>'+
-      '<span class="ohud-score">'+(hideScores?'??':meScore)+'</span>'+
-      (me&&me.answer?'<span class="ohud-flag ok">✓</span>':'<span class="ohud-flag wait">…</span>')+
-    '</div>'+
-    '<div class="ohud-mid">'+
-      '<span class="ohud-mid-q">Q '+qIdx+(totalQ?' / '+totalQ:'')+'</span>'+
-      (cfg.mode==='rounds'?'<span class="ohud-mid-round">Round '+((data.roundIdx||0)+1)+'/'+cfg.totalRounds+'</span>':'')+
-      (isHost ? '<button class="ohud-skip" onclick="hostSkipOnlineQuestion()" title="Passer cette question (Host)">⏭ SKIP</button>' : '')+
-    '</div>'+
-    '<div class="ohud-side ohud-them">'+
-      (them&&them.answer?'<span class="ohud-flag ok">✓</span>':'<span class="ohud-flag wait">…</span>')+
-      '<span class="ohud-score">'+(hideScores?'??':themScore)+'</span>'+
-      '<span class="ohud-name">'+themName+'</span>'+
-    '</div>';
-}
-
-// ---------- FINISH ----------
-function showOnlineFinish(data){
+function buildOnlineFinish(data){
   var area=document.getElementById('online-finish-area');
-  if(!area) return;
-  var hScore=data.host&&data.host.score||0;
-  var gScore=data.guest&&data.guest.score||0;
-  var hName=data.host&&data.host.pseudo||'Host';
-  var gName=data.guest&&data.guest.pseudo||'Guest';
-  var iAmHost=onlineSession.role==='host';
-  var meScore=iAmHost?hScore:gScore, themScore=iAmHost?gScore:hScore;
-  var meName=iAmHost?hName:gName, themName=iAmHost?gName:hName;
-  var iWin = meScore>themScore;
-  var draw = meScore===themScore;
-
-  area.innerHTML =
-    '<div class="ofin-emoji">'+(iWin?'🏆':draw?'🤝':'😢')+'</div>'+
-    '<div class="ofin-title">'+(iWin?'VICTOIRE !':draw?'ÉGALITÉ':'DÉFAITE')+'</div>'+
-    '<div class="ofin-vs">'+
-      '<div class="ofin-side '+(iWin?'win':draw?'':'lose')+'"><div class="ofin-name">'+meName+'</div><div class="ofin-score">'+meScore+'</div></div>'+
-      '<div class="ofin-mid">—</div>'+
-      '<div class="ofin-side '+(iWin?'lose':draw?'':'win')+'"><div class="ofin-name">'+themName+'</div><div class="ofin-score">'+themScore+'</div></div>'+
-    '</div>'+
-    '<div class="ofin-actions">'+
-      '<button class="sheet-launch-btn" onclick="goMenu()" data-testid="online-finish-menu">↩ MENU</button>'+
-    '</div>';
-
-  if(iWin){
-    setTimeout(function(){ if(window.launchConfetti) window.launchConfetti(); }, 300);
-  }
-  if(window.fbSaveUserData) window.fbSaveUserData();
-  // Cleanup session after a bit
-  setTimeout(function(){
-    if(onlineSession.unsubscribe) onlineSession.unsubscribe();
-    onlineSession.code=null;
-  }, 400);
-}
-
-function cancelOnlineSession(){
-  if(window.playClick) window.playClick();
-  if(onlineSession.unsubscribe) onlineSession.unsubscribe();
-  if(onlineSession.code&&window._fbUpdateDoc){
-    window._fbUpdateDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code),{status:'cancelled'}).catch(function(){});
-  }
-  onlineSession={code:null,uid:null,role:null,unsubscribe:null,config:null,qIdx:0,roundIdx:0,questionsPool:[],qStartTs:0,myAnswered:false,revealing:false,perRoundScores:[]};
-  var p=document.getElementById('online-setup-panel'); if(p) p.style.display='';
-  var w=document.getElementById('online-waiting'); if(w) w.style.display='none';
-  var box=document.getElementById('online-code-box'); if(box) box.style.display='none';
-  var b=document.getElementById('online-create-btn'); if(b) b.style.display='block';
-  ['vote','round','game','finish'].forEach(function(p){
-    var e=document.getElementById('online-'+p+'-panel'); if(e) e.style.display='none';
+  if(!area)return;
+  var players = Object.values(data.players).sort(function(a,b){return b.score - a.score;});
+  var html='<div style="text-align:center;font-size:2rem;font-weight:900;color:var(--primary);margin-bottom:30px;font-family:var(--font-title);letter-spacing:1px;text-transform:uppercase;">CLASSEMENT</div>';
+  
+  html+='<div style="display:flex;flex-direction:column;gap:12px;">';
+  players.forEach(function(p, idx){
+    var bg = idx===0 ? 'background:linear-gradient(135deg, rgba(255,184,0,0.2) 0%, rgba(255,140,0,0.1) 100%);border:1px solid var(--primary);' : 'background:var(--bg3);border:1px solid var(--border2);';
+    var medal = idx===0 ? '🏆' : (idx===1 ? '🥈' : (idx===2 ? '🥉' : (idx+1)+'ème'));
+    
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:15px;border-radius:12px;'+bg+'">'
+        + '<div style="display:flex;align-items:center;gap:15px;">'
+        + '<div style="font-size:1.5rem;width:30px;text-align:center;">'+medal+'</div>'
+        + '<div style="font-size:1.2rem;font-weight:bold;color:var(--text);">'+p.pseudo+'</div>'
+        + '</div>'
+        + '<div style="font-size:1.5rem;font-weight:900;color:var(--primary);">'+p.score+' <span style="font-size:0.8rem;color:var(--text2);font-weight:normal;">pts</span></div>'
+        + '</div>';
   });
-  goMenu();
-}
+  html+='</div>';
 
-function copyOnlineCode(){
-  var code=document.getElementById('online-code-num');
-  if(!code) return;
-  navigator.clipboard&&navigator.clipboard.writeText(code.textContent).then(function(){
-    var el2=document.getElementById('online-copied');
-    if(el2){el2.classList.add('show');setTimeout(function(){el2.classList.remove('show');},2000);}
-  });
+  html+='<button class="online-cta-create" style="margin-top:40px;" onclick="cancelOnlineSession()">RETOUR AU MENU</button>';
+  area.innerHTML=html;
 }
 
 function showOnlineError(msg){
-  var el2=document.getElementById('online-error');
-  if(el2){el2.textContent=msg;el2.style.display='block';setTimeout(function(){el2.style.display='none';},5000);}
+  var e=document.getElementById('online-error-area');
+  if(e){ e.textContent=msg; e.style.display='block'; setTimeout(function(){e.style.display='none';},4000); }
 }
-
 // Adapter wizLaunch pour le mode online
 var _origWizLaunch=typeof wizLaunch==='function'?wizLaunch:null;
 

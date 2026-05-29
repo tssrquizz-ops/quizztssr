@@ -1267,9 +1267,22 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="online-setup-sub">Créez une session, partagez le code, jouez la même question simultanément</div>
       </div>
 
+      <div style="display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
+        <label style="color:var(--text2);font-size:0.9rem;cursor:pointer;">
+          <input type="checkbox" id="online-private-cb" style="accent-color:var(--primary);margin-right:5px;"> 
+          Session Privée (code requis)
+        </label>
+      </div>
       <button id="online-create-btn" class="online-cta-create" onclick="createOnlineSession()">
         ✚ CRÉER UNE SESSION
       </button>
+
+      <div id="online-lobby-area" style="margin-top:20px;">
+        <div class="menu-divider">SESSIONS PUBLIQUES</div>
+        <div id="online-lobby-list" style="display:flex;flex-direction:column;gap:8px;max-height:180px;overflow-y:auto;background:var(--bg2);border-radius:12px;padding:10px;">
+          <div style="text-align:center;color:var(--text2);font-size:0.85rem;padding:10px;">Recherche...</div>
+        </div>
+      </div>
 
       <div class="menu-divider">ou rejoindre</div>
 
@@ -1292,18 +1305,21 @@ document.addEventListener('DOMContentLoaded', function() {
       <!-- Attente adversaire -->
       <div id="online-waiting" style="display:none;">
         <div class="online-waiting">
-          <div id="online-waiting-msg" class="online-waiting-text">En attente de l'adversaire…</div>
+          <div id="online-waiting-msg" class="online-waiting-text">En attente de joueurs…</div>
           <div id="online-waiting-anim" class="online-waiting-dots">
             <div class="online-waiting-dot"></div>
             <div class="online-waiting-dot"></div>
             <div class="online-waiting-dot"></div>
           </div>
+          <!-- Liste des joueurs présents -->
+          <div id="online-player-roster" style="width:100%;margin-top:10px;"></div>
           <!-- Bouton de lancement pour l'hôte -->
           <button id="online-host-start-btn" class="online-cta-create" style="display:none;margin-top:20px;width:100%;" onclick="hostManualStart()">
             ⚔️ COMMENCER LA PARTIE
           </button>
         </div>
       </div>
+
 
       <div id="online-error-area"></div>
     </div>
