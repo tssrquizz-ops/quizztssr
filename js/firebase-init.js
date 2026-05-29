@@ -160,7 +160,10 @@ window.fbLoadQuestions = async function() {
         
         // Normalize any questions with old format/keys
         var qs = data.qs || [];
-        qs.forEach(function(q) {
+        qs.forEach(function(q, i) {
+          if (q.idx === undefined) {
+            q.idx = i;
+          }
           if (q.o && !q.opts) {
             q.opts = q.o;
           }

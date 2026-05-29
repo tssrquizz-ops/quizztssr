@@ -208,9 +208,10 @@
 
             // Écrire sur Firestore
             var catData = Object.assign({}, existing);
-            catData.qs = mergedQs.map(function(q) {
+            catData.qs = mergedQs.map(function(q, idx) {
               var copy = Object.assign({}, q);
               delete copy._cat;
+              copy.idx = idx; // Assign index
               return copy;
             });
             await setDocFn(docFn(db, 'categories', catId), catData);
@@ -221,9 +222,10 @@
             var newCat = {
               label: importCat.label || catId,
               icon: importCat.icon || '📁',
-              qs: importCat.qs.map(function(q) {
+              qs: importCat.qs.map(function(q, idx) {
                 var copy = Object.assign({}, q);
                 delete copy._cat;
+                copy.idx = idx; // Assign index
                 return copy;
               })
             };
