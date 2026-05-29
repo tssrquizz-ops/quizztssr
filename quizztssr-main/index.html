@@ -489,7 +489,7 @@ document.addEventListener('DOMContentLoaded', function() {
           <span class="mc-name">LOCAL</span>
           <span class="mc-desc">2 joueurs · même clavier</span>
         </button>
-        <button class="mode-card mode-card-duel" onclick="closeLaunchSheet();document.getElementById('screen-online-duel').style.display='flex';document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');})">
+        <button class="mode-card mode-card-duel" onclick="closeLaunchSheet();showScreen('online-duel')">
           <span class="mc-icon">🌐</span>
           <span class="mc-name">EN LIGNE</span>
           <span class="mc-desc">Contre un ami à distance</span>

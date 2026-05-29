@@ -157,8 +157,36 @@ window.fbLoadQuestions = async function() {
       snap.forEach(function(doc) {
         var data = doc.data();
         var catId = doc.id;
+        
+        // Normalize any questions with old format/keys
+        var qs = data.qs || [];
+        qs.forEach(function(q) {
+          if (q.o && !q.opts) {
+            q.opts = q.o;
+          }
+          if (!q.t) {
+            if (q.mech) {
+              var mechMap = {
+                'mch-choice': 'qcm',
+                'mch-tf': 'tf',
+                'mch-fill': 'fill',
+                'mch-calc': 'calc',
+                'mch-word': 'word',
+                'mch-order': 'order'
+              };
+              q.t = mechMap[q.mech] || 'qcm';
+            } else {
+              q.t = 'qcm';
+            }
+          }
+          if (q.exp && !q.x) {
+            q.x = q.exp;
+          }
+        });
+        data.qs = qs;
+
         if (window.CATS[catId]) {
-          window.CATS[catId].qs = data.qs || [];
+          window.CATS[catId].qs = qs;
         } else {
           window.CATS[catId] = data;
         }

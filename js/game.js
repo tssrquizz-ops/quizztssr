@@ -6430,11 +6430,6 @@ function showToast(msg, type) {
   }, 3000);
 }
 
-window.hostManualStart = function(){
-  if(onlineSession.role === 'host'){
-    _onlineUpdate({status:'starting'});
-  }
-};
 
 window.hostSkipOnlineQuestion = async function(){
   if(onlineSession.role !== 'host') return;

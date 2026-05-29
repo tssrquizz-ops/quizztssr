@@ -19,6 +19,33 @@
     return rows;
   }
 
+  function normalizeQuestion(q) {
+    if (q.o && !q.opts) {
+      q.opts = q.o;
+      delete q.o;
+    }
+    if (!q.t) {
+      if (q.mech) {
+        var mechMap = {
+          'mch-choice': 'qcm',
+          'mch-tf': 'tf',
+          'mch-fill': 'fill',
+          'mch-calc': 'calc',
+          'mch-word': 'word',
+          'mch-order': 'order'
+        };
+        q.t = mechMap[q.mech] || 'qcm';
+      } else {
+        q.t = 'qcm';
+      }
+    }
+    if (q.exp && !q.x) {
+      q.x = q.exp;
+      delete q.exp;
+    }
+    return q;
+  }
+
   // ── Normalise un JSON importé en { catId: { label, icon, qs: [...] } } ──
   function normalizeImport(parsed, format) {
     var result = {}; // catId → { label, icon, qs }
@@ -36,6 +63,7 @@
           // Try to parse JSON values (for arrays like options)
           try { q[k] = JSON.parse(row[k]); } catch(e) { q[k] = row[k]; }
         });
+        normalizeQuestion(q);
         result[catId].qs.push(q);
       });
       return result;
@@ -62,7 +90,7 @@
           qs = qs.map(function(q) {
             var copy = Object.assign({}, q);
             delete copy._cat;
-            return copy;
+            return normalizeQuestion(copy);
           });
           result[catId] = {
             label: cat.label || cat.name || catId,
@@ -84,6 +112,7 @@
       delete q.cat;
       delete q.category;
       delete q._cat;
+      normalizeQuestion(q);
       result[catId].qs.push(q);
     });
 
