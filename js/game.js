@@ -681,6 +681,18 @@ async function initMenu(){
   buildDailyWidget();
   buildQuickStats();
   if(typeof updateMenuTopbar==='function') updateMenuTopbar();
+
+  // Auto-open daily challenge pop-up if not done yet today and not shown in this session
+  if (!dailyPopupShownThisSession) {
+    var today = new Date().toDateString();
+    var q = getDailyQuestion();
+    if (q && !dailyData[today]) {
+      dailyPopupShownThisSession = true;
+      setTimeout(function() {
+        openDailyScreen();
+      }, 300);
+    }
+  }
 }
 
 function pickVT(e){document.querySelectorAll('.vtbtn').forEach(function(x){x.classList.remove('sel');});e.classList.add('sel');vTheme=e.getAttribute('data-vt');lsSet('tssr5_vt',vTheme);applyBody();}
@@ -1257,30 +1269,35 @@ function loadOpenSessions(){
   if(!window._fbDb || !window._fbCollection) return;
   var listArea = document.getElementById('online-lobby-list');
   if(!listArea) return;
-  
-  var q = window._fbQuery(window._fbCollection(window._fbDb, 'duels'), window._fbWhere('status', '==', 'waiting'), window._fbWhere('isPublic', '==', true));
+  listArea.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:0.85rem;padding:10px;">Recherche...</div>';
+
+  // Use single where to avoid needing a composite Firestore index
+  var q = window._fbQuery(window._fbCollection(window._fbDb, 'duels'), window._fbWhere('status', '==', 'waiting'));
   unsubLobby = window._fbOnSnapshot(q, function(snap) {
-    if(snap.empty){
+    var sessions = [];
+    snap.forEach(function(doc){ var d = doc.data(); if(d.isPublic !== false) sessions.push(d); });
+
+    if(sessions.length === 0){
       listArea.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:0.85rem;padding:10px;">Aucune session publique en attente.</div>';
       return;
     }
     var html = '';
-    snap.forEach(function(doc){
-      var d = doc.data();
+    sessions.forEach(function(d){
       var pCount = d.players ? Object.keys(d.players).length : 1;
       var hostName = 'Joueur';
       if(d.players && d.players[d.host]) hostName = d.players[d.host].pseudo;
-      
       var isFull = pCount >= 5;
-      var btnHtml = isFull ? '<button disabled style="background:var(--border2);color:var(--text2);border:none;border-radius:4px;padding:4px 8px;cursor:not-allowed;">Plein</button>'
-                           : '<button onclick="joinOnlineSession(\''+d.code+'\')" style="background:var(--primary);color:#000;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-weight:bold;">Rejoindre</button>';
-                           
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg3);padding:8px;border-radius:8px;border:1px solid var(--border2);">'
-            + '<div style="font-size:0.9rem;font-family:var(--font-title);"><span style="color:var(--primary);">'+hostName+'</span> <span style="color:var(--text2);font-size:0.8rem;">('+pCount+'/5)</span></div>'
-            + btnHtml
-            + '</div>';
+      var btnHtml = isFull
+        ? '<button disabled style="background:var(--border2);color:var(--text2);border:none;border-radius:6px;padding:5px 10px;cursor:not-allowed;">Plein</button>'
+        : '<button onclick="joinOnlineSession(\''+d.code+'\')" style="background:var(--primary);color:#000;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-weight:bold;">Rejoindre</button>';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg3);padding:10px;border-radius:8px;border:1px solid var(--border2);">'
+            + '<div><span style="font-weight:bold;color:var(--text);">'+hostName+'</span> <span style="color:var(--text2);font-size:0.8rem;">('+pCount+'/5 joueurs)</span></div>'
+            + btnHtml + '</div>';
     });
     listArea.innerHTML = html;
+  }, function(err){
+    console.warn('lobby error', err);
+    listArea.innerHTML = '<div style="text-align:center;color:var(--error);font-size:0.8rem;padding:10px;">Erreur lobby: '+err.code+'</div>';
   });
 }
 
@@ -1548,41 +1565,61 @@ function computeAndStartConfig(data){} // Legacy, not used.
 
 // ─── STARTING ───
 async function hostGenerateQuestionsAndStart(data){
-  var cfg=data.config;
-  var totalQ=0;
+  // Guard: only run once per 'starting' transition
+  if(onlineSession._hostStarting) return;
+  onlineSession._hostStarting = true;
+
+  var cfg = data.config;
+  if(!cfg){ console.warn('No config found!'); return; }
+
+  var totalQ = 0;
   if(cfg.mode==='rounds') totalQ = cfg.qPerRound * cfg.totalRounds;
-  else if(cfg.mode==='course') totalQ = cfg.target * 3; // buffer large
+  else if(cfg.mode==='course') totalQ = Math.max(cfg.target * 3, 15);
   else if(cfg.mode==='qbq') totalQ = cfg.qPerRound;
-  
-  var catList = Object.keys(CATS).filter(function(k){return k!=='mix';});
+  if(totalQ < 1) totalQ = 10;
+
+  // Build from ALL cats that have questions (using .qs, the correct field)
+  var catList = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
   var pool = [];
   var usedSet = new Set();
   var pIdx = 0;
-  while(pool.length < totalQ && pIdx < 500){
+  while(pool.length < totalQ && pIdx < 1000){
     pIdx++;
     var c = catList[Math.floor(Math.random()*catList.length)];
-    if(!CATS[c]||!CATS[c].questions||CATS[c].questions.length===0) continue;
-    var q = CATS[c].questions[Math.floor(Math.random()*CATS[c].questions.length)];
-    var k = c+'-'+q.idx;
+    var qs = CATS[c].qs;
+    var q = qs[Math.floor(Math.random()*qs.length)];
+    // Only use simple question types to avoid Firestore serialization issues
+    var okTypes = ['qcm','tf','fill','word','calc'];
+    if(okTypes.indexOf(q.t) === -1) continue;
+    var k = c + '-' + q.idx;
     if(usedSet.has(k)) continue;
     usedSet.add(k);
-    pool.push({c:c, q:q});
+    pool.push({ c: c, q: q });
   }
+
+  if(pool.length === 0){
+    showOnlineError('Aucune question disponible ! Vérifiez les catégories.');
+    onlineSession._hostStarting = false;
+    return;
+  }
+
   onlineSession.questionsPool = pool;
-  
+
   var firstQ = pool[0];
+  // Store only serializable fields to avoid Firestore errors
+  var qObj = { q: firstQ.q.q, a: firstQ.q.a, w: firstQ.q.w || [], t: firstQ.q.t, d: firstQ.q.d, idx: firstQ.q.idx, x: firstQ.q.x || '' };
   var upd = {
-    status:'playing',
-    qIdx:0, roundIdx:0,
-    currentQ:{ cat:firstQ.c, idx:firstQ.q.idx, obj:firstQ.q },
-    reveal:false
+    status: 'playing',
+    qIdx: 0, roundIdx: 0,
+    currentQ: { cat: firstQ.c, idx: firstQ.q.idx, obj: qObj },
+    reveal: false
   };
   Object.keys(data.players).forEach(function(uid){
     upd['players.'+uid+'.score'] = 0;
     upd['players.'+uid+'.answer'] = null;
   });
-  
-  setTimeout(function(){ _onlineUpdate(upd); }, 3000); // Intro round
+
+  setTimeout(function(){ _onlineUpdate(upd); }, 3000);
 }
 
 // ─── ROUND RECAP ───
@@ -1697,12 +1734,17 @@ window.onlineAnswer = function(val){
   var maxT = getQTimer(obj,20);
   
   var isCorrect = false;
-  if(obj.t==='tf') isCorrect = ((ansText==='Vrai') === !!obj.a);
-  else if(obj.t==='word' || obj.t==='calc') {
+  if(obj.t==='tf'){
+    // obj.a can be boolean true/false or string 'true'/'false'
+    var correctIsVrai = (obj.a === true || obj.a === 'true' || obj.a === 'Vrai' || obj.a === 'VRAI');
+    isCorrect = (ansText === 'Vrai') === correctIsVrai;
+  } else if(obj.t==='fill' || obj.t==='word' || obj.t==='calc') {
     var valid = [String(obj.a).toLowerCase()].concat((obj.w||[]).map(function(s){return String(s).toLowerCase();}));
-    isCorrect = valid.indexOf(ansText.toLowerCase())>-1;
+    isCorrect = valid.indexOf(ansText.toLowerCase()) > -1;
+  } else {
+    // qcm: compare text directly
+    isCorrect = (ansText === String(obj.a));
   }
-  else isCorrect = (ansText === obj.a);
 
   var pts = 0;
   if(isCorrect){
@@ -2938,6 +2980,7 @@ function launchConfetti(){
 // DÉFI QUOTIDIEN
 // =====================================================
 var dailyData=lsGet('tssr5_daily',{});
+var dailyPopupShownThisSession = false;
 
 function getDailyQuestion(){
   // Deterministic question based on date (same question for everyone on same day)
@@ -2958,30 +3001,8 @@ function getDailyQuestion(){
 function buildDailyWidget(){
   var widget=document.getElementById('daily-widget');
   if(!widget) return;
-  var today=new Date().toDateString();
-  var q=getDailyQuestion();
-  if(!q){widget.innerHTML='';return;}
-  var done=dailyData[today];
-
-  if(done){
-    widget.innerHTML='<div class="daily-card"><div class="daily-header"><span class="daily-icon">📅</span><span class="daily-title">DÉFI DU JOUR</span><span class="daily-date">'+new Date().toLocaleDateString('fr-FR')+'</span></div><div class="daily-done">'+(done.ok?'✅ Réussi aujourd\'hui !':'❌ Raté — retente demain !')+'<div class="daily-streak">Reviens demain pour un nouveau défi 🔥</div></div></div>';
-    return;
-  }
-
-  // Carte cliquable qui ouvre l'écran dédié (PAS d'affichage inline de la question)
-  widget.innerHTML =
-    '<button class="daily-card daily-card-btn" onclick="openDailyScreen()" data-testid="daily-card-btn">'+
-      '<div class="daily-header">'+
-        '<span class="daily-icon">📅</span>'+
-        '<span class="daily-title">DÉFI DU JOUR</span>'+
-        '<span class="daily-date">'+new Date().toLocaleDateString('fr-FR')+'</span>'+
-      '</div>'+
-      '<div class="daily-teaser">'+
-        '<div class="daily-teaser-title">Une question corsée à résoudre 🎯</div>'+
-        '<div class="daily-teaser-sub">Tape pour relever le défi du jour</div>'+
-        '<div class="daily-teaser-cta">COMMENCER →</div>'+
-      '</div>'+
-    '</button>';
+  widget.style.display = 'none';
+  widget.innerHTML = '';
 }
 
 function openDailyScreen(){
@@ -5469,7 +5490,10 @@ function sheetPickN(btn){
 function buildQuickStats(){
   var qs=document.getElementById('quick-stats');
   if(!qs) return;
-  var totalQ=Object.keys(CATS).reduce(function(a,k){return a+(CATS[k]&&CATS[k].qs?CATS[k].qs.length:0);},0);
+  var totalQ=Object.keys(CATS).reduce(function(a,k){
+    if(k==='mix') return a;
+    return a+(CATS[k]&&CATS[k].qs?CATS[k].qs.length:0);
+  },0);
   var totalPlayed=Object.keys(stD).reduce(function(a,k){return a+(stD[k]?stD[k].played:0);},0);
   var totalCorrect=Object.keys(stD).reduce(function(a,k){return a+(stD[k]?stD[k].correct:0);},0);
   var globalPct=totalPlayed>0?Math.round(totalCorrect/totalPlayed*100):0;
