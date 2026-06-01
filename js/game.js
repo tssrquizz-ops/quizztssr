@@ -739,6 +739,7 @@ async function initMenu(){
   _updateThemeBtns(); // applique le thème UI (arcade/paper/terminal/minimal)
   buildDailyWidget();
   buildQuickStats();
+  buildLiveLobbiesWidget();
   if(typeof updateMenuTopbar==='function') updateMenuTopbar();
 
   // Auto-open daily challenge pop-up if not done yet today and not shown in this session
@@ -754,7 +755,72 @@ async function initMenu(){
   }
 }
 
+function buildLiveLobbiesWidget(){
+  var w = document.getElementById('live-lobbies-widget');
+  if(!w) return;
+  if(!window._fbDb || !window._fbGetDocs || !window._fbCollection || !window._fbQuery || !window._fbWhere){
+    w.innerHTML = ''; return;
+  }
+  // One-shot fetch (pas de listener temps-réel pour ne pas confliceter avec unsubLobby)
+  var q = window._fbQuery(
+    window._fbCollection(window._fbDb, 'duels'),
+    window._fbWhere('status', '==', 'waiting')
+  );
+  window._fbGetDocs(q).then(function(snap){
+    var sessions = [];
+    var now = Date.now();
+    snap.forEach(function(doc){
+      var d = doc.data();
+      if(d.isPublic === false) return;
+      var createdMs = 0;
+      if(d.createdAt){
+        if(typeof d.createdAt.toDate === 'function') createdMs = d.createdAt.toDate().getTime();
+        else if(d.createdAt.seconds !== undefined) createdMs = d.createdAt.seconds * 1000;
+        else { var parsed = Date.parse(d.createdAt); if(!isNaN(parsed)) createdMs = parsed; }
+      }
+      if(createdMs > 0 && (now - createdMs) > 15 * 60 * 1000) return;
+      sessions.push(d);
+    });
+
+    if(sessions.length === 0){ w.innerHTML = ''; return; }
+
+    var rows = sessions.map(function(d){
+      var pCount = d.players ? Object.keys(d.players).length : 1;
+      var hostName = (d.players && d.players[d.host]) ? escapeUserHtml(d.players[d.host].pseudo) : 'Joueur';
+      var isFull = pCount >= 5;
+      var dot = isFull
+        ? '<span style="width:7px;height:7px;border-radius:50%;background:#ef4444;display:inline-block;flex-shrink:0;"></span>'
+        : '<span style="width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block;flex-shrink:0;animation:pulse-dot 1.4s infinite;"></span>';
+      var btn = isFull
+        ? '<span style="font-size:9px;font-family:monospace;color:var(--text2);letter-spacing:1px;">PLEIN</span>'
+        : '<button onclick="joinOnlineSession(\''+d.code+'\');showScreen(\'online-duel\')" '
+          + 'style="background:var(--primary);color:#000;border:none;border-radius:20px;padding:4px 12px;font-size:9px;font-weight:bold;cursor:pointer;font-family:monospace;letter-spacing:1px;white-space:nowrap;">REJOINDRE</button>';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;border-radius:8px;background:var(--bg3);border:1px solid var(--border2);">'
+        + '<div style="display:flex;align-items:center;gap:8px;min-width:0;">'
+          + dot
+          + '<span style="font-weight:bold;color:var(--text);font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">' + hostName + '</span>'
+          + '<span style="font-size:9px;color:var(--text2);font-family:monospace;">'+pCount+'/5</span>'
+        + '</div>'
+        + btn
+        + '</div>';
+    }).join('');
+
+    w.innerHTML = '<div style="background:var(--bg2);border:1.5px solid var(--border2);border-radius:12px;padding:12px 14px;">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+        + '<div style="display:flex;align-items:center;gap:7px;">'
+          + '<span style="font-size:1rem;">⚔️</span>'
+          + '<span style="font-family:monospace;font-size:9px;letter-spacing:2px;color:var(--acc);font-weight:bold;">SALONS OUVERTS</span>'
+        + '</div>'
+        + '<span style="background:var(--a2,rgba(99,102,241,.15));color:var(--acc);border-radius:20px;padding:2px 9px;font-size:9px;font-family:monospace;font-weight:bold;">' + sessions.length + '</span>'
+      + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;">'+rows+'</div>'
+      + '</div>'
+      + '<style>@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}</style>';
+  }).catch(function(){ w.innerHTML = ''; });
+}
+
 function pickVT(e){document.querySelectorAll('.vtbtn').forEach(function(x){x.classList.remove('sel');});e.classList.add('sel');vTheme=e.getAttribute('data-vt');lsSet('tssr5_vt',vTheme);applyBody();}
+
 function pickDiff(e){document.querySelectorAll('.diffbtn').forEach(function(x){x.classList.remove('sel');});e.classList.add('sel');selDiff=e.getAttribute('data-diff');}
 function pickMode(e){document.querySelectorAll('.mcard').forEach(function(x){x.classList.remove('sel');});e.classList.add('sel');selMode=e.getAttribute('data-mode');}
 
