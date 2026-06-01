@@ -1772,7 +1772,29 @@ function renderRoundRecap(data, starting){
 
 window.hostNextRound = function(){
   if(onlineSession.role!=='host')return;
-  _onlineUpdate({status:'playing', reveal:false});
+  var pool = onlineSession.questionsPool;
+  var nIdx = onlineSession.qIdx; // already set to next question by hostAdvance
+  function makeSafeQ(entry){
+    var raw = entry.q;
+    return {
+      q: raw.q || '',
+      a: raw.a !== undefined ? raw.a : 0,
+      w: raw.w || [],
+      t: raw.t || 'qcm',
+      d: raw.d !== undefined ? raw.d : 1,
+      idx: raw.idx !== undefined ? raw.idx : 0,
+      x: raw.x || '',
+      opts: raw.opts || null
+    };
+  }
+  var nextQ = pool && pool[nIdx] ? {
+    cat: pool[nIdx].c || 'mix',
+    idx: pool[nIdx].q.idx !== undefined ? pool[nIdx].q.idx : nIdx,
+    obj: makeSafeQ(pool[nIdx])
+  } : null;
+  var upd = {status:'playing', reveal:false};
+  if(nextQ) upd.currentQ = nextQ;
+  _onlineUpdate(upd);
 }
 
 // ─── IN GAME ───
@@ -2144,7 +2166,8 @@ function hostAdvance(data){
       t: raw.t || 'qcm',
       d: raw.d !== undefined ? raw.d : 1,
       idx: raw.idx !== undefined ? raw.idx : 0,
-      x: raw.x || ''
+      x: raw.x || '',
+      opts: raw.opts || null
     };
   }
 
