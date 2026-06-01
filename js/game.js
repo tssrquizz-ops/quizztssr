@@ -1942,15 +1942,16 @@ function renderOnlineQuestion(q){
   area.appendChild(card);
 
   // Options — mêmes classes que quiz solo
-  if(m === 'qcm'){
-    var o = [obj.a].concat(obj.w || []);
+  // Format: obj.opts = tableau de toutes les options, obj.a = INDEX de la bonne réponse
+  if(m === 'qcm' || m === 'debug'){
+    var o = obj.opts ? obj.opts.slice() : [obj.a].concat(obj.w || []);
     shuffle(o);
     window._curOnlineOpts = o;
     var wrap = document.createElement('div');
     wrap.className = 'opts';
     wrap.id = 'online-opts';
     ['A','B','C','D'].forEach(function(k, i){
-      if(!o[i]) return;
+      if(o[i] === undefined || o[i] === null) return;
       var b = document.createElement('button');
       b.className = 'opt';
       b.id = 'oopt' + i;
@@ -2095,12 +2096,19 @@ window.onlineAnswer = function(val){
     // obj.a can be boolean true/false or string 'true'/'false'
     var correctIsVrai = (obj.a === true || obj.a === 'true' || obj.a === 'Vrai' || obj.a === 'VRAI');
     isCorrect = (ansText === 'Vrai') === correctIsVrai;
-  } else if(obj.t==='fill' || obj.t==='word' || obj.t==='calc') {
-    var valid = [String(obj.a).toLowerCase()].concat((obj.w||[]).map(function(s){return String(s).toLowerCase();}));
-    isCorrect = valid.indexOf(ansText.toLowerCase()) > -1;
   } else {
-    // qcm: compare text directly
-    isCorrect = (ansText === String(obj.a));
+    // Pour qcm/debug/fill/calc : obj.a est un INDEX dans obj.opts quand obj.opts existe
+    var correctTxt = (obj.opts && obj.a !== undefined && obj.opts[obj.a] !== undefined)
+      ? String(obj.opts[obj.a])
+      : String(obj.a);
+    if(obj.t === 'qcm' || obj.t === 'debug'){
+      isCorrect = (ansText === correctTxt);
+    } else {
+      // fill/calc/word : case-insensitive
+      var altAnswers = [correctTxt.toLowerCase()];
+      if(obj.w && obj.w.length) obj.w.forEach(function(s){ altAnswers.push(String(s).toLowerCase()); });
+      isCorrect = altAnswers.indexOf(ansText.toLowerCase()) > -1;
+    }
   }
 
   var pts = 0;
@@ -2133,14 +2141,16 @@ function revealOnlineQuestion(data){
   var myOk = mePlayer && mePlayer.answer ? mePlayer.answer.ok : false;
 
   // ── Reveal options with standard .ok / .err classes ──
-  if(obj.t === 'qcm'){
+  if(obj.t === 'qcm' || obj.t === 'debug'){
+    var correctRevealTxt = (obj.opts && obj.a !== undefined && obj.opts[obj.a] !== undefined)
+      ? String(obj.opts[obj.a]) : String(obj.a);
     var opts = document.querySelectorAll('#online-opts .opt');
     opts.forEach(function(b){
       b.disabled = true;
       // Get the text from the <span> (second child, not okey span)
       var spans = b.querySelectorAll('span');
       var txt = spans.length > 1 ? spans[1].textContent : b.textContent;
-      var isGood = (txt === String(obj.a));
+      var isGood = (txt === correctRevealTxt);
       if(isGood){ b.classList.remove('err'); b.classList.add('ok'); }
       else if(b.classList.contains('chosen')){ b.classList.add('err'); }
       else { b.style.opacity = '0.45'; }
