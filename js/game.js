@@ -1759,8 +1759,9 @@ async function hostGenerateQuestionsAndStart(data){
     var c = catList[Math.floor(Math.random()*catList.length)];
     var qs = CATS[c].qs;
     var q = qs[Math.floor(Math.random()*qs.length)];
-    // Only use simple question types to avoid Firestore serialization issues
-    var okTypes = ['qcm','tf','fill','word','calc'];
+    // Exclure les types complexes dont la structure n'est pas sérialisable simplement vers Firestore
+    // word: utilise q.correct (non sérialisé), order/scramble/multiblank/categorize/hotspot: trop complexes
+    var okTypes = ['qcm','debug','tf','fill','calc','type'];
     if(okTypes.indexOf(q.t) === -1) continue;
     var k = c + '-' + q.idx;
     if(usedSet.has(k)) continue;
@@ -1785,8 +1786,10 @@ async function hostGenerateQuestionsAndStart(data){
     t: firstQ.q.t || 'qcm',
     d: firstQ.q.d !== undefined ? firstQ.q.d : 1,
     idx: firstQ.q.idx !== undefined ? firstQ.q.idx : 0,
-    x: firstQ.q.x || ''
+    x: firstQ.q.x || '',
+    opts: firstQ.q.opts || null
   };
+  if (firstQ.q.aliases) qObj.aliases = firstQ.q.aliases;
   var upd = {
     status: 'playing',
     qIdx: 0, roundIdx: 0,
@@ -1842,7 +1845,7 @@ window.hostNextRound = function(){
   var nIdx = onlineSession.qIdx; // already set to next question by hostAdvance
   function makeSafeQ(entry){
     var raw = entry.q;
-    return {
+    var safe = {
       q: raw.q || '',
       a: raw.a !== undefined ? raw.a : 0,
       w: raw.w || [],
@@ -1852,6 +1855,8 @@ window.hostNextRound = function(){
       x: raw.x || '',
       opts: raw.opts || null
     };
+    if (raw.aliases) safe.aliases = raw.aliases;
+    return safe;
   }
   var nextQ = pool && pool[nIdx] ? {
     cat: pool[nIdx].c || 'mix',
@@ -1977,9 +1982,9 @@ function renderOnlineQuestion(q){
     tfRow.appendChild(bT); tfRow.appendChild(bF);
     area.appendChild(tfRow);
 
-  } else if(m === 'fill' || m === 'calc'){
-    // Fill/calc with chips if opts available, else text input
-    var hasOpts = (m === 'calc' && obj.opts) || (m === 'fill' && obj.opts);
+  } else if(m === 'fill' || m === 'calc' || m === 'type'){
+    // Fill/calc with chips if opts available, else text input (always text input for type)
+    var hasOpts = (m !== 'type') && ((m === 'calc' && obj.opts) || (m === 'fill' && obj.opts));
     if(hasOpts){
       var fillOpts = document.createElement('div');
       fillOpts.className = (m === 'fill') ? 'fill-opts' : 'calc-opts';
@@ -2093,18 +2098,39 @@ window.onlineAnswer = function(val){
   
   var isCorrect = false;
   if(obj.t==='tf'){
-    // obj.a can be boolean true/false or string 'true'/'false'
     var correctIsVrai = (obj.a === true || obj.a === 'true' || obj.a === 'Vrai' || obj.a === 'VRAI');
     isCorrect = (ansText === 'Vrai') === correctIsVrai;
+  } else if (obj.t === 'type') {
+    // Saisie libre (type) : comparaison insensible aux accents/majuscules/ponctuation
+    var accepted = [];
+    if (Array.isArray(obj.a)) {
+      accepted = obj.a.map(String);
+    } else if (obj.a !== undefined && obj.a !== null) {
+      accepted = [String(obj.a)];
+    }
+    if (obj.aliases && Array.isArray(obj.aliases)) {
+      accepted = accepted.concat(obj.aliases.map(String));
+    }
+    var safeNormalizeStr = function(s) {
+      if (typeof normalizeStr === 'function') return normalizeStr(s);
+      return String(s).toLowerCase().trim();
+    };
+    var nVal = safeNormalizeStr(ansText);
+    isCorrect = accepted.some(function(a){ return safeNormalizeStr(a) === nVal; });
   } else {
     // Pour qcm/debug/fill/calc : obj.a est un INDEX dans obj.opts quand obj.opts existe
-    var correctTxt = (obj.opts && obj.a !== undefined && obj.opts[obj.a] !== undefined)
-      ? String(obj.opts[obj.a])
-      : String(obj.a);
+    var rawCorrect = (obj.opts && obj.a !== undefined && obj.opts[obj.a] !== undefined)
+      ? obj.opts[obj.a]
+      : obj.a;
+    // calc: opts entries are objects {v: value} — extract .v
+    var correctTxt = (rawCorrect !== null && typeof rawCorrect === 'object' && rawCorrect.v !== undefined)
+      ? String(rawCorrect.v)
+      : String(rawCorrect);
+
     if(obj.t === 'qcm' || obj.t === 'debug'){
       isCorrect = (ansText === correctTxt);
     } else {
-      // fill/calc/word : case-insensitive
+      // fill/calc : case-insensitive
       var altAnswers = [correctTxt.toLowerCase()];
       if(obj.w && obj.w.length) obj.w.forEach(function(s){ altAnswers.push(String(s).toLowerCase()); });
       isCorrect = altAnswers.indexOf(ansText.toLowerCase()) > -1;
@@ -2207,8 +2233,35 @@ function revealOnlineQuestion(data){
       + '<span style="color:'+col+';font-weight:700;">+'+pts+' pts</span>'
       + '</div>';
   }).join('');
+
+  var expectedHtml = '';
+  if (!myOk) {
+    var expectedVal = '';
+    if (obj.t === 'tf') {
+      var correctIsVrai = (obj.a === true || obj.a === 'true' || obj.a === 'Vrai' || obj.a === 'VRAI');
+      expectedVal = correctIsVrai ? 'Vrai' : 'Faux';
+    } else if (obj.t === 'qcm' || obj.t === 'debug') {
+      expectedVal = (obj.opts && obj.a !== undefined && obj.opts[obj.a] !== undefined)
+        ? String(obj.opts[obj.a]) : String(obj.a);
+    } else if (obj.t === 'type') {
+      var correctAns = Array.isArray(obj.a) ? obj.a[0] : obj.a;
+      expectedVal = String(correctAns);
+    } else if (obj.t === 'calc') {
+      var rawCorrect = (obj.opts && obj.a !== undefined && obj.opts[obj.a] !== undefined)
+        ? obj.opts[obj.a] : obj.a;
+      expectedVal = (rawCorrect !== null && typeof rawCorrect === 'object' && rawCorrect.v !== undefined)
+        ? String(rawCorrect.v) : String(rawCorrect);
+    } else {
+      var rawCorrect = (obj.opts && obj.a !== undefined && obj.opts[obj.a] !== undefined)
+        ? obj.opts[obj.a] : obj.a;
+      expectedVal = String(rawCorrect);
+    }
+    expectedHtml = '<div style="margin-top:8px;font-size:14px;color:var(--text2);text-align:center;">✓ Réponse attendue : <strong style="color:var(--primary);">' + escapeUserHtml(expectedVal) + '</strong></div>';
+  }
+
   feedEl.innerHTML =
     '<div class="ofeed-result" style="color:'+resultColor+';border-color:'+resultColor+';">'+resultLabel+'</div>'
+    + expectedHtml
     + (obj.x ? '<div class="ofeed-exp">'+safeQuestionHtml(obj.x)+'</div>' : '')
     + '<div style="margin-top:12px;background:var(--panel);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;">'
       + scoresHtml
@@ -2235,7 +2288,7 @@ function hostAdvance(data){
   // Helper: build a safe, serializable question object
   function makeSafeQ(entry){
     var raw = entry.q;
-    return {
+    var safe = {
       q: raw.q || '',
       a: raw.a !== undefined ? raw.a : 0,
       w: raw.w || [],
@@ -2245,6 +2298,8 @@ function hostAdvance(data){
       x: raw.x || '',
       opts: raw.opts || null
     };
+    if (raw.aliases) safe.aliases = raw.aliases;
+    return safe;
   }
 
   var nIdx = (data.qIdx||0) + 1;
