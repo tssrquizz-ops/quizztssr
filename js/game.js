@@ -1619,9 +1619,15 @@ function handleOnlineSessionUpdate(data){
     renderOnlineHUD(data);
     
     var curQ=data.currentQ;
-    var needRerender = !window._lastRenderedQ || window._lastRenderedQ.idx !== (curQ&&curQ.idx);
+    var needRerender = !window._lastRenderedQ || 
+                       window._lastRenderedQ.qIdx !== (data.qIdx || 0) || 
+                       window._lastRenderedQ.roundIdx !== (data.roundIdx || 0);
     if(curQ && needRerender){
-      window._lastRenderedQ = curQ;
+      window._lastRenderedQ = {
+        idx: curQ.idx,
+        qIdx: data.qIdx || 0,
+        roundIdx: data.roundIdx || 0
+      };
       onlineSession.qStartTs = Date.now();
       onlineSession.myAnswered=false;
       onlineSession.revealing=false;
