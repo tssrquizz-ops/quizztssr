@@ -1767,7 +1767,7 @@ async function hostGenerateQuestionsAndStart(data){
     var q = qs[Math.floor(Math.random()*qs.length)];
     // Exclure les types complexes dont la structure n'est pas sérialisable simplement vers Firestore
     // word: utilise q.correct (non sérialisé), order/scramble/multiblank/categorize/hotspot: trop complexes
-    var okTypes = ['qcm','debug','tf','fill','calc','type'];
+    var okTypes = ['qcm','debug','tf','fill','calc','type','match','order','word','slider','scramble','multiblank','categorize','hotspot'];
     if(okTypes.indexOf(q.t) === -1) continue;
     var k = c + '-' + q.idx;
     if(usedSet.has(k)) continue;
@@ -1796,6 +1796,15 @@ async function hostGenerateQuestionsAndStart(data){
     opts: firstQ.q.opts || null
   };
   if (firstQ.q.aliases) qObj.aliases = firstQ.q.aliases;
+  var extraFields = [
+    'items', 'pairs', 'words', 'correct',
+    'min', 'max', 'step', 'unit', 'tolerance',
+    'word', 'hint', 'code', 'blank',
+    'blanks', 'text', 'categories', 'image', 'zones', 'setup'
+  ];
+  extraFields.forEach(function(f){
+    if(firstQ.q[f] !== undefined) qObj[f] = firstQ.q[f];
+  });
   var upd = {
     status: 'playing',
     qIdx: 0, roundIdx: 0,
@@ -1862,6 +1871,15 @@ window.hostNextRound = function(){
       opts: raw.opts || null
     };
     if (raw.aliases) safe.aliases = raw.aliases;
+    var extraFields = [
+      'items', 'pairs', 'words', 'correct',
+      'min', 'max', 'step', 'unit', 'tolerance',
+      'word', 'hint', 'code', 'blank',
+      'blanks', 'text', 'categories', 'image', 'zones', 'setup'
+    ];
+    extraFields.forEach(function(f){
+      if(raw[f] !== undefined) safe[f] = raw[f];
+    });
     return safe;
   }
   var nextQ = pool && pool[nIdx] ? {
@@ -1990,7 +2008,10 @@ function renderOnlineQuestion(q){
 
   } else if(m === 'fill' || m === 'calc' || m === 'type'){
     // Fill/calc with chips if opts available, else text input (always text input for type)
-    var hasOpts = (m !== 'type') && ((m === 'calc' && obj.opts) || (m === 'fill' && obj.opts));
+    var hasOpts = (m !== 'type') && (
+      (m === 'calc' && obj.opts && obj.opts.length > 0) || 
+      (m === 'fill' && obj.opts && obj.opts.length > 0)
+    );
     if(hasOpts){
       var fillOpts = document.createElement('div');
       fillOpts.className = (m === 'fill') ? 'fill-opts' : 'calc-opts';
@@ -2027,6 +2048,22 @@ function renderOnlineQuestion(q){
       area.appendChild(inpWrap);
     }
 
+  } else if (['match', 'order', 'word', 'slider', 'scramble', 'multiblank', 'categorize', 'hotspot'].indexOf(m) > -1) {
+    // Rendu en utilisant la mécanique du mode solo
+    window.answered = false;
+    var container = document.createElement('div');
+    container.id = 'online-opts';
+    area.appendChild(container);
+    switch(m){
+      case 'order':      renderOrder(obj, container); break;
+      case 'word':       renderWord(obj, container); break;
+      case 'match':      renderMatch(obj, container); break;
+      case 'slider':     renderSlider(obj, container); break;
+      case 'scramble':   renderScramble(obj, container); break;
+      case 'multiblank': renderMultiblank(obj, container); break;
+      case 'categorize': renderCategorize(obj, container); break;
+      case 'hotspot':    renderHotspot(obj, container); break;
+    }
   } else {
     // Fallback: QCM-style with opts
     var fallbackOpts = [obj.a].concat(obj.w || []);
@@ -2103,7 +2140,11 @@ window.onlineAnswer = function(val){
   var maxT = getQTimer(obj,20);
   
   var isCorrect = false;
-  if(obj.t==='tf'){
+  var valIsBool = (typeof val === 'boolean');
+  if (valIsBool) {
+    isCorrect = val;
+    ansText = val ? 'Correct' : 'Incorrect';
+  } else if(obj.t==='tf'){
     var correctIsVrai = (obj.a === true || obj.a === 'true' || obj.a === 'Vrai' || obj.a === 'VRAI');
     isCorrect = (ansText === 'Vrai') === correctIsVrai;
   } else if (obj.t === 'type') {
@@ -2123,25 +2164,25 @@ window.onlineAnswer = function(val){
     };
     var nVal = safeNormalizeStr(ansText);
     isCorrect = accepted.some(function(a){ return safeNormalizeStr(a) === nVal; });
-  } else {
-    // Pour qcm/debug/fill/calc : obj.a est un INDEX dans obj.opts quand obj.opts existe
-    var rawCorrect = (obj.opts && obj.a !== undefined && obj.opts[obj.a] !== undefined)
-      ? obj.opts[obj.a]
-      : obj.a;
-    // calc: opts entries are objects {v: value} — extract .v
-    var correctTxt = (rawCorrect !== null && typeof rawCorrect === 'object' && rawCorrect.v !== undefined)
-      ? String(rawCorrect.v)
-      : String(rawCorrect);
+    } else if (!valIsBool) {
+      // Pour qcm/debug/fill/calc : obj.a est un INDEX dans obj.opts quand obj.opts existe
+      var rawCorrect = (obj.opts && obj.a !== undefined && obj.opts[obj.a] !== undefined)
+        ? obj.opts[obj.a]
+        : obj.a;
+      // calc: opts entries are objects {v: value} — extract .v
+      var correctTxt = (rawCorrect !== null && typeof rawCorrect === 'object' && rawCorrect.v !== undefined)
+        ? String(rawCorrect.v)
+        : String(rawCorrect);
 
-    if(obj.t === 'qcm' || obj.t === 'debug'){
-      isCorrect = (ansText === correctTxt);
-    } else {
-      // fill/calc : case-insensitive
-      var altAnswers = [correctTxt.toLowerCase()];
-      if(obj.w && obj.w.length) obj.w.forEach(function(s){ altAnswers.push(String(s).toLowerCase()); });
-      isCorrect = altAnswers.indexOf(ansText.toLowerCase()) > -1;
+      if(obj.t === 'qcm' || obj.t === 'debug'){
+        isCorrect = (ansText === correctTxt);
+      } else {
+        // fill/calc : case-insensitive
+        var altAnswers = [correctTxt.toLowerCase()];
+        if(obj.w && obj.w.length) obj.w.forEach(function(s){ altAnswers.push(String(s).toLowerCase()); });
+        isCorrect = altAnswers.indexOf(ansText.toLowerCase()) > -1;
+      }
     }
-  }
 
   var pts = 0;
   if(isCorrect){
@@ -2257,6 +2298,16 @@ function revealOnlineQuestion(data){
         ? obj.opts[obj.a] : obj.a;
       expectedVal = (rawCorrect !== null && typeof rawCorrect === 'object' && rawCorrect.v !== undefined)
         ? String(rawCorrect.v) : String(rawCorrect);
+    } else if (obj.t === 'order') {
+      expectedVal = Array.isArray(obj.items) ? obj.items.join(' ➔ ') : String(obj.a);
+    } else if (obj.t === 'scramble') {
+      expectedVal = String(obj.word || obj.a);
+    } else if (obj.t === 'match') {
+      expectedVal = Array.isArray(obj.pairs) ? obj.pairs.map(function(p){ return p.l + ' = ' + p.r; }).join(', ') : String(obj.a);
+    } else if (obj.t === 'word') {
+      expectedVal = Array.isArray(obj.correct) ? obj.correct.join(', ') : String(obj.a);
+    } else if (obj.t === 'categorize') {
+      expectedVal = Array.isArray(obj.items) ? obj.items.map(function(it){ return it.name + ' (' + it.cat + ')'; }).join(', ') : String(obj.a);
     } else {
       var rawCorrect = (obj.opts && obj.a !== undefined && obj.opts[obj.a] !== undefined)
         ? obj.opts[obj.a] : obj.a;
@@ -2305,6 +2356,15 @@ function hostAdvance(data){
       opts: raw.opts || null
     };
     if (raw.aliases) safe.aliases = raw.aliases;
+    var extraFields = [
+      'items', 'pairs', 'words', 'correct',
+      'min', 'max', 'step', 'unit', 'tolerance',
+      'word', 'hint', 'code', 'blank',
+      'blanks', 'text', 'categories', 'image', 'zones', 'setup'
+    ];
+    extraFields.forEach(function(f){
+      if(raw[f] !== undefined) safe[f] = raw[f];
+    });
     return safe;
   }
 
@@ -2776,6 +2836,10 @@ function validateWord(q,cloud,selected){
 
 // ====== COMMON ======
 function resolveCommon(ok,q){
+  if(window.onlineSession && window.onlineSession.code && window.onlineSession.status === 'playing'){
+    onlineAnswer(ok);
+    return;
+  }
   // Temps de réponse
   var qt=typeof qStartTime!=='undefined'&&qStartTime>0?(Date.now()-qStartTime)/1000:0;
   if(qt>0){qTimes.push(Math.round(qt*100)/100);qStartTime=0;}
