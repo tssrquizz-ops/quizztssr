@@ -1779,69 +1779,221 @@ window.hostNextRound = function(){
 function renderOnlineHUD(data){
   var hud=document.getElementById('online-hud');
   if(!hud)return;
+  var myUid = window._fbUser ? window._fbUser.uid : null;
   var players = Object.values(data.players).sort(function(a,b){return b.score - a.score;});
-  var html = '';
-  
-  players.forEach(function(p, i){
-    var ansState = p.answer != null ? '<div style="width:8px;height:8px;border-radius:50%;background:var(--success);margin:0 auto;margin-top:4px;"></div>' : '';
-    html += '<div style="display:flex;flex-direction:column;align-items:center;background:var(--bg3);padding:5px 10px;border-radius:8px;border:1px solid '+(p.uid===window._fbUser.uid?'var(--primary)':'var(--border2)')+';">'
-          + '<div style="font-size:0.75rem;color:var(--text2);max-width:50px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+p.pseudo+'</div>'
-          + '<div style="font-weight:bold;color:var(--text);">'+p.score+'</div>'
-          + ansState
-          + '</div>';
-  });
-  hud.innerHTML = '<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">' + html + '</div>';
+  var c = data.config || {};
+  var qIdx = (data.qIdx||0) + 1;
+  var totalQ = c.mode==='qbq' ? (c.qPerRound||'?')
+              : c.mode==='rounds' ? (c.qPerRound||5) * (c.totalRounds||3)
+              : c.mode==='course' ? '\u221e'
+              : '?';
+
+  var mePlayer = players.find(function(p){ return p.uid === myUid; }) || players[0];
+  var themPlayers = players.filter(function(p){ return p.uid !== myUid; });
+
+  var meFlagHtml = mePlayer && mePlayer.answer!=null
+    ? '<span class="ohud-flag ok">\u2713 R\u00e9pondu</span>'
+    : '<span class="ohud-flag wait">\u23f3</span>';
+
+  var themHtml = themPlayers.map(function(p){
+    var flag = p.answer!=null ? '<span class="ohud-flag ok">\u2713</span>' : '<span class="ohud-flag wait">\u23f3</span>';
+    return '<div class="ohud-side ohud-them">'
+      + '<div class="ohud-score">'+p.score+'</div>'
+      + '<div class="ohud-name">'+escapeUserHtml(p.pseudo)+'</div>'
+      + flag
+      + '</div>';
+  }).join('');
+
+  hud.innerHTML =
+    '<div class="ohud-side ohud-me">'
+      + '<div class="ohud-score">'+(mePlayer ? mePlayer.score : 0)+'</div>'
+      + '<div class="ohud-name">'+escapeUserHtml(mePlayer ? mePlayer.pseudo : 'Moi')+'</div>'
+      + meFlagHtml
+    + '</div>'
+    + '<div class="ohud-mid">'
+      + '<div class="ohud-mid-q">'+qIdx+' / '+totalQ+'</div>'
+      + '<div class="ohud-mid-round">'+(c.mode==='rounds'?'ROUND '+((data.roundIdx||0)+1):'DUEL')+'</div>'
+    + '</div>'
+    + themHtml;
 }
 
 function renderOnlineQuestion(q){
   var area=document.getElementById('online-question-area');
+  if(!area) return;
   var obj=q.obj;
   var tbar=document.querySelector('#online-game-panel .tbar');
-  if(tbar){ tbar.style.transition='none'; tbar.style.width='100%'; tbar.style.background='var(--primary)'; }
+  if(tbar){ tbar.style.transition='none'; tbar.style.width='100%'; tbar.style.background='var(--acc)'; }
 
-  var html='<div style="font-size:1.1rem;font-weight:600;margin-bottom:20px;text-align:center;">'+safeQuestionHtml(obj.q)+'</div>';
-  var mechs=['qcm','tf','word','calc']; // limited
-  var m=obj.t; if(mechs.indexOf(m)===-1) m='qcm';
-  
+  var m = obj.t;
+  var mi = MECH_INFO[m] || MECH_INFO.qcm;
   window._curOnlineQ = obj;
+  area.innerHTML = '';
 
-  html+='<div id="online-opts" style="display:flex;flex-direction:column;gap:10px;">';
-  if(m==='qcm'){
-    var o=[obj.a].concat(obj.w||[]);
+  // Pill row (type de mécanique)
+  var pillRow = document.createElement('div');
+  pillRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px;max-width:1040px;margin-left:auto;margin-right:auto;';
+  var pill = document.createElement('div');
+  pill.className = 'mech-pill ' + mi.cls;
+  pill.textContent = mi.label;
+  pillRow.appendChild(pill);
+  if(obj.d){
+    var diffPill = document.createElement('span');
+    diffPill.className = 'qdiff';
+    diffPill.textContent = DS[obj.d] || '';
+    pillRow.appendChild(diffPill);
+  }
+  area.appendChild(pillRow);
+
+  // Question card (même DA que quiz solo)
+  var card = document.createElement('div');
+  card.className = 'qcard online-qcard';
+  var qtxt = document.createElement('div');
+  qtxt.className = 'qtext';
+  qtxt.innerHTML = safeQuestionHtml(obj.q) + (q.cat ? '<span class="qcat-tag">[' + escapeUserHtml(q.cat) + ']</span>' : '');
+  card.appendChild(qtxt);
+  area.appendChild(card);
+
+  // Options — mêmes classes que quiz solo
+  if(m === 'qcm'){
+    var o = [obj.a].concat(obj.w || []);
     shuffle(o);
     window._curOnlineOpts = o;
-    o.forEach(function(opt,i){
-      html+='<button class="opt-btn" id="oopt'+i+'" onclick="onlineAnswer('+i+')">'+safeQuestionHtml(opt)+'</button>';
+    var wrap = document.createElement('div');
+    wrap.className = 'opts';
+    wrap.id = 'online-opts';
+    ['A','B','C','D'].forEach(function(k, i){
+      if(!o[i]) return;
+      var b = document.createElement('button');
+      b.className = 'opt';
+      b.id = 'oopt' + i;
+      b.innerHTML = '<span class="okey">' + k + '</span><span>' + safeQuestionHtml(String(o[i])) + '</span>';
+      b.onclick = (function(idx){ return function(){ onlineAnswer(idx); }; })(i);
+      wrap.appendChild(b);
     });
-  } else if(m==='tf'){
+    area.appendChild(wrap);
+
+  } else if(m === 'tf'){
     window._curOnlineOpts = ['Vrai','Faux'];
-    html+='<button class="opt-btn" id="oopt0" onclick="onlineAnswer(0)">Vrai</button>';
-    html+='<button class="opt-btn" id="oopt1" onclick="onlineAnswer(1)">Faux</button>';
-  } else if(m==='word' || m==='calc'){
-    html+='<input type="text" id="oopt-input" style="width:100%;padding:15px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:1.2rem;text-align:center;font-weight:bold;margin-bottom:10px;" placeholder="Réponse..." onkeydown="if(event.key===\'Enter\')onlineAnswer(\'input\')">';
-    html+='<button class="opt-btn" onclick="onlineAnswer(\'input\')" style="background:var(--primary);color:#000;">VALIDER</button>';
+    var tfRow = document.createElement('div');
+    tfRow.className = 'tf-row';
+    tfRow.id = 'online-opts';
+    var bT = document.createElement('button');
+    bT.className = 'tf-btn tf-true'; bT.id = 'oopt0';
+    bT.innerHTML = '✅<span class="tf-lbl">VRAI</span>';
+    bT.onclick = function(){ onlineAnswer(0); };
+    var bF = document.createElement('button');
+    bF.className = 'tf-btn tf-false'; bF.id = 'oopt1';
+    bF.innerHTML = '❌<span class="tf-lbl">FAUX</span>';
+    bF.onclick = function(){ onlineAnswer(1); };
+    tfRow.appendChild(bT); tfRow.appendChild(bF);
+    area.appendChild(tfRow);
+
+  } else if(m === 'fill' || m === 'calc'){
+    // Fill/calc with chips if opts available, else text input
+    var hasOpts = (m === 'calc' && obj.opts) || (m === 'fill' && obj.opts);
+    if(hasOpts){
+      var fillOpts = document.createElement('div');
+      fillOpts.className = (m === 'fill') ? 'fill-opts' : 'calc-opts';
+      fillOpts.id = 'online-opts';
+      var optList = obj.opts.map(function(o, i){ return {v:o, i:i}; });
+      shuffle(optList);
+      window._curOnlineOpts = optList;
+      optList.forEach(function(opt, i){
+        var b = document.createElement('button');
+        b.className = (m === 'fill') ? 'fill-opt' : 'calc-opt';
+        b.id = 'oopt' + i;
+        b.textContent = (typeof opt.v === 'object') ? String(opt.v.v||opt.v) : String(opt.v);
+        b.setAttribute('data-idx', opt.i);
+        b.onclick = (function(idx){ return function(){ onlineAnswer('chip_'+idx); }; })(opt.i);
+        fillOpts.appendChild(b);
+      });
+      area.appendChild(fillOpts);
+    } else {
+      var inpWrap = document.createElement('div');
+      inpWrap.id = 'online-opts';
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.id = 'oopt-input';
+      inp.className = 'fill-code';
+      inp.placeholder = 'Réponse...';
+      inp.style.cssText = 'width:100%;padding:14px;border-radius:8px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-size:1.1rem;text-align:center;font-weight:bold;margin-bottom:10px;outline:none;box-sizing:border-box;';
+      inp.onkeydown = function(e){ if(e.key==='Enter') onlineAnswer('input'); };
+      var vbtn = document.createElement('button');
+      vbtn.className = 'validate-btn';
+      vbtn.textContent = '✓ VALIDER';
+      vbtn.onclick = function(){ onlineAnswer('input'); };
+      inpWrap.appendChild(inp);
+      inpWrap.appendChild(vbtn);
+      area.appendChild(inpWrap);
+    }
+
+  } else {
+    // Fallback: QCM-style with opts
+    var fallbackOpts = [obj.a].concat(obj.w || []);
+    shuffle(fallbackOpts);
+    window._curOnlineOpts = fallbackOpts;
+    var fwrap = document.createElement('div');
+    fwrap.className = 'opts';
+    fwrap.id = 'online-opts';
+    ['A','B','C','D'].forEach(function(k, i){
+      if(!fallbackOpts[i]) return;
+      var b = document.createElement('button');
+      b.className = 'opt';
+      b.id = 'oopt' + i;
+      b.innerHTML = '<span class="okey">' + k + '</span><span>' + safeQuestionHtml(String(fallbackOpts[i])) + '</span>';
+      b.onclick = (function(idx){ return function(){ onlineAnswer(idx); }; })(i);
+      fwrap.appendChild(b);
+    });
+    area.appendChild(fwrap);
   }
-  html+='</div>';
-  area.innerHTML=html;
+
+  // Waiting feedback placeholder
+  var feedWait = document.createElement('div');
+  feedWait.id = 'online-feedback';
+  feedWait.className = 'online-feedback';
+  area.appendChild(feedWait);
 
   // Timer visuel
   setTimeout(function(){
-    var timer=getQTimer(obj,20);
-    if(tbar){ tbar.style.transition='width '+timer+'s linear'; tbar.style.width='0%'; }
+    var timer = getQTimer(obj, 20);
+    if(tbar){ tbar.style.transition = 'width '+timer+'s linear'; tbar.style.width = '0%'; }
   }, 50);
 }
 
 window.onlineAnswer = function(val){
   if(onlineSession.myAnswered || onlineSession.revealing) return;
   onlineSession.myAnswered=true;
-  
-  var obj=window._curOnlineQ;
+
+  var obj = window._curOnlineQ;
   var ansText = '';
-  if(obj.t==='qcm' || obj.t==='tf'){
+
+  if(obj.t === 'qcm'){
     var o = window._curOnlineOpts;
-    ansText = o[val];
-    var b=document.getElementById('oopt'+val);
-    if(b) b.style.border='2px solid var(--primary)';
+    ansText = typeof val === 'number' ? String(o[val]) : '';
+    // Mark selected button visually
+    var b = document.getElementById('oopt'+val);
+    if(b) b.classList.add('chosen');
+    // Disable all opts immediately (show pending state)
+    var allOpts = document.querySelectorAll('#online-opts .opt');
+    allOpts.forEach(function(btn){ btn.disabled = true; });
+
+  } else if(obj.t === 'tf'){
+    var o2 = window._curOnlineOpts;
+    ansText = typeof val === 'number' ? String(o2[val]) : '';
+    var b2 = document.getElementById('oopt'+val);
+    if(b2) { b2.style.borderColor = 'var(--acc)'; b2.style.boxShadow = '0 0 0 2px var(--acc)'; }
+    var b0 = document.getElementById('oopt0'); if(b0) b0.disabled=true;
+    var b1 = document.getElementById('oopt1'); if(b1) b1.disabled=true;
+
+  } else if(typeof val === 'string' && val.startsWith('chip_')){
+    var chipIdx = parseInt(val.replace('chip_',''));
+    // Find which chip has data-idx matching chipIdx
+    var chips = document.querySelectorAll('#online-opts [data-idx]');
+    chips.forEach(function(c){ c.disabled=true; if(+c.getAttribute('data-idx')===chipIdx) c.style.borderColor='var(--acc)'; });
+    // Resolve text: find the entry
+    var entry = (window._curOnlineOpts||[]).find(function(e){ return e.i===chipIdx; });
+    ansText = entry ? String(entry.v && entry.v.v !== undefined ? entry.v.v : entry.v) : '';
+
   } else {
     var inp = document.getElementById('oopt-input');
     ansText = inp ? inp.value.trim() : '';
@@ -1882,53 +2034,87 @@ window.onlineAnswer = function(val){
 }
 
 function revealOnlineQuestion(data){
-  var tbar=document.querySelector('#online-game-panel .tbar');
-  if(tbar){ tbar.style.transition='none'; }
-  
-  var obj = data.currentQ.obj;
+  var tbar = document.querySelector('#online-game-panel .tbar');
+  if(tbar){ tbar.style.transition='none'; tbar.style.width='0%'; }
+
+  var obj = data.currentQ ? data.currentQ.obj : window._curOnlineQ;
+  if(!obj) return;
   var players = Object.values(data.players);
-  var opts = document.querySelectorAll('#online-opts .opt-btn');
-  
-  if(obj.t==='qcm' || obj.t==='tf'){
+  var myUid = window._fbUser ? window._fbUser.uid : null;
+  var mePlayer = players.find(function(p){ return p.uid === myUid; });
+  var myOk = mePlayer && mePlayer.answer ? mePlayer.answer.ok : false;
+
+  // ── Reveal options with standard .ok / .err classes ──
+  if(obj.t === 'qcm'){
+    var opts = document.querySelectorAll('#online-opts .opt');
     opts.forEach(function(b){
-      var txt = b.textContent;
-      var isGood = (obj.t==='tf') ? ((txt==='Vrai') === !!obj.a) : (txt === obj.a);
-      if(isGood) {
-        b.style.background = 'var(--success)';
-        b.style.color = '#fff';
-      } else {
-        b.style.opacity = '0.4';
-      }
-      
-      // Montrer qui a voté quoi
+      b.disabled = true;
+      // Get the text from the <span> (second child, not okey span)
+      var spans = b.querySelectorAll('span');
+      var txt = spans.length > 1 ? spans[1].textContent : b.textContent;
+      var isGood = (txt === String(obj.a));
+      if(isGood){ b.classList.remove('err'); b.classList.add('ok'); }
+      else if(b.classList.contains('chosen')){ b.classList.add('err'); }
+      else { b.style.opacity = '0.45'; }
+
+      // Badge with players who chose this option
       players.forEach(function(p){
-        if(p.answer && p.answer.txt === txt){
-          var badge = document.createElement('div');
+        if(p.answer && String(p.answer.txt) === txt){
+          var badge = document.createElement('span');
           badge.textContent = p.pseudo;
-          badge.style.position = 'absolute';
-          badge.style.right = '-10px';
-          badge.style.top = '-10px';
-          badge.style.background = 'var(--bg2)';
-          badge.style.border = '1px solid var(--border)';
-          badge.style.padding = '2px 6px';
-          badge.style.borderRadius = '8px';
-          badge.style.fontSize = '0.6rem';
-          b.style.position = 'relative';
+          badge.style.cssText = 'display:inline-block;font-size:9px;font-family:monospace;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:1px 6px;margin-left:6px;color:var(--text2);';
           b.appendChild(badge);
         }
       });
     });
+
+  } else if(obj.t === 'tf'){
+    var b0r = document.getElementById('oopt0');
+    var b1r = document.getElementById('oopt1');
+    var correctIsVrai = (obj.a === true || obj.a === 'true' || obj.a === 'Vrai' || obj.a === 'VRAI');
+    if(b0r){ b0r.disabled=true; b0r.classList.add(correctIsVrai ? 'ok' : 'err'); if(!correctIsVrai) b0r.style.opacity='0.5'; }
+    if(b1r){ b1r.disabled=true; b1r.classList.add(!correctIsVrai ? 'ok' : 'err'); if(correctIsVrai) b1r.style.opacity='0.5'; }
+
   } else {
-    var area = document.getElementById('online-opts');
-    var h = '<div style="font-size:1.2rem;color:var(--success);font-weight:bold;margin-bottom:15px;text-align:center;">Réponse : '+obj.a+'</div>';
-    players.forEach(function(p){
-      if(p.answer){
-        var c = p.answer.ok ? 'var(--success)' : 'var(--error)';
-        h+='<div style="color:'+c+';font-size:0.9rem;">'+p.pseudo+' : '+p.answer.txt+' ('+p.answer.pts+' pts)</div>';
-      }
-    });
-    if(area) area.innerHTML = h;
+    // Text/chip answer — highlight correct
+    var chips = document.querySelectorAll('#online-opts [data-idx]');
+    if(chips.length){
+      chips.forEach(function(c){
+        c.disabled = true;
+        var cIdx = +c.getAttribute('data-idx');
+        if(cIdx === obj.a){ c.classList.add('ok'); }
+        else if(c.style.borderColor.indexOf('acc') > -1 || c.classList.contains('chosen')){ c.classList.add('err'); }
+        else { c.style.opacity = '0.45'; }
+      });
+    }
   }
+
+  // ── Result feedback box (same style as ofeed) ──
+  var feedEl = document.getElementById('online-feedback');
+  if(!feedEl){
+    feedEl = document.createElement('div');
+    feedEl.id = 'online-feedback';
+    feedEl.className = 'online-feedback';
+    var area2 = document.getElementById('online-question-area');
+    if(area2) area2.appendChild(feedEl);
+  }
+  var resultLabel = myOk ? '✅ Bonne réponse !' : '❌ Raté !';
+  var resultColor = myOk ? '#00a85a' : '#dc2626';
+  var scoresHtml = players.map(function(p){
+    var pts = p.answer ? (p.answer.pts||0) : 0;
+    var okIcon = p.answer && p.answer.ok ? '✓' : '✗';
+    var col = p.answer && p.answer.ok ? '#00a85a' : '#dc2626';
+    return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);">'
+      + '<span><span style="color:'+col+';font-weight:700;">'+okIcon+'</span> '+escapeUserHtml(p.pseudo)+'</span>'
+      + '<span style="color:'+col+';font-weight:700;">+'+pts+' pts</span>'
+      + '</div>';
+  }).join('');
+  feedEl.innerHTML =
+    '<div class="ofeed-result" style="color:'+resultColor+';border-color:'+resultColor+';">'+resultLabel+'</div>'
+    + (obj.x ? '<div class="ofeed-exp">'+safeQuestionHtml(obj.x)+'</div>' : '')
+    + '<div style="margin-top:12px;background:var(--panel);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;">'
+      + scoresHtml
+    + '</div>';
 }
 
 function hostAdvance(data){
