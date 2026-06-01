@@ -1935,6 +1935,10 @@ function renderOnlineHUD(data){
 }
 
 function renderOnlineQuestion(q){
+  if (window._onlineTimerInt) {
+    clearTimeout(window._onlineTimerInt);
+    window._onlineTimerInt = null;
+  }
   var area=document.getElementById('online-question-area');
   if(!area) return;
   var obj=q.obj;
@@ -2084,16 +2088,37 @@ function renderOnlineQuestion(q){
     area.appendChild(fwrap);
   }
 
+  // Skip button
+  var skipBtn = document.createElement('button');
+  skipBtn.className = 'skip-btn';
+  skipBtn.textContent = '⏭ PASSER';
+  skipBtn.style.cssText = 'display:block;margin:15px auto 0;background:none;border:1.5px solid var(--border2);color:var(--text2);font-family:var(--font-title);font-size:0.8rem;padding:8px 16px;border-radius:20px;cursor:pointer;transition:all 0.2s;';
+  skipBtn.onclick = function(){
+    if(!onlineSession.myAnswered && !onlineSession.revealing){
+      onlineAnswer('__skip__');
+    }
+  };
+  area.appendChild(skipBtn);
+
   // Waiting feedback placeholder
   var feedWait = document.createElement('div');
   feedWait.id = 'online-feedback';
   feedWait.className = 'online-feedback';
   area.appendChild(feedWait);
 
-  // Timer visuel
+  // Timer visuel et logique de temps écoulé
   setTimeout(function(){
     var timer = getQTimer(obj, 20);
     if(tbar){ tbar.style.transition = 'width '+timer+'s linear'; tbar.style.width = '0%'; }
+    
+    if (window._onlineTimerInt) {
+      clearTimeout(window._onlineTimerInt);
+    }
+    window._onlineTimerInt = setTimeout(function(){
+      if (!onlineSession.myAnswered && !onlineSession.revealing) {
+        onlineAnswer('__timeout__');
+      }
+    }, timer * 1000 + 500);
   }, 50);
 }
 
@@ -2101,10 +2126,37 @@ window.onlineAnswer = function(val){
   if(onlineSession.myAnswered || onlineSession.revealing) return;
   onlineSession.myAnswered=true;
 
+  if (window._onlineTimerInt) {
+    clearTimeout(window._onlineTimerInt);
+    window._onlineTimerInt = null;
+  }
+
+  var skip = document.querySelector('.skip-btn');
+  if (skip) skip.style.display = 'none';
+
   var obj = window._curOnlineQ;
   var ansText = '';
+  var isCorrect = false;
+  
+  var valIsBool = (typeof val === 'boolean');
+  var isTimeout = (val === '__timeout__');
+  var isSkip = (val === '__skip__');
 
-  if(obj.t === 'qcm'){
+  if (isTimeout || isSkip) {
+    isCorrect = false;
+    ansText = isTimeout ? 'Temps écoulé' : 'Passé';
+    
+    // Disable inputs
+    var allOpts = document.querySelectorAll('#online-opts .opt, #online-opts button, #online-opts input');
+    allOpts.forEach(function(btn){ btn.disabled = true; });
+    var inp = document.getElementById('oopt-input');
+    if (inp) inp.disabled = true;
+
+  } else if (valIsBool) {
+    isCorrect = val;
+    ansText = val ? 'Correct' : 'Incorrect';
+
+  } else if(obj.t === 'qcm'){
     var o = window._curOnlineOpts;
     ansText = typeof val === 'number' ? String(o[val]) : '';
     // Mark selected button visually
@@ -2203,6 +2255,14 @@ window.onlineAnswer = function(val){
 }
 
 function revealOnlineQuestion(data){
+  if (window._onlineTimerInt) {
+    clearTimeout(window._onlineTimerInt);
+    window._onlineTimerInt = null;
+  }
+  
+  var skip = document.querySelector('.skip-btn');
+  if (skip) skip.style.display = 'none';
+
   var tbar = document.querySelector('#online-game-panel .tbar');
   if(tbar){ tbar.style.transition='none'; tbar.style.width='0%'; }
 
