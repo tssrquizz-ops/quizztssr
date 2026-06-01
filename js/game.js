@@ -715,6 +715,9 @@ async function initMenu(){
   if (window.fbQuestionsPromise) {
     await window.fbQuestionsPromise;
   }
+  if (window._fbUser && typeof cleanUserOldDuels === 'function') {
+    cleanUserOldDuels(window._fbUser.uid);
+  }
   vTheme=lsGet('tssr5_vt','vt-light');
   soundOn=lsGet('tssr5_sound',true);
   jokersEnabled=lsGet('tssr5_jokers',true);
@@ -1320,6 +1323,26 @@ async function joinOnlineSession(forcedCode){
   }
 }
 
+async function cleanUserOldDuels(uid) {
+  if (!window._fbDb || !window._fbCollection || !window._fbGetDocs || !window._fbDeleteDoc) return;
+  try {
+    var q = window._fbQuery(
+      window._fbCollection(window._fbDb, 'duels'),
+      window._fbWhere('host', '==', uid)
+    );
+    var snap = await window._fbGetDocs(q);
+    snap.forEach(function(docRef) {
+      var d = docRef.data();
+      if (d.status !== 'finished') {
+        window._fbDeleteDoc(window._fbDoc(window._fbDb, 'duels', docRef.id)).catch(function(){});
+      }
+    });
+  } catch (e) {
+    console.warn('Failed to clean up old duels:', e);
+  }
+}
+window.cleanUserOldDuels = cleanUserOldDuels;
+
 function loadOpenSessions(){
   if(unsubLobby) unsubLobby();
   if(!window._fbDb || !window._fbCollection) return;
@@ -1331,7 +1354,32 @@ function loadOpenSessions(){
   var q = window._fbQuery(window._fbCollection(window._fbDb, 'duels'), window._fbWhere('status', '==', 'waiting'));
   unsubLobby = window._fbOnSnapshot(q, function(snap) {
     var sessions = [];
-    snap.forEach(function(doc){ var d = doc.data(); if(d.isPublic !== false) sessions.push(d); });
+    var now = Date.now();
+    snap.forEach(function(doc){
+      var d = doc.data();
+      if(d.isPublic === false) return;
+
+      // Filter out sessions older than 15 minutes
+      var createdMs = 0;
+      if (d.createdAt) {
+        if (typeof d.createdAt.toDate === 'function') {
+          createdMs = d.createdAt.toDate().getTime();
+        } else if (d.createdAt.seconds !== undefined) {
+          createdMs = d.createdAt.seconds * 1000;
+        } else {
+          var parsed = Date.parse(d.createdAt);
+          if (!isNaN(parsed)) {
+            createdMs = parsed;
+          }
+        }
+      }
+      // If a session is older than 15 minutes, consider it abandoned
+      if (createdMs > 0 && (now - createdMs) > 15 * 60 * 1000) {
+        return;
+      }
+
+      sessions.push(d);
+    });
 
     if(sessions.length === 0){
       listArea.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:0.85rem;padding:10px;">Aucune session publique en attente.</div>';
