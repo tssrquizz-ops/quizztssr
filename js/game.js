@@ -1608,11 +1608,23 @@ async function hostGenerateQuestionsAndStart(data){
 
   var firstQ = pool[0];
   // Store only serializable fields to avoid Firestore errors
-  var qObj = { q: firstQ.q.q, a: firstQ.q.a, w: firstQ.q.w || [], t: firstQ.q.t, d: firstQ.q.d, idx: firstQ.q.idx, x: firstQ.q.x || '' };
+  var qObj = {
+    q: firstQ.q.q || '',
+    a: firstQ.q.a !== undefined ? firstQ.q.a : 0,
+    w: firstQ.q.w || [],
+    t: firstQ.q.t || 'qcm',
+    d: firstQ.q.d !== undefined ? firstQ.q.d : 1,
+    idx: firstQ.q.idx !== undefined ? firstQ.q.idx : 0,
+    x: firstQ.q.x || ''
+  };
   var upd = {
     status: 'playing',
     qIdx: 0, roundIdx: 0,
-    currentQ: { cat: firstQ.c, idx: firstQ.q.idx, obj: qObj },
+    currentQ: {
+      cat: firstQ.c || 'mix',
+      idx: firstQ.q.idx !== undefined ? firstQ.q.idx : 0,
+      obj: qObj
+    },
     reveal: false
   };
   Object.keys(data.players).forEach(function(uid){
@@ -1835,7 +1847,15 @@ function hostAdvance(data){
   // Helper: build a safe, serializable question object
   function makeSafeQ(entry){
     var raw = entry.q;
-    return { q: raw.q, a: raw.a, w: raw.w || [], t: raw.t, d: raw.d, idx: raw.idx, x: raw.x || '' };
+    return {
+      q: raw.q || '',
+      a: raw.a !== undefined ? raw.a : 0,
+      w: raw.w || [],
+      t: raw.t || 'qcm',
+      d: raw.d !== undefined ? raw.d : 1,
+      idx: raw.idx !== undefined ? raw.idx : 0,
+      x: raw.x || ''
+    };
   }
 
   var nIdx = (data.qIdx||0) + 1;
@@ -1846,7 +1866,11 @@ function hostAdvance(data){
       upd.status='finished';
     } else {
       upd.qIdx = nIdx;
-      upd.currentQ = { cat: pool[nIdx].c, idx: pool[nIdx].q.idx, obj: makeSafeQ(pool[nIdx]) };
+      upd.currentQ = {
+        cat: pool[nIdx].c || 'mix',
+        idx: pool[nIdx].q.idx !== undefined ? pool[nIdx].q.idx : 0,
+        obj: makeSafeQ(pool[nIdx])
+      };
       upd.reveal = false;
     }
   } else if(c.mode==='rounds') {
@@ -1858,7 +1882,11 @@ function hostAdvance(data){
       upd.status='finished';
     } else {
       upd.qIdx = nIdx;
-      upd.currentQ = { cat: pool[nIdx].c, idx: pool[nIdx].q.idx, obj: makeSafeQ(pool[nIdx]) };
+      upd.currentQ = {
+        cat: pool[nIdx].c || 'mix',
+        idx: pool[nIdx].q.idx !== undefined ? pool[nIdx].q.idx : 0,
+        obj: makeSafeQ(pool[nIdx])
+      };
       upd.reveal = false;
     }
   } else if(c.mode==='course') {
@@ -1866,7 +1894,11 @@ function hostAdvance(data){
       upd.status = 'finished';
     } else {
       upd.qIdx = nIdx;
-      upd.currentQ = { cat: pool[nIdx].c, idx: pool[nIdx].q.idx, obj: makeSafeQ(pool[nIdx]) };
+      upd.currentQ = {
+        cat: pool[nIdx].c || 'mix',
+        idx: pool[nIdx].q.idx !== undefined ? pool[nIdx].q.idx : 0,
+        obj: makeSafeQ(pool[nIdx])
+      };
       upd.reveal = false;
     }
   }

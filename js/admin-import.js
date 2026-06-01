@@ -24,6 +24,9 @@
       q.opts = q.o;
       delete q.o;
     }
+    if (q.d === undefined) {
+      q.d = 1;
+    }
     if (!q.t) {
       if (q.mech) {
         var mechMap = {

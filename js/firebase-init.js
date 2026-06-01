@@ -164,6 +164,9 @@ window.fbLoadQuestions = async function() {
           if (q.idx === undefined) {
             q.idx = i;
           }
+          if (q.d === undefined) {
+            q.d = 1;
+          }
           if (q.o && !q.opts) {
             q.opts = q.o;
           }
