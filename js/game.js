@@ -249,7 +249,8 @@ function showAdminPanel(){
 '      \u003cdiv style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin:16px 0 10px;"\u003ePROMOS\u003c/div\u003e'+
 '      \u003cdiv id="admin-promos-list"\u003eChargement...\u003c/div\u003e'+
 '      \u003cdiv style="font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin:16px 0 10px;"\u003eBASE DE DONNÉES\u003c/div\u003e'+
-'      \u003cbutton id="admin-sync-qs-btn" style="background:var(--acc);color:var(--bg);border:none;border-radius:6px;padding:10px 16px;font-family:monospace;font-size:9px;cursor:pointer;width:100%;letter-spacing:1px;margin-bottom:5px;"\u003e📤 SYNCHRONISER LES QUESTIONS VERS FIRESTORE\u003c/button\u003e'+
+'      \u003cbutton id="admin-sync-qs-btn" style="background:var(--acc);color:var(--bg);border:none;border-radius:6px;padding:10px 16px;font-family:monospace;font-size:9px;cursor:pointer;width:100%;letter-spacing:1px;margin-bottom:8px;"\u003e📤 SYNCHRONISER LES QUESTIONS VERS FIRESTORE\u003c/button\u003e'+
+'      \u003cbutton id="admin-export-reports-btn" style="background:var(--panel);color:var(--text);border:1.5px solid var(--border2);border-radius:6px;padding:10px 16px;font-family:monospace;font-size:9px;cursor:pointer;width:100%;letter-spacing:1px;margin-bottom:5px;"\u003e📥 EXPORTER VOTES & RAPPORTS DE BUG (JSON)\u003c/button\u003e'+
 '      \u003cdiv id="admin-sync-qs-status" style="font-family:monospace;font-size:9px;color:var(--text2);margin-top:6px;display:none;"\u003e\u003c/div\u003e';
 
 
@@ -291,6 +292,61 @@ function showAdminPanel(){
         console.error('Sync failed:', err);
       } finally {
         syncBtn.disabled = false;
+      }
+    };
+  }
+
+  var exportReportsBtn = body2.querySelector('#admin-export-reports-btn');
+  if (exportReportsBtn) {
+    exportReportsBtn.onclick = async function() {
+      var statusEl = body2.querySelector('#admin-sync-qs-status');
+      statusEl.style.display = 'block';
+      statusEl.style.color = 'var(--text2)';
+      statusEl.textContent = '⏳ Récupération des rapports et des notes...';
+      exportReportsBtn.disabled = true;
+      try {
+        var db = window._fbDb;
+        if (!db) throw new Error('Firebase non initialisé.');
+
+        // Récupérer les rapports de bug
+        var reportsSnap = await window._fbGetDocs(window._fbCollection(db, 'reports'));
+        var bugReports = [];
+        reportsSnap.forEach(function(doc) {
+          bugReports.push(Object.assign({ id: doc.id }, doc.data()));
+        });
+
+        // Récupérer les notes de questions
+        var statsSnap = await window._fbGetDocs(window._fbCollection(db, 'question_stats'));
+        var questionRatings = [];
+        statsSnap.forEach(function(doc) {
+          questionRatings.push(Object.assign({ id: doc.id }, doc.data()));
+        });
+
+        var exportData = {
+          exportedAt: new Date().toISOString(),
+          bugReports: bugReports,
+          questionRatings: questionRatings
+        };
+
+        var json = JSON.stringify(exportData, null, 2);
+        var blob = new Blob([json], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'quizztssr_votes_reports_' + new Date().toISOString().slice(0,10) + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        statusEl.textContent = '✅ Export terminé : ' + bugReports.length + ' rapport(s) et ' + questionRatings.length + ' note(s).';
+        statusEl.style.color = '#4ade80';
+      } catch(err) {
+        statusEl.textContent = '❌ Erreur d\'export: ' + err.message;
+        statusEl.style.color = '#f87171';
+        console.error('Export failed:', err);
+      } finally {
+        exportReportsBtn.disabled = false;
       }
     };
   }
