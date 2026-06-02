@@ -65,6 +65,9 @@
 .menu-topbar-center{flex:1;text-align:center;}
 .menu-logo-small{font-family:'Press Start 2P',cursive;font-size:12px;background:linear-gradient(to right, var(--acc), #8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;text-transform:uppercase;filter:drop-shadow(0 0 8px var(--a2));}
 .menu-logo-small span{font-family:'DM Mono',monospace;font-size:8px;color:var(--text2);opacity:.6;letter-spacing:1px;margin-left:8px;font-weight:400;-webkit-text-fill-color:var(--text2);vertical-align:middle;}
+.menu-logo-img{height:30px;width:auto;max-width:150px;object-fit:contain;display:inline-block;vertical-align:middle;filter:drop-shadow(0 0 6px var(--acc));transition:transform .2s ease,filter .2s ease;}
+@media(min-width:480px){.menu-logo-img{height:36px;max-width:180px;}}
+.menu-logo-img:hover{transform:scale(1.05);filter:drop-shadow(0 0 10px var(--acc));}
 .menu-ham-btn{background:none;border:1.5px solid var(--border2);border-radius:8px;padding:9px 11px;cursor:pointer;display:flex;flex-direction:column;gap:4px;transition:border-color .15s;}
 .menu-ham-btn span{display:block;width:18px;height:2px;background:var(--text2);border-radius:2px;transition:all .2s;}
 .menu-ham-btn:hover{border-color:var(--acc);}
@@ -283,7 +286,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div class="menu-topbar-center">
       <!-- VERSION_TAG: v14 — ne pas supprimer -->
-      <div class="menu-logo-small">TSSRQUIZZ<span>v14</span></div>
+      <img src="LOGO_TSSRQUIZZ.png" alt="TSSRQUIZZ" class="menu-logo-img">
     </div>
     <div class="menu-topbar-right" style="display:flex;align-items:center;gap:8px;">
       <button id="theme-toggle-btn" onclick="toggleDarkLight()" title="Basculer thème clair/sombre" aria-label="Basculer entre le thème clair et sombre"
