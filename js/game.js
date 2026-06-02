@@ -1069,6 +1069,18 @@ function updateMenuProfile(){
   if(mt){mt.textContent=title.label;mt.className=title.cls;}
 }
 
+function openProfileScreen(){
+  loadProfileScreen();
+  var scr=document.getElementById('screen-profile');
+  if(scr){scr.classList.add('active');scr.style.display='flex';}
+}
+function closeProfileScreen(){
+  var scr=document.getElementById('screen-profile');
+  if(scr){scr.classList.remove('active');scr.style.display='none';}
+}
+window.openProfileScreen=openProfileScreen;
+window.closeProfileScreen=closeProfileScreen;
+
 function loadProfileScreen(){
   var data=loadProfileData();
   var mastered=getMasteredCount();
@@ -3812,6 +3824,7 @@ function openDailyScreen(){
     scr=document.createElement('div');
     scr.id='screen-daily';
     scr.className='screen';
+    scr.onclick=function(e){if(e.target===this)closeDailyScreen();};
     document.getElementById('app').appendChild(scr);
   }
   
