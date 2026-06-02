@@ -1816,12 +1816,22 @@ body.ui-neon {
   --bg:#0a0b14; --bg2:#11131f; --panel:#161927; --border:#242838;
   --border2:#2f3449; --text:#e4e7f1; --text2:#8891a8; --dim:#4a5065;
   --white:#ffffff; --sh:rgba(0,0,0,.5);
-  --acc:#38bdf8; --a2:rgba(56,189,248,.12); --a3:rgba(56,189,248,.05);
   font-family:'Inter', -apple-system, 'DM Sans', sans-serif !important;
+}
+body.ui-neon:not([class*="cat-"]) {
+  --acc:#38bdf8; --a2:rgba(56,189,248,.12); --a3:rgba(56,189,248,.05);
+}
+body.ui-neon.vt-light {
+  --bg:#fafafc; --bg2:#f4f4f8; --panel:#ffffff; --border:#e0e0e8;
+  --border2:#c8c8d8; --text:#1a1a2e; --text2:#4a4a6a; --dim:#9090b0;
+  --white:#1a1a2e; --sh:rgba(0,0,0,.06);
+}
+body.ui-neon.vt-light:not([class*="cat-"]) {
+  --acc:#0066cc; --a2:rgba(0,102,204,.12); --a3:rgba(0,102,204,.06);
 }
 body.ui-neon * { font-family:'Inter', -apple-system, 'DM Sans', sans-serif; }
 body.ui-neon code, body.ui-neon .ticker-cmd { font-family:'JetBrains Mono', 'DM Mono', monospace !important; }
-body.ui-neon::before { background-image:radial-gradient(rgba(56,189,248,.06) 1px, transparent 1px); background-size:32px 32px; opacity:.6; }
+body.ui-neon::before { background-image:radial-gradient(var(--a3) 1px, transparent 1px); background-size:32px 32px; opacity:.6; }
 body.ui-neon .menu-logo-small { font-family:'Inter', sans-serif !important; font-size:15px !important; letter-spacing:-.5px !important; text-shadow:none !important; }
 body.ui-neon .logo h1 { font-family:'Inter', sans-serif !important; font-size:28px !important; font-weight:800 !important; letter-spacing:-1px !important; text-shadow:0 0 30px rgba(56,189,248,.4) !important; }
 body.ui-neon .start-btn-main { border-radius:14px !important; font-family:'Inter', sans-serif !important; font-size:14px !important; font-weight:700 !important; letter-spacing:2px !important; background:linear-gradient(135deg, #38bdf8, #0ea5e9) !important; border:none !important; color:#fff !important; box-shadow:0 10px 40px rgba(56,189,248,.35), 0 2px 8px rgba(56,189,248,.25) !important; }
