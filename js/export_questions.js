@@ -1,51 +1,41 @@
-// Export all questions from Firestore to a JSON file and trigger download
-// Requires Firebase Auth and Firestore to be initialized (see firebase-init.js)
+// export_questions.js — Export de la collection "questions" depuis Firestore
+// Requiert Firebase Auth et Firestore initialisés (firebase-init.js)
 
-// Ensure Firebase SDK is loaded (same imports as firebase-init.js)
-import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, collection, getDocs } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, collection, getDocs, query, where }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const auth = window._fbAuth || getAuth();
-const db = window._fbDb || getFirestore();
+const db   = window._fbDb   || getFirestore();
 
 /**
- * Fetch all categories and their questions from Firestore, then download as JSON.
+ * Récupère toutes les questions actives de la collection "questions"
+ * et les télécharge au format JSON v2 (tableau plat).
  */
 window.exportAllQuestions = async function() {
   try {
-    // Ensure user is signed in (optional, Firestore rules may allow public read)
     const user = auth.currentUser;
-    if (!user) {
-      console.warn('User not signed in. Attempting to load questions publicly.');
-    }
-    const snap = await getDocs(collection(db, 'categories'));
-    const allData = {};
-    snap.forEach(doc => {
-      const data = doc.data();
-      // Preserve category id and its questions
-      allData[doc.id] = {
-        label: data.label || '',
-        icon: data.icon || '',
-        desc: data.desc || '',
-        cat: data.cat || '',
-        qs: data.qs || []
-      };
-    });
-    const jsonStr = JSON.stringify(allData, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'questions_export.json';
+    if (!user) console.warn('User not signed in. Attempting public read.');
+
+    const snap = await getDocs(query(collection(db, 'questions'), where('active', '==', true)));
+    const allQuestions = [];
+    snap.forEach(docSnap => { allQuestions.push(docSnap.data()); });
+
+    const jsonStr = JSON.stringify(allQuestions, null, 2);
+    const blob    = new Blob([jsonStr], { type: 'application/json' });
+    const url     = URL.createObjectURL(blob);
+    const a       = document.createElement('a');
+    a.href        = url;
+    a.download    = 'questions_export_v2_' + new Date().toISOString().slice(0,10) + '.json';
     a.click();
     URL.revokeObjectURL(url);
-    console.log('Questions exported successfully.');
-  } catch (e) {
-    console.error('Error exporting questions:', e);
+    console.log('Export terminé : ' + allQuestions.length + ' questions.');
+  } catch(e) {
+    console.error('Erreur export questions :', e);
   }
 };
 
-// Optional: expose a button in the UI if a container exists
+// Bouton optionnel dans l'UI
 if (document.getElementById('export-questions-btn')) {
   document.getElementById('export-questions-btn').addEventListener('click', window.exportAllQuestions);
 }
