@@ -6260,7 +6260,7 @@ function _renderGroupLevel(){
   if (!grid) return;
   grid.innerHTML = '';
   // 3 colonnes compactes, tout visible sans scroll
-  grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px;overflow:visible;max-height:none;';
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px;overflow:visible;max-height:none;align-items:stretch;';
 
   var GROUPS = window.GROUPS || {};
   var isMix = wizSelCats.length === 1 && wizSelCats[0] === 'mix';
@@ -6321,7 +6321,7 @@ function _renderGroupLevel(){
     var card = document.createElement('div');
     card.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-radius:8px;' +
       'background:' + (isGroupSel ? 'var(--a2)' : 'var(--panel)') + ';' +
-      'border:' + (isGroupSel ? '1.5px solid var(--acc)' : '1px solid var(--border)') + ';transition:all .15s;min-height:44px;';
+      'border:' + (isGroupSel ? '1.5px solid var(--acc)' : '1px solid var(--border)') + ';transition:all .15s;min-height:44px;box-sizing:border-box;height:100%;';
     card.innerHTML =
       '<span style="font-size:16px">' + (grp.label ? grp.label.split(' ')[0] : '📁') + '</span>' +
       '<div style="flex:1;min-width:0;">' +
