@@ -458,6 +458,9 @@ function _updateThemeBtns(){
   if(t2) t2.textContent = icon;
   var t3=document.getElementById('settings-theme-label');
   if(t3) t3.textContent = label;
+  // Switch logo selon le thème
+  var logoImg = document.getElementById('menu-logo-img');
+  if(logoImg) logoImg.src = isDark ? 'LOGO_TSSRQUIZZ_DARK.png' : 'LOGO_TSSRQUIZZ.png';
 }
 
 function openMainMenu(){
