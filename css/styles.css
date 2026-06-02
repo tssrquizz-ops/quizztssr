@@ -2651,3 +2651,47 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
   }
 }
 
+/* ===== LAUNCH WIZARD POPUP MODAL OVERRIDES ===== */
+.launch-ovl {
+  align-items: center !important; /* Centered modal vertically */
+  padding: 20px !important;
+}
+.launch-sheet {
+  background: color-mix(in srgb, var(--bg2) 90%, transparent) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border: 2px solid var(--border2) !important;
+  border-radius: 12px !important;
+  padding: 20px 20px 24px !important;
+  width: 100% !important;
+  max-width: 500px !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.4) !important;
+  animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+.sheet-handle {
+  display: none !important; /* Hide drag handle on popups */
+}
+.sheet-cat-grid {
+  max-height: 180px !important; /* Max height for categories grid */
+  overflow-y: auto !important;   /* Scroll internally */
+  padding-right: 4px !important;
+  grid-template-columns: repeat(2, 1fr) !important; /* Keep the 2-column layout */
+}
+/* Style modern custom scrollbar for categories grid */
+.sheet-cat-grid::-webkit-scrollbar {
+  width: 4px;
+}
+.sheet-cat-grid::-webkit-scrollbar-track {
+  background: var(--bg2);
+}
+.sheet-cat-grid::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 2px;
+}
+.sheet-cat-grid::-webkit-scrollbar-thumb:hover {
+  background: var(--acc);
+}
+
+
