@@ -61,12 +61,53 @@
 </style>
 <style>
 /* ── TOPBAR ── */
-.menu-topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 18px;}
-.menu-topbar-center{flex:1;text-align:center;}
+.menu-topbar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0 18px;
+}
+.menu-topbar-left {
+  display: flex;
+  justify-content: flex-start;
+}
+.menu-topbar-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.menu-topbar-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+@media (max-width: 768px) {
+  .menu-topbar {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    row-gap: 16px;
+  }
+  .menu-topbar-left {
+    grid-column: 1;
+    grid-row: 1;
+    justify-content: flex-start;
+  }
+  .menu-topbar-right {
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: flex-end;
+  }
+  .menu-topbar-center {
+    grid-column: 1 / span 2;
+    grid-row: 2;
+    width: 100%;
+  }
+}
 .menu-logo-small{font-family:'Press Start 2P',cursive;font-size:12px;background:linear-gradient(to right, var(--acc), #8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;text-transform:uppercase;filter:drop-shadow(0 0 8px var(--a2));}
 .menu-logo-small span{font-family:'DM Mono',monospace;font-size:8px;color:var(--text2);opacity:.6;letter-spacing:1px;margin-left:8px;font-weight:400;-webkit-text-fill-color:var(--text2);vertical-align:middle;}
-.menu-logo-img{height:90px;width:auto;max-width:320px;object-fit:contain;display:inline-block;vertical-align:middle;transition:transform .2s ease;}
-@media(min-width:480px){.menu-logo-img{height:110px;max-width:400px;}}
+.menu-logo-img{height:180px;width:auto;max-width:100%;object-fit:contain;display:inline-block;vertical-align:middle;transition:transform .2s ease;}
+@media(min-width:480px){.menu-logo-img{height:220px;}}
 .menu-logo-img:hover{transform:scale(1.05);}
 .menu-ham-btn{background:none;border:1.5px solid var(--border2);border-radius:8px;padding:9px 11px;cursor:pointer;display:flex;flex-direction:column;gap:4px;transition:border-color .15s;}
 .menu-ham-btn span{display:block;width:18px;height:2px;background:var(--text2);border-radius:2px;transition:all .2s;}
