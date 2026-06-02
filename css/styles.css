@@ -2673,25 +2673,9 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
 .sheet-handle {
   display: none !important; /* Hide drag handle on popups */
 }
-.sheet-cat-grid {
-  max-height: 180px !important; /* Max height for categories grid */
-  overflow-y: auto !important;   /* Scroll internally */
-  padding-right: 4px !important;
-  grid-template-columns: repeat(2, 1fr) !important; /* Keep the 2-column layout */
-}
-/* Style modern custom scrollbar for categories grid */
-.sheet-cat-grid::-webkit-scrollbar {
-  width: 4px;
-}
-.sheet-cat-grid::-webkit-scrollbar-track {
-  background: var(--bg2);
-}
-.sheet-cat-grid::-webkit-scrollbar-thumb {
-  background: var(--border2);
-  border-radius: 2px;
-}
-.sheet-cat-grid::-webkit-scrollbar-thumb:hover {
-  background: var(--acc);
-}
-
+/* Group cats popup scrollbar */
+#group-cats-popup-body::-webkit-scrollbar { width: 4px; }
+#group-cats-popup-body::-webkit-scrollbar-track { background: transparent; }
+#group-cats-popup-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+#group-cats-popup-body::-webkit-scrollbar-thumb:hover { background: var(--acc); }
 

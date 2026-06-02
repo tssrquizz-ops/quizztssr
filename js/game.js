@@ -6198,7 +6198,6 @@ function rpgUpdateBadge(){
   else if(c>=20){b.textContent='EN DIFFICULTÉ';b.style.color='#ff9800';}
   else{b.textContent='CRITIQUE';b.style.color='#dc2626';}
 }
-
 function rpgEndSession(fired,promoted){
   document.body.classList.remove('rpg-mode');
   currentUI=lsGet('tssr5_ui','ui-neon');
@@ -6260,31 +6259,30 @@ function _renderGroupLevel(){
   var grid = document.getElementById('sheet-cat-grid');
   if (!grid) return;
   grid.innerHTML = '';
-  grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:10px;';
+  // 3 colonnes compactes, tout visible sans scroll
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;overflow:visible;max-height:none;';
 
   var GROUPS = window.GROUPS || {};
+  var isMix = wizSelCats.length === 1 && wizSelCats[0] === 'mix';
 
-  // ── Carte héroïque MIX ──
-  var mixCat = CATS['mix'] || {icon:'🎲', qs:[]};
+  // ── Carte MIX pleine largeur ──
   var mixSt  = stD['mix'] || {played:0, correct:0};
   var mixPct = mixSt.played > 0 ? Math.round(mixSt.correct / mixSt.played * 100) : null;
   var mixTotal = 0;
   Object.keys(CATS).forEach(function(k){ if(k!=='mix') mixTotal += (CATS[k]&&CATS[k].qs?CATS[k].qs.length:0); });
-  var isMix = wizSelCats.indexOf('mix') > -1;
 
   var mixCard = document.createElement('div');
-  mixCard.className = 'sheet-cat' + (isMix ? ' sel' : '');
-  mixCard.setAttribute('data-cat','mix');
-  mixCard.style.cssText = 'grid-column:span 2;display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-radius:8px;' +
+  mixCard.style.cssText = 'grid-column:span 3;display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;border-radius:8px;' +
     'background:' + (isMix ? 'var(--a2)' : 'var(--panel)') + ';' +
-    'border:' + (isMix ? '2px solid var(--acc)' : '1.5px solid var(--border)') + ';transition:all .15s;';
+    'border:' + (isMix ? '2px solid var(--acc)' : '1px solid var(--border)') + ';transition:all .15s;';
   mixCard.innerHTML =
-    '<span style="font-size:20px">🎲</span>' +
-    '<div style="flex:1">' +
+    '<span style="font-size:18px">🎲</span>' +
+    '<div style="flex:1;text-align:left;">' +
       '<div style="font-weight:bold;font-size:10px;color:var(--acc);margin-bottom:1px;">MIX — TOUT EN VRAC</div>' +
       '<div style="font-size:8.5px;color:var(--text2);">' + mixTotal + ' questions · Tous groupes mélangés</div>' +
     '</div>' +
-    (mixPct !== null ? '<span style="font-size:9px;color:var(--dim);font-family:monospace;">' + mixPct + '%</span>' : '');
+    (isMix ? '<span style="font-size:8px;color:var(--acc);font-family:monospace;background:rgba(0,168,90,.15);padding:2px 6px;border-radius:3px;">✓ SÉLECTIONNÉ</span>' : '') +
+    (mixPct !== null ? '<span style="font-size:9px;color:var(--dim);font-family:monospace;margin-left:8px;">' + mixPct + '%</span>' : '');
   mixCard.onclick = function(){
     wizSelCats = ['mix'];
     wizSelGroup = null;
@@ -6296,11 +6294,11 @@ function _renderGroupLevel(){
 
   // ── Séparateur ──
   var sep = document.createElement('div');
-  sep.style.cssText = 'grid-column:span 2;font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:1px;padding:4px 2px;text-transform:uppercase;text-align:center;';
+  sep.style.cssText = 'grid-column:span 3;font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;text-align:center;padding:4px 0 2px 0;';
   sep.textContent = 'ou choisir un groupe';
   grid.appendChild(sep);
 
-  // ── Une carte par groupe ──
+  // ── Cartes groupes — 3 colonnes ──
   Object.keys(GROUPS).forEach(function(groupId){
     var grp = GROUPS[groupId];
     // Calculer le total de questions du groupe
@@ -6343,138 +6341,257 @@ function _renderGroupLevel(){
     (function(gId, gData){
       card.onclick = function(){
         wizSelGroup = gId;
-        _renderCatLevel(gId, gData);
+        _openGroupCatsPopup(gId, gData);
       };
     })(groupId, grp);
     grid.appendChild(card);
   });
 }
 
-// ── Niveau 2 : Afficher les catégories d'un groupe ──
+// ── Niveau 2 (stub) : logique déplacée dans _openGroupCatsPopup ──
 function _renderCatLevel(groupId, grpData){
-  var grid = document.getElementById('sheet-cat-grid');
-  if (!grid) return;
-  grid.innerHTML = '';
-  grid.style.cssText = 'display:flex;flex-direction:column;gap:5px;margin-bottom:10px;';
+  // Vide — intégré dans _openGroupCatsPopup
+}
+
+// ── Popup modale : catégories d'un groupe ──
+function _openGroupCatsPopup(groupId, grpData){
+  // Supprimer toute popup existante
+  var old = document.getElementById('grp-cats-overlay');
+  if(old) old.remove();
 
   var cats = grpData.cats || [];
 
-  // ── Bouton retour ──
-  var backRow = document.createElement('div');
-  backRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;';
-  var backBtn = document.createElement('button');
-  backBtn.style.cssText = 'background:none;border:1px solid var(--border2);border-radius:4px;padding:4px 8px;' +
-    'font-family:monospace;font-size:8px;color:var(--text2);cursor:pointer;transition:all .12s;';
-  backBtn.textContent = '◀ GROUPES';
-  backBtn.onmouseenter = function(){ backBtn.style.borderColor='var(--acc)'; backBtn.style.color='var(--acc)'; };
-  backBtn.onmouseleave = function(){ backBtn.style.borderColor='var(--border2)'; backBtn.style.color='var(--text2)'; };
-  backBtn.onclick = function(){
-    wizSelCats = ['mix'];
-    wizSelGroup = null;
-    selCat = 'mix';
-    _renderGroupLevel();
-    applyBody();
-  };
-  var grpTitle = document.createElement('span');
-  grpTitle.style.cssText = 'font-family:monospace;font-size:9.5px;color:var(--acc);font-weight:bold;';
-  grpTitle.textContent = grpData.label || groupId;
-  backRow.appendChild(backBtn);
-  backRow.appendChild(grpTitle);
-  grid.appendChild(backRow);
-
-  // ── Bouton "Jouer tout le groupe" ──
-  var groupTotal = 0;
-  cats.forEach(function(catId){ var c = CATS[catId]; if(c) groupTotal += (c.qs ? c.qs.length : 0); });
-  var isGroupAll = wizSelGroup === groupId && wizSelCats.indexOf('_group_'+groupId) > -1;
-
-  var playAllBtn = document.createElement('div');
-  playAllBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-radius:6px;' +
-    'background:var(--a2);border:1.5px solid var(--acc);transition:all .15s;margin-bottom:2px;';
-  playAllBtn.innerHTML =
-    '<span style="font-size:14px">⚡</span>' +
-    '<div style="flex:1">' +
-      '<div style="font-size:9px;font-weight:bold;color:var(--acc);margin-bottom:1px;">JOUER TOUT LE GROUPE</div>' +
-      '<div style="font-size:8px;color:var(--text2);font-family:monospace;">' + groupTotal + ' questions · toutes catégories</div>' +
-    '</div>' +
-    '<span style="font-size:8px;color:var(--acc);font-family:monospace;background:rgba(0,168,90,.15);padding:2px 5px;border-radius:3px;">SÉLECTIONNÉ</span>';
-  (function(gId, gCats){
-    playAllBtn.onclick = function(){
-      // Sélectionner toutes les catégories du groupe
-      wizSelCats = gCats.slice();
-      wizSelGroup = gId;
-      selCat = gCats[0] || 'mix';
-      _renderCatLevel(gId, grpData);
-      applyBody();
-    };
-  })(groupId, cats);
-  // Mettre à jour le style selon si le groupe entier est sélectionné
-  var allCatsSelected = cats.length > 0 && cats.every(function(c){ return wizSelCats.indexOf(c) > -1; });
-  if (!allCatsSelected) {
-    playAllBtn.style.background = 'var(--panel)';
-    playAllBtn.style.border = '1px dashed var(--acc)';
-    playAllBtn.querySelector('span:last-child').textContent = '▶ TOUT SÉLECTIONNER';
-    playAllBtn.querySelector('span:last-child').style.cssText = 'font-size:8px;color:var(--text2);font-family:monospace;background:var(--bg2);padding:2px 5px;border-radius:3px;';
-  }
-  grid.appendChild(playAllBtn);
-
-  // ── Grille des catégories du groupe (2 colonnes, alignement horizontal compact) ──
-  var catGrid = document.createElement('div');
-  catGrid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:4px;';
-
-  cats.forEach(function(catId){
-    var c = CATS[catId];
-    if (!c) return;
-    var st  = stD[catId] || {played:0, correct:0};
-    var pct = st.played > 0 ? Math.round(st.correct / st.played * 100) : null;
-    var isSel = wizSelCats.indexOf(catId) > -1;
-
-    var card = document.createElement('div');
-    card.className = 'sheet-cat' + (isSel ? ' sel' : '');
-    card.setAttribute('data-cat', catId);
-    card.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 8px;cursor:pointer;' +
-      'border-radius:6px;min-height:34px;box-sizing:border-box;' +
-      'background:' + (isSel ? 'var(--a2)' : 'var(--panel)') + ';' +
-      'border:' + (isSel ? '1.5px solid var(--acc)' : '1px solid var(--border)') + ';transition:all .12s;';
-    card.innerHTML =
-      '<span style="font-size:14px;flex-shrink:0;">' + (c.icon || '📁') + '</span>' +
-      '<div style="flex:1;min-width:0;text-align:left;">' +
-        '<div style="font-family:monospace;font-size:8px;font-weight:bold;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.label || catId) + '</div>' +
-        '<div style="font-family:monospace;font-size:7.5px;color:var(--dim);">' +
-          (pct !== null ? pct + '%' : (c.qs ? c.qs.length : 0) + 'Q') +
-        '</div>' +
-      '</div>';
-
-    (function(cId, cCard, gId, gData){
-      cCard.onclick = function(){
-        // Désélectionner "tout le groupe" si on sélectionne une cat individuelle
-        var idx = wizSelCats.indexOf(cId);
-        if (idx > -1) {
-          if (wizSelCats.length > 1) wizSelCats.splice(idx, 1);
-        } else {
-          wizSelCats.push(cId);
-        }
-        // Retirer 'mix' si présent
-        var mixI = wizSelCats.indexOf('mix');
-        if (mixI > -1 && wizSelCats.length > 1) wizSelCats.splice(mixI, 1);
-
-        selCat = wizSelCats[0] || cId;
-        _renderCatLevel(gId, gData);
-        applyBody();
-      };
-    })(catId, card, groupId, grpData);
-
-    catGrid.appendChild(card);
-  });
-
-  grid.appendChild(catGrid);
-
-  // Sélectionner par défaut toutes les catégories du groupe si rien n'est encore sélectionné dans ce groupe
-  var hasGroupCatSelected = cats.some(function(c){ return wizSelCats.indexOf(c) > -1; });
-  if (!hasGroupCatSelected) {
+  // Pré-sélection : toutes les cats du groupe si rien n'est sélectionné dans ce groupe
+  var hasAny = cats.some(function(c){ return wizSelCats.indexOf(c) > -1; });
+  if(!hasAny){
     wizSelCats = cats.slice();
     selCat = cats[0] || 'mix';
-    _renderCatLevel(groupId, grpData);
     applyBody();
+  }
+
+  // Snapshot mutable pour la popup (on confirme en cliquant sur le bouton)
+  var popSel = wizSelCats.slice();
+
+  // ── OVERLAY ──
+  var overlay = document.createElement('div');
+  overlay.id = 'grp-cats-overlay';
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:9999;',
+    'display:flex;align-items:center;justify-content:center;',
+    'background:rgba(0,0,0,.55);backdrop-filter:blur(6px);',
+    '-webkit-backdrop-filter:blur(6px);',
+    'animation:fadeInOverlay .18s ease;'
+  ].join('');
+
+  // ── POPUP CARD ──
+  var popup = document.createElement('div');
+  popup.style.cssText = [
+    'position:relative;width:min(92vw,460px);max-height:88vh;',
+    'display:flex;flex-direction:column;',
+    'background:var(--panel);border:1.5px solid var(--border2);border-radius:16px;',
+    'box-shadow:0 24px 64px rgba(0,0,0,.6);overflow:hidden;',
+    'animation:slideUpPopup .22s cubic-bezier(.22,1,.36,1);'
+  ].join('');
+
+  // ── HEADER ──
+  var header = document.createElement('div');
+  header.style.cssText = [
+    'display:flex;align-items:center;justify-content:space-between;',
+    'padding:14px 16px 10px;border-bottom:1px solid var(--border);',
+    'background:var(--bg2);flex-shrink:0;'
+  ].join('');
+
+  var groupTotal = 0;
+  cats.forEach(function(cId){ var c=CATS[cId]; if(c) groupTotal += (c.qs?c.qs.length:0); });
+
+  var headerLeft = document.createElement('div');
+  headerLeft.innerHTML =
+    '<div style="font-size:13px;font-weight:bold;color:var(--acc);margin-bottom:2px;">' + (grpData.label||groupId) + '</div>' +
+    '<div style="font-size:9px;color:var(--text2);font-family:monospace;">' + cats.length + ' catégories · ' + groupTotal + ' questions</div>';
+
+  var closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = [
+    'background:none;border:1px solid var(--border2);border-radius:6px;',
+    'color:var(--text2);font-size:12px;cursor:pointer;padding:4px 8px;',
+    'transition:all .12s;'
+  ].join('');
+  closeBtn.onmouseenter = function(){ closeBtn.style.borderColor='var(--acc)'; closeBtn.style.color='var(--acc)'; };
+  closeBtn.onmouseleave = function(){ closeBtn.style.borderColor='var(--border2)'; closeBtn.style.color='var(--text2)'; };
+  closeBtn.onclick = function(){ overlay.remove(); };
+
+  header.appendChild(headerLeft);
+  header.appendChild(closeBtn);
+  popup.appendChild(header);
+
+  // ── BOUTON TOUT LE GROUPE ──
+  var playAllWrap = document.createElement('div');
+  playAllWrap.style.cssText = 'padding:10px 14px 6px;flex-shrink:0;';
+
+  var playAllBtn = document.createElement('div');
+  playAllBtn.id = 'pop-play-all';
+  playAllBtn.style.cssText = [
+    'display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;',
+    'border-radius:10px;border:1.5px solid var(--acc);background:var(--a2);',
+    'transition:all .14s;'
+  ].join('');
+
+  function refreshPlayAll(){
+    var allSel = cats.length > 0 && cats.every(function(c){ return popSel.indexOf(c) > -1; });
+    playAllBtn.style.background = allSel ? 'var(--a2)' : 'var(--panel)';
+    playAllBtn.style.border = allSel ? '1.5px solid var(--acc)' : '1px dashed var(--acc)';
+    var badge = playAllBtn.querySelector('#pop-all-badge');
+    if(badge){
+      badge.textContent = allSel ? '✓ SÉLECTIONNÉ' : '▶ TOUT CHOISIR';
+      badge.style.color = allSel ? 'var(--acc)' : 'var(--text2)';
+      badge.style.background = allSel ? 'rgba(0,168,90,.15)' : 'var(--bg2)';
+    }
+  }
+
+  playAllBtn.innerHTML =
+    '<span style="font-size:18px">⚡</span>' +
+    '<div style="flex:1">' +
+      '<div style="font-size:10px;font-weight:bold;color:var(--acc);">JOUER TOUT LE GROUPE</div>' +
+      '<div style="font-size:8.5px;color:var(--text2);font-family:monospace;">' + groupTotal + ' questions · toutes catégories</div>' +
+    '</div>' +
+    '<span id="pop-all-badge" style="font-size:8px;font-family:monospace;padding:3px 7px;border-radius:4px;">▶ TOUT CHOISIR</span>';
+
+  playAllBtn.onclick = function(){
+    if(cats.every(function(c){ return popSel.indexOf(c) > -1; })){
+      // Déselectionner tout
+      cats.forEach(function(c){ var i=popSel.indexOf(c); if(i>-1) popSel.splice(i,1); });
+      if(popSel.length === 0) popSel.push('mix');
+    } else {
+      // Sélectionner tout
+      cats.forEach(function(c){ if(popSel.indexOf(c) === -1) popSel.push(c); });
+      var mixI = popSel.indexOf('mix');
+      if(mixI > -1 && popSel.length > 1) popSel.splice(mixI, 1);
+    }
+    refreshPlayAll();
+    refreshCatCards();
+  };
+  playAllWrap.appendChild(playAllBtn);
+  popup.appendChild(playAllWrap);
+
+  // ── SÉPARATEUR ──
+  var sepLine = document.createElement('div');
+  sepLine.style.cssText = 'margin:0 14px;border-top:1px solid var(--border);flex-shrink:0;';
+  popup.appendChild(sepLine);
+
+  // ── GRILLE DES CATÉGORIES (scrollable) ──
+  var body = document.createElement('div');
+  body.id = 'group-cats-popup-body';
+  body.style.cssText = [
+    'overflow-y:auto;padding:10px 14px;flex:1;',
+    'display:grid;grid-template-columns:repeat(2,1fr);gap:8px;'
+  ].join('');
+
+  function refreshCatCards(){
+    // Reconstruire les cartes selon popSel
+    body.innerHTML = '';
+    cats.forEach(function(catId){
+      var c = CATS[catId];
+      if(!c) return;
+      var st  = stD[catId] || {played:0, correct:0};
+      var pct = st.played > 0 ? Math.round(st.correct/st.played*100) : null;
+      var isSel = popSel.indexOf(catId) > -1;
+
+      var card = document.createElement('div');
+      card.style.cssText = [
+        'display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;',
+        'border-radius:8px;min-height:42px;box-sizing:border-box;transition:all .13s;',
+        'background:' + (isSel ? 'var(--a2)' : 'var(--panel)') + ';',
+        'border:' + (isSel ? '1.5px solid var(--acc)' : '1px solid var(--border)') + ';'
+      ].join('');
+      card.innerHTML =
+        '<span style="font-size:16px;flex-shrink:0;">' + (c.icon||'📁') + '</span>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-family:monospace;font-size:8.5px;font-weight:bold;color:var(--text);' +
+               'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;">' + (c.label||catId) + '</div>' +
+          '<div style="font-family:monospace;font-size:7.5px;color:var(--dim);">' +
+            (pct !== null ? pct+'%' : (c.qs?c.qs.length:0)+'Q') +
+          '</div>' +
+        '</div>' +
+        (isSel ? '<span style="font-size:10px;color:var(--acc);">✓</span>' : '');
+
+      (function(cId){
+        card.onclick = function(){
+          var idx = popSel.indexOf(cId);
+          if(idx > -1){
+            if(popSel.length > 1) popSel.splice(idx, 1);
+          } else {
+            popSel.push(cId);
+            var mixI = popSel.indexOf('mix');
+            if(mixI > -1 && popSel.length > 1) popSel.splice(mixI, 1);
+          }
+          refreshCatCards();
+          refreshPlayAll();
+        };
+      })(catId);
+
+      body.appendChild(card);
+    });
+  }
+
+  refreshCatCards();
+  refreshPlayAll();
+  popup.appendChild(body);
+
+  // ── FOOTER — bouton confirmer ──
+  var footer = document.createElement('div');
+  footer.style.cssText = [
+    'padding:10px 14px 14px;border-top:1px solid var(--border);',
+    'background:var(--bg2);flex-shrink:0;display:flex;gap:8px;'
+  ].join('');
+
+  var cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Annuler';
+  cancelBtn.style.cssText = [
+    'flex:1;padding:9px;border-radius:8px;border:1px solid var(--border2);',
+    'background:none;color:var(--text2);font-family:monospace;font-size:9px;',
+    'cursor:pointer;transition:all .12s;'
+  ].join('');
+  cancelBtn.onclick = function(){ overlay.remove(); };
+
+  var confirmBtn = document.createElement('button');
+  confirmBtn.textContent = 'Confirme la sélection ✓';
+  confirmBtn.style.cssText = [
+    'flex:2;padding:9px;border-radius:8px;border:none;',
+    'background:var(--acc);color:#fff;font-family:monospace;font-size:9px;',
+    'font-weight:bold;cursor:pointer;transition:all .14s;letter-spacing:.5px;'
+  ].join('');
+  confirmBtn.onmouseenter = function(){ confirmBtn.style.filter='brightness(1.15)'; };
+  confirmBtn.onmouseleave = function(){ confirmBtn.style.filter=''; };
+  confirmBtn.onclick = function(){
+    // Appliquer la sélection
+    wizSelCats = popSel.length > 0 ? popSel.slice() : cats.slice();
+    wizSelGroup = groupId;
+    selCat = wizSelCats[0] || 'mix';
+    applyBody();
+    _renderGroupLevel(); // Rafraîchir la grille groupes pour voir la sélection active
+    overlay.remove();
+  };
+
+  footer.appendChild(cancelBtn);
+  footer.appendChild(confirmBtn);
+  popup.appendChild(footer);
+
+  overlay.appendChild(popup);
+
+  // Fermer en cliquant hors de la popup
+  overlay.onclick = function(e){ if(e.target === overlay) overlay.remove(); };
+
+  document.body.appendChild(overlay);
+
+  // Injecter les animations si pas encore présentes
+  if(!document.getElementById('grp-popup-anim')){
+    var st = document.createElement('style');
+    st.id = 'grp-popup-anim';
+    st.textContent = [
+      '@keyframes fadeInOverlay{from{opacity:0}to{opacity:1}}',
+      '@keyframes slideUpPopup{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}'
+    ].join('');
+    document.head.appendChild(st);
   }
 }
 
