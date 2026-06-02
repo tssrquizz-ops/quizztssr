@@ -2,7 +2,14 @@
 function lsGet(k,d){try{var v=localStorage.getItem(k);return v!==null?JSON.parse(v):d;}catch(e){return d;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));if(window._fbUser&&window.fbSaveUserData){clearTimeout(window._fbSaveTimer);window._fbSaveTimer=setTimeout(window.fbSaveUserData,2000);}}catch(e){}}
 // ─── Variables globales d'état ───
-var vTheme=(function(){try{return localStorage.getItem('tssr5_vt')||'vt-light';}catch(e){return 'vt-light';}})();
+var vTheme=(function(){try{
+  var t=localStorage.getItem('tssr5_vt')||'vt-light';
+  if(t!=='vt-dark' && t!=='vt-light'){
+    t='vt-light';
+    try{localStorage.setItem('tssr5_vt',t);}catch(e){}
+  }
+  return t;
+}catch(e){return 'vt-light';}})();
 var selCat='reseau', selMode='chill', selDiff='all';
 var soundOn=true, jokersEnabled=true;
 var currentUI=(function(){try{return localStorage.getItem('tssr5_ui')||'ui-neon';}catch(e){return 'ui-neon';}})();
@@ -143,8 +150,7 @@ function applyBody(){
   var uiCls=currentUI||window.uiStyle||lsGet('tssr5_ui','ui-neon')||'ui-neon';
   var body=document.body;
   // Retirer uniquement les classes thème et cat — préserver le reste
-  var themeIds = (typeof PROFILE_THEMES !== 'undefined') ? PROFILE_THEMES.map(function(t){ return t.id; }) : ['vt-dark','vt-light','vt-slate','vt-paper','vt-midnight','vt-warm'];
-  themeIds.forEach(function(c){ body.classList.remove(c); });
+  ['vt-dark','vt-light','vt-slate','vt-paper','vt-midnight','vt-warm'].forEach(function(c){body.classList.remove(c);});
   ['cat-reseau','cat-cisco','cat-vlan','cat-stp','cat-routage','cat-secu','cat-windows','cat-dns',
    'cat-ntfs','cat-hyperv','cat-raid','cat-cmd','cat-mix','cat-ad','cat-ps','cat-mbr','cat-wlan',
    'cat-sauvegarde','cat-abe','cat-fsrm','cat-groupes_ad'].forEach(function(c){body.classList.remove(c);});
@@ -927,10 +933,6 @@ var PROFILE_TITLES=[
 var PROFILE_THEMES=[
   {id:'vt-dark',    dot:'#5b8fff',label:'DARK'},
   {id:'vt-light',   dot:'#0070b0',label:'LIGHT'},
-  {id:'vt-slate',   dot:'#4488ff',label:'SLATE'},
-  {id:'vt-paper',   dot:'#a07000',label:'PAPER'},
-  {id:'vt-midnight',dot:'#8866ff',label:'NIGHT'},
-  {id:'vt-warm',    dot:'#ff8860',label:'WARM'},
 ];
 
 function getProfileTitle(n){

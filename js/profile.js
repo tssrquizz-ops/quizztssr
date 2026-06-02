@@ -14,10 +14,6 @@ var PROFILE_TITLES=[
 var PROFILE_THEMES=[
   {id:'vt-dark',    dot:'#5b8fff',label:'DARK'},
   {id:'vt-light',   dot:'#0070b0',label:'LIGHT'},
-  {id:'vt-slate',   dot:'#4488ff',label:'SLATE'},
-  {id:'vt-paper',   dot:'#a07000',label:'PAPER'},
-  {id:'vt-midnight',dot:'#8866ff',label:'NIGHT'},
-  {id:'vt-warm',    dot:'#ff8860',label:'WARM'},
 ];
 
 function getProfileTitle(n){
