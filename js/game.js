@@ -264,12 +264,9 @@ function buildCatGrid(){
 function buildBadges(){
   var row=el('badges-row');if(!row)return;row.innerHTML='';
   var unlocked = [];
-  var locked = [];
   BDEFS.forEach(function(b){
     if(bdD.indexOf(b.id)>=0){
       unlocked.push(b);
-    } else {
-      locked.push(b);
     }
   });
   
@@ -285,16 +282,6 @@ function buildBadges(){
   } else {
     html += '<div class="badge-section-title">Tes badges (0)</div>';
     html += '<div style="font-size:10px;color:var(--text2);margin-bottom:12px;opacity:0.8;font-style:italic;">Joue pour débloquer tes premiers badges !</div>';
-  }
-  
-  // Locked section
-  if(locked.length > 0) {
-    html += '<div class="badge-section-title">À débloquer (' + locked.length + ')</div>';
-    html += '<div class="badge-subgrid">';
-    locked.forEach(function(b){
-      html += '<div class="bdg locked" title="Condition : ' + b.desc + '"><span>🔒</span><span class="bl">' + b.name + '</span></div>';
-    });
-    html += '</div>';
   }
   row.innerHTML = html;
 }
