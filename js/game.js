@@ -3779,8 +3779,42 @@ function getDailyQuestion(){
 function buildDailyWidget(){
   var widget=document.getElementById('daily-widget');
   if(!widget) return;
-  widget.style.display = 'none';
-  widget.innerHTML = '';
+  var today=new Date().toDateString();
+  var q=getDailyQuestion();
+  if(!q){widget.innerHTML='';widget.style.display='none';return;}
+  var done=dailyData[today];
+  widget.style.display='block';
+
+  if(done){
+    widget.innerHTML=
+      '<div class="daily-card">'+
+        '<div class="daily-header">'+
+          '<span class="daily-icon">📅</span>'+
+          '<span class="daily-title">DÉFI DU JOUR</span>'+
+          '<span class="daily-date">'+new Date().toLocaleDateString('fr-FR')+'</span>'+
+        '</div>'+
+        '<div class="daily-done">'+
+          (done.ok?'✅ Défi réussi aujourd\'hui !':'❌ Défi raté — à demain !')+
+          '<div class="daily-streak">Reviens demain pour un nouveau défi 🔥</div>'+
+        '</div>'+
+      '</div>';
+    return;
+  }
+
+  // Carte cliquable qui ouvre l'écran dédié (PAS d'affichage inline de la question)
+  widget.innerHTML =
+    '<button class="daily-card daily-card-btn" onclick="openDailyScreen()" data-testid="daily-card-btn">'+
+      '<div class="daily-header">'+
+        '<span class="daily-icon">📅</span>'+
+        '<span class="daily-title">DÉFI DU JOUR</span>'+
+        '<span class="daily-date">'+new Date().toLocaleDateString('fr-FR')+'</span>'+
+      '</div>'+
+      '<div class="daily-teaser">'+
+        '<div class="daily-teaser-title">Une question corsée à résoudre 🎯</div>'+
+        '<div class="daily-teaser-sub">Tape pour relever le défi du jour</div>'+
+        '<div class="daily-teaser-cta">COMMENCER →</div>'+
+      '</div>'+
+    '</button>';
 }
 
 function openDailyScreen(){
@@ -3796,18 +3830,19 @@ function openDailyScreen(){
     document.getElementById('app').appendChild(scr);
   }
   scr.innerHTML =
-    '<div class="daily-topbar">'+
-      '<button class="wiz-close" onclick="closeDailyScreen()" data-testid="daily-close-btn">✕</button>'+
-      '<div class="daily-topbar-title">📅 DÉFI DU JOUR</div>'+
-      '<div style="width:36px;"></div>'+
-    '</div>'+
-    '<div class="daily-page-body">'+
-      '<div class="daily-cat-pill">'+escapeUserHtml(q._cat||'')+' · ★★★</div>'+
-      '<h2 class="daily-page-q">'+safeQuestionHtml(q.q)+'</h2>'+
-      '<div id="daily-opts" class="opts daily-opts-page"></div>'+
-      '<div id="daily-exp"></div>'+
+    '<div class="daily-modal-content">'+
+      '<div class="daily-topbar">'+
+        '<button class="wiz-close" onclick="closeDailyScreen()" data-testid="daily-close-btn">✕</button>'+
+        '<div class="daily-topbar-title">📅 DÉFI DU JOUR</div>'+
+        '<div style="width:36px;"></div>'+
+      '</div>'+
+      '<div class="daily-page-body">'+
+        '<div class="daily-cat-pill">'+escapeUserHtml(q._cat||'')+' · ★★★</div>'+
+        '<h2 class="daily-page-q">'+safeQuestionHtml(q.q)+'</h2>'+
+        '<div id="daily-opts" class="opts daily-opts-page"></div>'+
+        '<div id="daily-exp"></div>'+
+      '</div>'+
     '</div>';
-  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');s.style.display='none';});
   scr.classList.add('active');
   scr.style.display='flex';
   try{window.scrollTo(0,0);}catch(e){}
@@ -3830,7 +3865,7 @@ function openDailyScreen(){
       dailyData[today]={ok:ok};lsSet('tssr5_daily',dailyData);
       if(ok){beep(784,.15,'sine',.2);}else{beep(200,.1,'sawtooth',.15);}
       var exp=document.getElementById('daily-exp');
-      exp.innerHTML='<div class="daily-exp-box"><div class="daily-exp-lbl">'+(ok?'✅ BRAVO !':'❌ Raté')+'</div><div class="daily-exp-txt">'+safeQuestionHtml(q.x||'')+'</div><button class="sheet-launch-btn" onclick="closeDailyScreen();buildDailyWidget();" data-testid="daily-back-btn">↩ RETOUR AU MENU</button></div>';
+      exp.innerHTML='<div class="daily-exp-box"><div class="daily-exp-lbl">'+(ok?'✅ BRAVO !':'❌ Raté')+'</div><div class="daily-exp-txt">'+safeQuestionHtml(q.x||'')+'</div><button class="sheet-launch-btn" onclick="closeDailyScreen();" data-testid="daily-back-btn">↩ FERMER</button></div>';
     };})(shuffled[i]);
     b.setAttribute('data-orig',shuffled[i].i);
     optsDiv.appendChild(b);
@@ -3840,9 +3875,6 @@ function openDailyScreen(){
 function closeDailyScreen(){
   var scr=document.getElementById('screen-daily');
   if(scr){scr.classList.remove('active');scr.style.display='none';}
-  var sm=document.getElementById('screen-menu');
-  if(sm){sm.classList.add('active');sm.style.display='flex';}
-  try{window.scrollTo(0,0);}catch(e){}
   buildDailyWidget();
 }
 // Expose globally

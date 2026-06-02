@@ -2275,3 +2275,72 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
 
 .start-btn-main{animation:ctaEntrance 0.7s cubic-bezier(0.16,1,0.3,1) forwards, ctaPulseGlow 3s infinite ease-in-out;}
 .start-btn-main:hover{animation:none;transform:translateY(-3px);box-shadow:0 10px 32px var(--sh)!important;}
+
+/* ── Popup modal pour la question du jour ── */
+#screen-daily {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9990 !important;
+  background: rgba(10, 11, 20, 0.7) !important;
+  backdrop-filter: blur(5px) !important;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+#screen-daily.active {
+  display: flex !important;
+  flex-direction: column;
+}
+.daily-modal-content {
+  background: var(--panel);
+  border: 2px solid #fbbf24;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.daily-modal-content .daily-topbar {
+  border-bottom: 1.5px solid var(--border2);
+  margin-bottom: 0px !important;
+  padding: 14px 20px !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.daily-modal-content .daily-page-body {
+  padding: 20px !important;
+}
+.daily-modal-content .daily-page-q {
+  font-size: 15px !important;
+  margin-bottom: 20px !important;
+  font-weight: 600 !important;
+  line-height: 1.6 !important;
+}
+.daily-modal-content .daily-cat-pill {
+  margin-bottom: 12px !important;
+  font-size: 8px !important;
+  padding: 4px 10px !important;
+}
+.daily-modal-content .opt {
+  padding: 10px 14px !important;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+}
+.daily-modal-content .daily-exp-box {
+  margin-top: 14px !important;
+  padding: 12px 14px !important;
+  border-radius: 8px !important;
+}
+.daily-modal-content .daily-exp-txt {
+  font-size: 11px !important;
+  margin-bottom: 10px !important;
+}
+@keyframes modalSlideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
