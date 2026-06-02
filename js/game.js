@@ -3777,51 +3777,36 @@ function getDailyQuestion(){
 }
 
 function buildDailyWidget(){
-  var widget=document.getElementById('daily-widget');
-  if(!widget) return;
   var today=new Date().toDateString();
   var q=getDailyQuestion();
-  if(!q){widget.innerHTML='';widget.style.display='none';return;}
-  var done=dailyData[today];
-  widget.style.display='block';
-
-  if(done){
-    widget.innerHTML=
-      '<div class="daily-card">'+
-        '<div class="daily-header">'+
-          '<span class="daily-icon">📅</span>'+
-          '<span class="daily-title">DÉFI DU JOUR</span>'+
-          '<span class="daily-date">'+new Date().toLocaleDateString('fr-FR')+'</span>'+
-        '</div>'+
-        '<div class="daily-done">'+
-          (done.ok?'✅ Défi réussi aujourd\'hui !':'❌ Défi raté — à demain !')+
-          '<div class="daily-streak">Reviens demain pour un nouveau défi 🔥</div>'+
-        '</div>'+
-      '</div>';
-    return;
+  
+  var dot = document.getElementById('daily-notification-dot');
+  var btn = document.getElementById('daily-top-btn');
+  
+  if (btn) {
+    if (!q) {
+      btn.style.display = 'none';
+    } else {
+      btn.style.display = 'inline-block';
+      if (dot) {
+        var done=dailyData[today];
+        dot.style.display = done ? 'none' : 'block';
+      }
+    }
   }
-
-  // Carte cliquable qui ouvre l'écran dédié (PAS d'affichage inline de la question)
-  widget.innerHTML =
-    '<button class="daily-card daily-card-btn" onclick="openDailyScreen()" data-testid="daily-card-btn">'+
-      '<div class="daily-header">'+
-        '<span class="daily-icon">📅</span>'+
-        '<span class="daily-title">DÉFI DU JOUR</span>'+
-        '<span class="daily-date">'+new Date().toLocaleDateString('fr-FR')+'</span>'+
-      '</div>'+
-      '<div class="daily-teaser">'+
-        '<div class="daily-teaser-title">Une question corsée à résoudre 🎯</div>'+
-        '<div class="daily-teaser-sub">Tape pour relever le défi du jour</div>'+
-        '<div class="daily-teaser-cta">COMMENCER →</div>'+
-      '</div>'+
-    '</button>';
+  
+  var widget=document.getElementById('daily-widget');
+  if(widget) {
+    widget.style.display = 'none';
+    widget.innerHTML = '';
+  }
 }
 
 function openDailyScreen(){
   var q=getDailyQuestion();
   if(!q) return;
   var today=new Date().toDateString();
-  if(dailyData[today]) return; // déjà fait
+  var done=dailyData[today];
   var scr=document.getElementById('screen-daily');
   if(!scr){
     scr=document.createElement('div');
@@ -3829,6 +3814,30 @@ function openDailyScreen(){
     scr.className='screen';
     document.getElementById('app').appendChild(scr);
   }
+  
+  if(done) {
+    scr.innerHTML =
+      '<div class="daily-modal-content">'+
+        '<div class="daily-topbar">'+
+          '<button class="wiz-close" onclick="closeDailyScreen()" data-testid="daily-close-btn">✕</button>'+
+          '<div class="daily-topbar-title">📅 DÉFI DU JOUR</div>'+
+          '<div style="width:36px;"></div>'+
+        '</div>'+
+        '<div class="daily-page-body">'+
+          '<div class="daily-cat-pill">'+escapeUserHtml(q._cat||'')+' · ★★★</div>'+
+          '<h2 class="daily-page-q">'+safeQuestionHtml(q.q)+'</h2>'+
+          '<div class="daily-exp-box" style="margin-top:10px;">'+
+            '<div class="daily-exp-lbl">'+(done.ok?'✅ Défi réussi aujourd\'hui !':'❌ Défi raté — à demain !')+'</div>'+
+            '<div class="daily-exp-txt">'+safeQuestionHtml(q.x||'')+'</div>'+
+            '<button class="sheet-launch-btn" onclick="closeDailyScreen();" data-testid="daily-back-btn">↩ FERMER</button>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    scr.classList.add('active');
+    scr.style.display='flex';
+    return;
+  }
+  
   scr.innerHTML =
     '<div class="daily-modal-content">'+
       '<div class="daily-topbar">'+

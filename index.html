@@ -330,6 +330,10 @@ document.addEventListener('DOMContentLoaded', function() {
       <img id="menu-logo-img" src="LOGO_TSSRQUIZZ.png" alt="TSSRQUIZZ" class="menu-logo-img">
     </div>
     <div class="menu-topbar-right" style="display:flex;align-items:center;gap:8px;">
+      <button id="daily-top-btn" onclick="openDailyScreen()" title="Défi du jour" aria-label="Défi du jour"
+        style="background:none;border:1.5px solid var(--border2);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:16px;transition:all .2s;color:var(--text);position:relative;">
+        📅<span id="daily-notification-dot" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;background:#ef4444;border-radius:50%;"></span>
+      </button>
       <button id="theme-toggle-btn" onclick="toggleDarkLight()" title="Basculer thème clair/sombre" aria-label="Basculer entre le thème clair et sombre"
         style="background:none;border:1.5px solid var(--border2);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:16px;transition:all .2s;color:var(--text);">
         🌙
