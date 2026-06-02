@@ -6260,7 +6260,7 @@ function _renderGroupLevel(){
   var grid = document.getElementById('sheet-cat-grid');
   if (!grid) return;
   grid.innerHTML = '';
-  grid.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px;';
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:10px;';
 
   var GROUPS = window.GROUPS || {};
 
@@ -6275,16 +6275,16 @@ function _renderGroupLevel(){
   var mixCard = document.createElement('div');
   mixCard.className = 'sheet-cat' + (isMix ? ' sel' : '');
   mixCard.setAttribute('data-cat','mix');
-  mixCard.style.cssText = 'display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;border-radius:10px;' +
+  mixCard.style.cssText = 'grid-column:span 2;display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-radius:8px;' +
     'background:' + (isMix ? 'var(--a2)' : 'var(--panel)') + ';' +
     'border:' + (isMix ? '2px solid var(--acc)' : '1.5px solid var(--border)') + ';transition:all .15s;';
   mixCard.innerHTML =
-    '<span style="font-size:26px">🎲</span>' +
+    '<span style="font-size:20px">🎲</span>' +
     '<div style="flex:1">' +
-      '<div style="font-weight:bold;font-size:12px;color:var(--acc);margin-bottom:2px;">MIX — TOUT EN VRAC</div>' +
-      '<div style="font-size:10px;color:var(--text2);">' + mixTotal + ' questions · Tous groupes mélangés</div>' +
+      '<div style="font-weight:bold;font-size:10px;color:var(--acc);margin-bottom:1px;">MIX — TOUT EN VRAC</div>' +
+      '<div style="font-size:8.5px;color:var(--text2);">' + mixTotal + ' questions · Tous groupes mélangés</div>' +
     '</div>' +
-    (mixPct !== null ? '<span style="font-size:11px;color:var(--dim);font-family:monospace;">' + mixPct + '%</span>' : '');
+    (mixPct !== null ? '<span style="font-size:9px;color:var(--dim);font-family:monospace;">' + mixPct + '%</span>' : '');
   mixCard.onclick = function(){
     wizSelCats = ['mix'];
     wizSelGroup = null;
@@ -6296,7 +6296,7 @@ function _renderGroupLevel(){
 
   // ── Séparateur ──
   var sep = document.createElement('div');
-  sep.style.cssText = 'font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:2px;padding:6px 2px 2px;text-transform:uppercase;';
+  sep.style.cssText = 'grid-column:span 2;font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:1px;padding:4px 2px;text-transform:uppercase;text-align:center;';
   sep.textContent = 'ou choisir un groupe';
   grid.appendChild(sep);
 
@@ -6321,23 +6321,23 @@ function _renderGroupLevel(){
     var isGroupSel = wizSelGroup === groupId;
 
     var card = document.createElement('div');
-    card.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-radius:10px;' +
+    card.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-radius:8px;' +
       'background:' + (isGroupSel ? 'var(--a2)' : 'var(--panel)') + ';' +
-      'border:' + (isGroupSel ? '2px solid var(--acc)' : '1.5px solid var(--border)') + ';transition:all .15s;';
+      'border:' + (isGroupSel ? '1.5px solid var(--acc)' : '1px solid var(--border)') + ';transition:all .15s;min-height:44px;';
     card.innerHTML =
-      '<span style="font-size:22px">' + (grp.label ? grp.label.split(' ')[0] : '📁') + '</span>' +
-      '<div style="flex:1">' +
-        '<div style="font-size:11px;font-weight:bold;color:var(--text);margin-bottom:2px;">' +
+      '<span style="font-size:16px">' + (grp.label ? grp.label.split(' ')[0] : '📁') + '</span>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:9.5px;font-weight:bold;color:var(--text);margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
           (grp.label || groupId) +
         '</div>' +
-        '<div style="font-size:9px;color:var(--text2);font-family:monospace;">' +
-          groupTotal + ' questions · ' + catCount + ' catégorie' + (catCount > 1 ? 's' : '') +
+        '<div style="font-size:8px;color:var(--text2);font-family:monospace;">' +
+          groupTotal + ' Q · ' + catCount + ' cat.' +
         '</div>' +
       '</div>' +
       (groupPct !== null
-        ? '<span style="font-size:10px;color:var(--dim);font-family:monospace;">' + groupPct + '%</span>'
+        ? '<span style="font-size:9px;color:var(--dim);font-family:monospace;margin-left:2px;">' + groupPct + '%</span>'
         : '') +
-      '<span style="font-size:14px;color:var(--text2);margin-left:4px;">›</span>';
+      '<span style="font-size:11px;color:var(--text2);margin-left:2px;">›</span>';
     card.onmouseenter = function(){ if(!isGroupSel) card.style.borderColor='var(--acc)'; };
     card.onmouseleave = function(){ if(!isGroupSel) card.style.borderColor='var(--border)'; };
     (function(gId, gData){
@@ -6355,16 +6355,16 @@ function _renderCatLevel(groupId, grpData){
   var grid = document.getElementById('sheet-cat-grid');
   if (!grid) return;
   grid.innerHTML = '';
-  grid.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-bottom:12px;';
+  grid.style.cssText = 'display:flex;flex-direction:column;gap:5px;margin-bottom:10px;';
 
   var cats = grpData.cats || [];
 
   // ── Bouton retour ──
   var backRow = document.createElement('div');
-  backRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:4px;';
+  backRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;';
   var backBtn = document.createElement('button');
-  backBtn.style.cssText = 'background:none;border:1.5px solid var(--border2);border-radius:6px;padding:6px 10px;' +
-    'font-family:monospace;font-size:9px;color:var(--text2);cursor:pointer;transition:all .12s;';
+  backBtn.style.cssText = 'background:none;border:1px solid var(--border2);border-radius:4px;padding:4px 8px;' +
+    'font-family:monospace;font-size:8px;color:var(--text2);cursor:pointer;transition:all .12s;';
   backBtn.textContent = '◀ GROUPES';
   backBtn.onmouseenter = function(){ backBtn.style.borderColor='var(--acc)'; backBtn.style.color='var(--acc)'; };
   backBtn.onmouseleave = function(){ backBtn.style.borderColor='var(--border2)'; backBtn.style.color='var(--text2)'; };
@@ -6376,7 +6376,7 @@ function _renderCatLevel(groupId, grpData){
     applyBody();
   };
   var grpTitle = document.createElement('span');
-  grpTitle.style.cssText = 'font-family:monospace;font-size:10px;color:var(--acc);font-weight:bold;';
+  grpTitle.style.cssText = 'font-family:monospace;font-size:9.5px;color:var(--acc);font-weight:bold;';
   grpTitle.textContent = grpData.label || groupId;
   backRow.appendChild(backBtn);
   backRow.appendChild(grpTitle);
@@ -6388,15 +6388,15 @@ function _renderCatLevel(groupId, grpData){
   var isGroupAll = wizSelGroup === groupId && wizSelCats.indexOf('_group_'+groupId) > -1;
 
   var playAllBtn = document.createElement('div');
-  playAllBtn.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-radius:10px;' +
-    'background:var(--a2);border:2px solid var(--acc);transition:all .15s;';
+  playAllBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-radius:6px;' +
+    'background:var(--a2);border:1.5px solid var(--acc);transition:all .15s;margin-bottom:2px;';
   playAllBtn.innerHTML =
-    '<span style="font-size:20px">⚡</span>' +
+    '<span style="font-size:14px">⚡</span>' +
     '<div style="flex:1">' +
-      '<div style="font-size:11px;font-weight:bold;color:var(--acc);margin-bottom:2px;">JOUER TOUT LE GROUPE</div>' +
-      '<div style="font-size:9px;color:var(--text2);font-family:monospace;">' + groupTotal + ' questions · toutes catégories mélangées</div>' +
+      '<div style="font-size:9px;font-weight:bold;color:var(--acc);margin-bottom:1px;">JOUER TOUT LE GROUPE</div>' +
+      '<div style="font-size:8px;color:var(--text2);font-family:monospace;">' + groupTotal + ' questions · toutes catégories</div>' +
     '</div>' +
-    '<span style="font-size:9px;color:var(--acc);font-family:monospace;background:rgba(0,168,90,.15);padding:3px 7px;border-radius:4px;">SÉLECTIONNÉ</span>';
+    '<span style="font-size:8px;color:var(--acc);font-family:monospace;background:rgba(0,168,90,.15);padding:2px 5px;border-radius:3px;">SÉLECTIONNÉ</span>';
   (function(gId, gCats){
     playAllBtn.onclick = function(){
       // Sélectionner toutes les catégories du groupe
@@ -6411,13 +6411,13 @@ function _renderCatLevel(groupId, grpData){
   var allCatsSelected = cats.length > 0 && cats.every(function(c){ return wizSelCats.indexOf(c) > -1; });
   if (!allCatsSelected) {
     playAllBtn.style.background = 'var(--panel)';
-    playAllBtn.style.border = '1.5px dashed var(--acc)';
+    playAllBtn.style.border = '1px dashed var(--acc)';
     playAllBtn.querySelector('span:last-child').textContent = '▶ TOUT SÉLECTIONNER';
-    playAllBtn.querySelector('span:last-child').style.cssText = 'font-size:9px;color:var(--text2);font-family:monospace;background:var(--bg2);padding:3px 7px;border-radius:4px;';
+    playAllBtn.querySelector('span:last-child').style.cssText = 'font-size:8px;color:var(--text2);font-family:monospace;background:var(--bg2);padding:2px 5px;border-radius:3px;';
   }
   grid.appendChild(playAllBtn);
 
-  // ── Grille des catégories du groupe (2 colonnes) ──
+  // ── Grille des catégories du groupe (2 colonnes, alignement horizontal compact) ──
   var catGrid = document.createElement('div');
   catGrid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:4px;';
 
@@ -6431,16 +6431,18 @@ function _renderCatLevel(groupId, grpData){
     var card = document.createElement('div');
     card.className = 'sheet-cat' + (isSel ? ' sel' : '');
     card.setAttribute('data-cat', catId);
-    card.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;cursor:pointer;' +
-      'border-radius:8px;text-align:center;' +
+    card.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 8px;cursor:pointer;' +
+      'border-radius:6px;min-height:34px;box-sizing:border-box;' +
       'background:' + (isSel ? 'var(--a2)' : 'var(--panel)') + ';' +
-      'border:' + (isSel ? '2px solid var(--acc)' : '1.5px solid var(--border)') + ';transition:all .12s;';
+      'border:' + (isSel ? '1.5px solid var(--acc)' : '1px solid var(--border)') + ';transition:all .12s;';
     card.innerHTML =
-      '<span style="font-size:20px">' + (c.icon || '📁') + '</span>' +
-      '<span style="font-family:monospace;font-size:8px;color:var(--text);line-height:1.3;">' + (c.label || catId) + '</span>' +
-      '<span style="font-family:monospace;font-size:8px;color:var(--dim);">' +
-        (pct !== null ? pct + '%' : (c.qs ? c.qs.length : 0) + 'Q') +
-      '</span>';
+      '<span style="font-size:14px;flex-shrink:0;">' + (c.icon || '📁') + '</span>' +
+      '<div style="flex:1;min-width:0;text-align:left;">' +
+        '<div style="font-family:monospace;font-size:8px;font-weight:bold;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.label || catId) + '</div>' +
+        '<div style="font-family:monospace;font-size:7.5px;color:var(--dim);">' +
+          (pct !== null ? pct + '%' : (c.qs ? c.qs.length : 0) + 'Q') +
+        '</div>' +
+      '</div>';
 
     (function(cId, cCard, gId, gData){
       cCard.onclick = function(){
