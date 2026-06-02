@@ -143,7 +143,8 @@ function applyBody(){
   var uiCls=currentUI||window.uiStyle||lsGet('tssr5_ui','ui-neon')||'ui-neon';
   var body=document.body;
   // Retirer uniquement les classes thème et cat — préserver le reste
-  ['vt-dark','vt-light'].forEach(function(c){body.classList.remove(c);});
+  var themeIds = (typeof PROFILE_THEMES !== 'undefined') ? PROFILE_THEMES.map(function(t){ return t.id; }) : ['vt-dark','vt-light','vt-slate','vt-paper','vt-midnight','vt-warm'];
+  themeIds.forEach(function(c){ body.classList.remove(c); });
   ['cat-reseau','cat-cisco','cat-vlan','cat-stp','cat-routage','cat-secu','cat-windows','cat-dns',
    'cat-ntfs','cat-hyperv','cat-raid','cat-cmd','cat-mix','cat-ad','cat-ps','cat-mbr','cat-wlan',
    'cat-sauvegarde','cat-abe','cat-fsrm','cat-groupes_ad'].forEach(function(c){body.classList.remove(c);});
