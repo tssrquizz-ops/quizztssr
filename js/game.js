@@ -6260,7 +6260,7 @@ function _renderGroupLevel(){
   if (!grid) return;
   grid.innerHTML = '';
   // 3 colonnes compactes, tout visible sans scroll
-  grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;overflow:visible;max-height:none;';
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px;overflow:visible;max-height:none;';
 
   var GROUPS = window.GROUPS || {};
   var isMix = wizSelCats.length === 1 && wizSelCats[0] === 'mix';
@@ -6272,7 +6272,7 @@ function _renderGroupLevel(){
   Object.keys(CATS).forEach(function(k){ if(k!=='mix') mixTotal += (CATS[k]&&CATS[k].qs?CATS[k].qs.length:0); });
 
   var mixCard = document.createElement('div');
-  mixCard.style.cssText = 'grid-column:span 3;display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;border-radius:8px;' +
+  mixCard.style.cssText = 'grid-column:span 2;display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;border-radius:8px;' +
     'background:' + (isMix ? 'var(--a2)' : 'var(--panel)') + ';' +
     'border:' + (isMix ? '2px solid var(--acc)' : '1px solid var(--border)') + ';transition:all .15s;';
   mixCard.innerHTML =
@@ -6294,7 +6294,7 @@ function _renderGroupLevel(){
 
   // ── Séparateur ──
   var sep = document.createElement('div');
-  sep.style.cssText = 'grid-column:span 3;font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;text-align:center;padding:4px 0 2px 0;';
+  sep.style.cssText = 'grid-column:span 2;font-family:monospace;font-size:8px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;text-align:center;padding:4px 0 2px 0;';
   sep.textContent = 'ou choisir un groupe';
   grid.appendChild(sep);
 
