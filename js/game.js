@@ -1523,6 +1523,12 @@ function cancelOnlineSession(){
 
 
 function handleOnlineSessionUpdate(data){
+  if(data){
+    if(data.status) onlineSession.status = data.status;
+    if(data.config) onlineSession.config = data.config;
+    if(data.qIdx !== undefined) onlineSession.qIdx = data.qIdx;
+    if(data.roundIdx !== undefined) onlineSession.roundIdx = data.roundIdx;
+  }
   var isHost=onlineSession.role==='host';
   var playersList = data.players ? Object.values(data.players) : [];
   
@@ -1766,24 +1772,18 @@ async function hostGenerateQuestionsAndStart(data){
   if(totalQ < 1) totalQ = 10;
 
   // Build from ALL cats that have questions (using .qs, the correct field)
+  var allQs = [];
   var catList = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
-  var pool = [];
-  var usedSet = new Set();
-  var pIdx = 0;
-  while(pool.length < totalQ && pIdx < 1000){
-    pIdx++;
-    var c = catList[Math.floor(Math.random()*catList.length)];
-    var qs = CATS[c].qs;
-    var q = qs[Math.floor(Math.random()*qs.length)];
-    // Exclure les types complexes dont la structure n'est pas sérialisable simplement vers Firestore
-    // word: utilise q.correct (non sérialisé), order/scramble/multiblank/categorize/hotspot: trop complexes
-    var okTypes = ['qcm','debug','tf','fill','calc','type','match','order','word','slider','scramble','multiblank','categorize','hotspot'];
-    if(okTypes.indexOf(q.t) === -1) continue;
-    var k = c + '-' + q.idx;
-    if(usedSet.has(k)) continue;
-    usedSet.add(k);
-    pool.push({ c: c, q: q });
-  }
+  var okTypes = ['qcm','debug','tf','fill','calc','type','match','order','word','slider','scramble','multiblank','categorize','hotspot'];
+  catList.forEach(function(c){
+    CATS[c].qs.forEach(function(q){
+      if(okTypes.indexOf(q.t) !== -1){
+        allQs.push({ c: c, q: q });
+      }
+    });
+  });
+
+  var pool = freshShuffle(allQs).slice(0, totalQ);
 
   if(pool.length === 0){
     showOnlineError('Aucune question disponible ! Vérifiez les catégories.');
@@ -1897,7 +1897,7 @@ window.hostNextRound = function(){
     idx: pool[nIdx].q.idx !== undefined ? pool[nIdx].q.idx : nIdx,
     obj: makeSafeQ(pool[nIdx])
   } : null;
-  var upd = {status:'playing', reveal:false};
+  var upd = {status:'playing', reveal:false, qIdx: nIdx, roundIdx: onlineSession.roundIdx};
   if(nextQ) upd.currentQ = nextQ;
   _onlineUpdate(upd);
 }
