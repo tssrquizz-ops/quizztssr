@@ -343,12 +343,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <!-- STREAK -->
   <div id="streak-bar" class="streak-bar">
-    <div class="streak-fire">🔥</div>
-    <div class="streak-info">
-      <div class="streak-num" id="streak-num">0 jours</div>
-      <div class="streak-lbl">Streak quotidien</div>
+    <div class="streak-top-row">
+      <div class="streak-fire-container">
+        <span class="streak-fire" id="streak-fire-emoji">🔥</span>
+        <div class="streak-info">
+          <div class="streak-num" id="streak-num">0 jours</div>
+          <div class="streak-lbl">Streak quotidien</div>
+        </div>
+      </div>
+      <div class="streak-best" id="streak-best">Best: 0</div>
+      <div class="streak-milestone" id="streak-milestone"></div>
     </div>
-    <div class="streak-best" id="streak-best">Best: 0</div>
+    <div class="streak-calendar" id="streak-calendar"></div>
   </div>
 
   <!-- DAILY WIDGET -->
@@ -365,11 +371,11 @@ document.addEventListener('DOMContentLoaded', function() {
       <span class="hero-card-desc">S'adapte à tes erreurs — le plus efficace pour l'exam</span>
       <span class="hero-card-badge">⭐ RECOMMANDÉ</span>
     </button>
-    <button class="hero-card hero-card-rpg" onclick="launchRPGDirect()">
-      <span class="hero-card-icon">🎭</span>
-      <span class="hero-card-title">TICKETS</span>
-      <span class="hero-card-desc">Résous des incidents réels en situation</span>
-      <span class="hero-card-badge">🎬 IMMERSIF</span>
+    <button class="hero-card hero-card-duel" onclick="showScreen('online-duel')">
+      <span class="hero-card-icon">⚔️</span>
+      <span class="hero-card-title">DUEL</span>
+      <span class="hero-card-desc">Affronte un ami ou un inconnu en temps réel</span>
+      <span class="hero-card-badge">🏆 COMPÉTITIF</span>
     </button>
   </div>
 

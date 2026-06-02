@@ -136,11 +136,93 @@ function updateStreak(){
   streakD.lastDate = today;
   lsSet('tssr5_streak', streakD);
   
-  // Sync UI headers directly if they exist
+  syncStreakUI();
+}
+
+function syncStreakUI(){
   var sn = document.getElementById('streak-num'); if(sn) sn.textContent = streakD.current + ' jour' + (streakD.current > 1 ? 's' : '');
-  var sb = document.getElementById('streak-best'); if(sb) sb.textContent = 'Best: ' + (streakD.best || 0);
+  
+  var sb = document.getElementById('streak-best');
+  if(sb) {
+    if(!streakD.best || streakD.best === 0) {
+      sb.textContent = "Ton record se construit ici";
+      sb.classList.add('no-record');
+    } else {
+      sb.textContent = 'Best: ' + streakD.best + 'j';
+      sb.classList.remove('no-record');
+    }
+  }
+  
   var ps = document.getElementById('prof-streak'); if(ps) ps.textContent = streakD.current || 0;
   var sts = document.getElementById('st-streak'); if(sts) sts.textContent = streakD.current + 'j';
+  
+  // Flame animation
+  var flame = document.getElementById('streak-fire-emoji');
+  if(flame) {
+    if(streakD.current > 0) {
+      flame.classList.add('active');
+    } else {
+      flame.classList.remove('active');
+    }
+  }
+  
+  // Milestone logic
+  var sm = document.getElementById('streak-milestone');
+  if(sm) {
+    var milestones = [3, 7, 15, 30, 50, 100];
+    var next = milestones.find(function(m) { return m > streakD.current; }) || (streakD.current + 5);
+    if(milestones.indexOf(streakD.current) >= 0) {
+      sm.innerHTML = '🏆 Palier atteint (' + streakD.current + 'j) !';
+      sm.classList.add('achieved');
+    } else {
+      sm.innerHTML = '🎯 Prochain palier : ' + next + 'j';
+      sm.classList.remove('achieved');
+    }
+  }
+  
+  buildStreakCalendar();
+}
+
+function buildStreakCalendar(){
+  var container = document.getElementById('streak-calendar');
+  if(!container) return;
+  container.innerHTML = '';
+  
+  var today = new Date();
+  var todayStr = today.toDateString();
+  var yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  var yesterdayStr = yesterday.toDateString();
+  
+  var isStreakActive = (streakD.lastDate === todayStr || streakD.lastDate === yesterdayStr);
+  
+  var days = [];
+  for(var i = 6; i >= 0; i--) {
+    var d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(d);
+  }
+  
+  days.forEach(function(day) {
+    var dayStr = day.toDateString();
+    var label = ['D', 'L', 'M', 'M', 'J', 'V', 'S'][day.getDay()];
+    var isToday = (dayStr === todayStr);
+    
+    var played = false;
+    if(isStreakActive && streakD.lastDate) {
+      var last = new Date(streakD.lastDate);
+      var diffTime = last - day;
+      if(diffTime >= 0) {
+        var diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        played = (diffDays >= 0 && diffDays < streakD.current);
+      }
+    }
+    
+    var dayDiv = document.createElement('div');
+    dayDiv.className = 'streak-day' + (played ? ' done' : '') + (isToday ? ' today' : '');
+    dayDiv.innerHTML = '<span class="sd-lbl">' + label + '</span>' + 
+                       (played ? '<span class="sd-check">✓</span>' : '');
+    container.appendChild(dayDiv);
+  });
 }
 
 function applyBody(){
@@ -181,8 +263,40 @@ function buildCatGrid(){
 
 function buildBadges(){
   var row=el('badges-row');if(!row)return;row.innerHTML='';
-  if(bdD.length===0){row.innerHTML='<div style="font-size:9px;color:var(--dim)">Joue pour débloquer des badges…</div>';return;}
-  BDEFS.forEach(function(b){var u=bdD.indexOf(b.id)>=0;var d=document.createElement('div');d.className='bdg'+(u?'':' locked');d.title=b.desc;d.innerHTML='<span>'+b.icon+'</span><span class="bl">'+b.name+'</span>';row.appendChild(d);});
+  var unlocked = [];
+  var locked = [];
+  BDEFS.forEach(function(b){
+    if(bdD.indexOf(b.id)>=0){
+      unlocked.push(b);
+    } else {
+      locked.push(b);
+    }
+  });
+  
+  var html = '';
+  // Unlocked section
+  if(unlocked.length > 0) {
+    html += '<div class="badge-section-title">Tes badges (' + unlocked.length + ')</div>';
+    html += '<div class="badge-subgrid">';
+    unlocked.forEach(function(b){
+      html += '<div class="bdg bdg-unlocked" title="' + b.desc + '"><span>' + b.icon + '</span><span class="bl">' + b.name + '</span></div>';
+    });
+    html += '</div>';
+  } else {
+    html += '<div class="badge-section-title">Tes badges (0)</div>';
+    html += '<div style="font-size:10px;color:var(--text2);margin-bottom:12px;opacity:0.8;font-style:italic;">Joue pour débloquer tes premiers badges !</div>';
+  }
+  
+  // Locked section
+  if(locked.length > 0) {
+    html += '<div class="badge-section-title">À débloquer (' + locked.length + ')</div>';
+    html += '<div class="badge-subgrid">';
+    locked.forEach(function(b){
+      html += '<div class="bdg locked" title="Condition : ' + b.desc + '"><span>🔒</span><span class="bl">' + b.name + '</span></div>';
+    });
+    html += '</div>';
+  }
+  row.innerHTML = html;
 }
 
 
@@ -735,8 +849,7 @@ async function initMenu(){
   currentUI=lsGet('tssr5_ui','ui-neon');
 
   // Streak
-  var sn=el('streak-num'); if(sn) sn.textContent=streakD.current+' jour'+(streakD.current!==1?'s':'');
-  var sb=el('streak-best'); if(sb) sb.textContent='Best: '+(streakD.best||0);
+  syncStreakUI();
 
   // Sync sound toggles
   var stm=document.getElementById('stoggle-menu'); if(stm) stm.classList.toggle('on',soundOn);
@@ -6190,10 +6303,26 @@ function buildQuickStats(){
   }).length;
   var totalCats=Object.keys(CATS).length-1;
   var col=globalPct>=70?'#00a85a':globalPct>=50?'#ff9800':'#f87171';
+  
+  var questionsPct = totalQ > 0 ? Math.min(100, Math.round((totalPlayed / totalQ) * 100)) : 0;
+  var categoriesPct = totalCats > 0 ? Math.min(100, Math.round((mastered / totalCats) * 100)) : 0;
+  
   qs.innerHTML=
-    '<div class="qs-box"><span class="qs-val" style="color:var(--acc)">'+totalQ+'</span><div class="qs-lbl">Questions</div></div>'+
-    '<div class="qs-box"><span class="qs-val" style="color:'+col+'">'+globalPct+'%</span><div class="qs-lbl">Réussite</div></div>'+
-    '<div class="qs-box"><span class="qs-val" style="color:#fbbf24">'+mastered+'/'+totalCats+'</span><div class="qs-lbl">Catégories</div></div>';
+    '<div class="qs-box">' +
+      '<span class="qs-val" style="color:var(--acc)">'+totalQ+'</span>' +
+      '<div class="qs-bar-bg"><div class="qs-bar-fill" style="width:'+questionsPct+'%;background-color:var(--acc)"></div></div>' +
+      '<div class="qs-lbl">Questions</div>' +
+    '</div>'+
+    '<div class="qs-box">' +
+      '<span class="qs-val" style="color:'+col+'">'+globalPct+'%</span>' +
+      '<div class="qs-bar-bg"><div class="qs-bar-fill" style="width:'+globalPct+'%;background-color:'+col+'"></div></div>' +
+      '<div class="qs-lbl">Réussite</div>' +
+    '</div>'+
+    '<div class="qs-box">' +
+      '<span class="qs-val" style="color:#fbbf24">'+mastered+'/'+totalCats+'</span>' +
+      '<div class="qs-bar-bg"><div class="qs-bar-fill" style="width:'+categoriesPct+'%;background-color:#fbbf24"></div></div>' +
+      '<div class="qs-lbl">Catégories</div>' +
+    '</div>';
 }
 
 function genSeed(){
