@@ -1493,7 +1493,10 @@ function cancelOnlineSession(){
   if(onlineSession.code && onlineSession.role==='host' && window._fbDeleteDoc){
     window._fbDeleteDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code)).catch(function(){});
   }
-  onlineSession={code:null,uid:null,role:null,unsubscribe:null,config:null,qIdx:0,roundIdx:0,questionsPool:[],qStartTs:0,myAnswered:false,revealing:false,perRoundScores:{}};
+  // Stopper tous les timers online en cours
+  if(window._onlineTimerInt){ clearTimeout(window._onlineTimerInt); window._onlineTimerInt=null; }
+  if(window._onlineForceRevealInt){ clearTimeout(window._onlineForceRevealInt); window._onlineForceRevealInt=null; }
+  onlineSession={code:null,uid:null,role:null,status:null,unsubscribe:null,config:null,qIdx:0,roundIdx:0,questionsPool:[],qStartTs:0,myAnswered:false,revealing:false,perRoundScores:{}};
   
   // Reset all panels
   var setupPanel = document.getElementById('online-setup-panel');
@@ -1613,6 +1616,7 @@ function handleOnlineSessionUpdate(data){
   if(data.status==='playing'){
     _showOnlinePanel('game');
     onlineSession._hostStarting = false; // Reset guard for future use
+    onlineSession.status = 'playing'; // Needed by resolveCommon to detect online mode
     onlineSession.config=data.config;
     onlineSession.qIdx=data.qIdx||0;
     onlineSession.roundIdx=data.roundIdx||0;
@@ -1639,7 +1643,13 @@ function handleOnlineSessionUpdate(data){
       onlineSession.revealing=true;
       revealOnlineQuestion(data);
       if(isHost){
-        setTimeout(function(){ hostAdvance(data); }, 3000);
+        // Fetch fresh data so all player answers are included when advancing
+        setTimeout(async function(){
+          try {
+            var freshSnap = await window._fbGetDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code));
+            hostAdvance(freshSnap.exists() ? freshSnap.data() : data);
+          } catch(e){ hostAdvance(data); }
+        }, 3000);
       }
     }
     return;
@@ -2111,14 +2121,22 @@ function renderOnlineQuestion(q){
     var timer = getQTimer(obj, 20);
     if(tbar){ tbar.style.transition = 'width '+timer+'s linear'; tbar.style.width = '0%'; }
     
-    if (window._onlineTimerInt) {
-      clearTimeout(window._onlineTimerInt);
-    }
+    if (window._onlineTimerInt) clearTimeout(window._onlineTimerInt);
     window._onlineTimerInt = setTimeout(function(){
       if (!onlineSession.myAnswered && !onlineSession.revealing) {
         onlineAnswer('__timeout__');
       }
     }, timer * 1000 + 500);
+
+    // Hôte : force reveal 3s après la fin du timer (laisse le temps aux guests de répondre)
+    if (onlineSession.role === 'host') {
+      if (window._onlineForceRevealInt) clearTimeout(window._onlineForceRevealInt);
+      window._onlineForceRevealInt = setTimeout(function(){
+        if (!onlineSession.revealing) {
+          _onlineUpdate({ reveal: true });
+        }
+      }, (timer + 3) * 1000);
+    }
   }, 50);
 }
 
@@ -2129,6 +2147,10 @@ window.onlineAnswer = function(val){
   if (window._onlineTimerInt) {
     clearTimeout(window._onlineTimerInt);
     window._onlineTimerInt = null;
+  }
+  if (window._onlineForceRevealInt) {
+    clearTimeout(window._onlineForceRevealInt);
+    window._onlineForceRevealInt = null;
   }
 
   var skip = document.querySelector('.skip-btn');
@@ -2258,6 +2280,10 @@ function revealOnlineQuestion(data){
   if (window._onlineTimerInt) {
     clearTimeout(window._onlineTimerInt);
     window._onlineTimerInt = null;
+  }
+  if (window._onlineForceRevealInt) {
+    clearTimeout(window._onlineForceRevealInt);
+    window._onlineForceRevealInt = null;
   }
   
   var skip = document.querySelector('.skip-btn');
@@ -2896,7 +2922,10 @@ function validateWord(q,cloud,selected){
 
 // ====== COMMON ======
 function resolveCommon(ok,q){
-  if(window.onlineSession && window.onlineSession.code && window.onlineSession.status === 'playing'){
+  // En mode duel en ligne : déléguer à onlineAnswer (si pas encore répondu)
+  if(window.onlineSession && window.onlineSession.code &&
+     (window.onlineSession.status === 'playing') &&
+     !window.onlineSession.myAnswered && !window.onlineSession.revealing){
     onlineAnswer(ok);
     return;
   }
@@ -4042,8 +4071,16 @@ function selectMatchItem(el,side,itemIdx,pairs,wrap){
     var done=wrap.querySelectorAll('.matched-ok').length;
     if(done>=pairs.length*2){
       var allOk=matchMatched.every(function(m){return m.ok;});
-      var curQ=session[idx]; // idx global = question courante
-      if(!allOk)errors.push({q:curQ?curQ.q:'match',yours:'Associations incorrectes',correct:pairs.map(function(p){return p.l+' → '+p.r;}).join(' | '),x:curQ?curQ.x||'':'',orig:curQ,mech:'match'});
+      // En mode online, utiliser la question online ; sinon la question solo
+      var curQ = (window.onlineSession && window.onlineSession.code && window._curOnlineQ)
+        ? window._curOnlineQ
+        : session[idx];
+      if(!allOk){
+        var matchCorrectStr = pairs.map(function(p){return p.l+' → '+p.r;}).join(' | ');
+        if(!(window.onlineSession && window.onlineSession.code)){
+          errors.push({q:curQ?curQ.q:'match',yours:'Associations incorrectes',correct:matchCorrectStr,x:curQ?curQ.x||'':'',orig:curQ,mech:'match'});
+        }
+      }
       resolveCommon(allOk,curQ||{q:'',x:'',t:'match'});
     }
   }
@@ -7044,9 +7081,14 @@ window.hostSkipOnlineQuestion = async function(){
     var docRef = window._fbDoc(window._fbDb, 'duels', onlineSession.code);
     var snap = await window._fbGetDoc(docRef);
     if(!snap.exists()) return;
-    var data = snap.data();
+    var dataAtSkip = snap.data();
     await _onlineUpdate({ reveal: true });
-    setTimeout(function(){ hostAdvance(data, true); }, 1500);
+    setTimeout(async function(){
+      try {
+        var freshSnap = await window._fbGetDoc(docRef);
+        hostAdvance(freshSnap.exists() ? freshSnap.data() : dataAtSkip);
+      } catch(e){ hostAdvance(dataAtSkip); }
+    }, 1500);
     showToast("Question passée par l'hôte");
   } catch(e){ console.error("Skip error", e); }
 };
