@@ -1762,75 +1762,87 @@ async function hostGenerateQuestionsAndStart(data){
   if(onlineSession._hostStarting) return;
   onlineSession._hostStarting = true;
 
-  var cfg = data.config;
-  if(!cfg){ console.warn('No config found!'); return; }
+  try {
+    var cfg = data.config;
+    if(!cfg){ console.warn('No config found!'); return; }
 
-  var totalQ = 0;
-  if(cfg.mode==='rounds') totalQ = cfg.qPerRound * cfg.totalRounds;
-  else if(cfg.mode==='course') totalQ = Math.max(cfg.target * 3, 15);
-  else if(cfg.mode==='qbq') totalQ = cfg.qPerRound;
-  if(totalQ < 1) totalQ = 10;
+    var totalQ = 0;
+    if(cfg.mode==='rounds') totalQ = cfg.qPerRound * cfg.totalRounds;
+    else if(cfg.mode==='course') totalQ = Math.max(cfg.target * 3, 15);
+    else if(cfg.mode==='qbq') totalQ = cfg.qPerRound;
+    if(totalQ < 1) totalQ = 10;
 
-  // Build from ALL cats that have questions (using .qs, the correct field)
-  var allQs = [];
-  var catList = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
-  var okTypes = ['qcm','debug','tf','fill','calc','type','match','order','word','slider','scramble','multiblank','categorize','hotspot'];
-  catList.forEach(function(c){
-    CATS[c].qs.forEach(function(q){
-      if(okTypes.indexOf(q.t) !== -1){
-        allQs.push({ c: c, q: q });
+    // Build from ALL cats that have questions (using .qs, the correct field)
+    var allQs = [];
+    var catList = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
+    var okTypes = ['qcm','debug','tf','fill','calc','type','match','order','word','slider','scramble','multiblank','categorize','hotspot'];
+    catList.forEach(function(c){
+      if(CATS[c] && CATS[c].qs){
+        CATS[c].qs.forEach(function(q){
+          if(q && okTypes.indexOf(q.t) !== -1){
+            allQs.push({ c: c, q: q });
+          }
+        });
       }
     });
-  });
 
-  var pool = freshShuffle(allQs).slice(0, totalQ);
+    var pool = shuffle(allQs).slice(0, totalQ);
 
-  if(pool.length === 0){
-    showOnlineError('Aucune question disponible ! Vérifiez les catégories.');
-    onlineSession._hostStarting = false;
-    return;
-  }
+    if(pool.length === 0){
+      showOnlineError('Aucune question disponible ! Vérifiez les catégories.');
+      onlineSession._hostStarting = false;
+      return;
+    }
 
-  onlineSession.questionsPool = pool;
+    onlineSession.questionsPool = pool;
 
-  var firstQ = pool[0];
-  // Store only serializable fields to avoid Firestore errors
-  var qObj = {
-    q: firstQ.q.q || '',
-    a: firstQ.q.a !== undefined ? firstQ.q.a : 0,
-    w: firstQ.q.w || [],
-    t: firstQ.q.t || 'qcm',
-    d: firstQ.q.d !== undefined ? firstQ.q.d : 1,
-    idx: firstQ.q.idx !== undefined ? firstQ.q.idx : 0,
-    x: firstQ.q.x || '',
-    opts: firstQ.q.opts || null
-  };
-  if (firstQ.q.aliases) qObj.aliases = firstQ.q.aliases;
-  var extraFields = [
-    'items', 'pairs', 'words', 'correct',
-    'min', 'max', 'step', 'unit', 'tolerance',
-    'word', 'hint', 'code', 'blank',
-    'blanks', 'text', 'categories', 'image', 'zones', 'setup'
-  ];
-  extraFields.forEach(function(f){
-    if(firstQ.q[f] !== undefined) qObj[f] = firstQ.q[f];
-  });
-  var upd = {
-    status: 'playing',
-    qIdx: 0, roundIdx: 0,
-    currentQ: {
-      cat: firstQ.c || 'mix',
+    var firstQ = pool[0];
+    if(!firstQ || !firstQ.q){
+      throw new Error("La première question du pool est invalide.");
+    }
+
+    // Store only serializable fields to avoid Firestore errors
+    var qObj = {
+      q: firstQ.q.q || '',
+      a: firstQ.q.a !== undefined ? firstQ.q.a : 0,
+      w: firstQ.q.w || [],
+      t: firstQ.q.t || 'qcm',
+      d: firstQ.q.d !== undefined ? firstQ.q.d : 1,
       idx: firstQ.q.idx !== undefined ? firstQ.q.idx : 0,
-      obj: qObj
-    },
-    reveal: false
-  };
-  Object.keys(data.players).forEach(function(uid){
-    upd['players.'+uid+'.score'] = 0;
-    upd['players.'+uid+'.answer'] = null;
-  });
+      x: firstQ.q.x || '',
+      opts: firstQ.q.opts || null
+    };
+    if (firstQ.q.aliases) qObj.aliases = firstQ.q.aliases;
+    var extraFields = [
+      'items', 'pairs', 'words', 'correct',
+      'min', 'max', 'step', 'unit', 'tolerance',
+      'word', 'hint', 'code', 'blank',
+      'blanks', 'text', 'categories', 'image', 'zones', 'setup'
+    ];
+    extraFields.forEach(function(f){
+      if(firstQ.q[f] !== undefined) qObj[f] = firstQ.q[f];
+    });
+    var upd = {
+      status: 'playing',
+      qIdx: 0, roundIdx: 0,
+      currentQ: {
+        cat: firstQ.c || 'mix',
+        idx: firstQ.q.idx !== undefined ? firstQ.q.idx : 0,
+        obj: qObj
+      },
+      reveal: false
+    };
+    Object.keys(data.players).forEach(function(uid){
+      upd['players.'+uid+'.score'] = 0;
+      upd['players.'+uid+'.answer'] = null;
+    });
 
-  setTimeout(function(){ _onlineUpdate(upd); }, 3000);
+    setTimeout(function(){ _onlineUpdate(upd); }, 3000);
+  } catch(err) {
+    console.error('hostGenerateQuestionsAndStart error:', err);
+    showOnlineError('Erreur de démarrage : ' + (err.message || err));
+    onlineSession._hostStarting = false;
+  }
 }
 
 // ─── ROUND RECAP ───
