@@ -2281,7 +2281,7 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
   position: fixed !important;
   inset: 0 !important;
   z-index: 9990 !important;
-  background: rgba(0, 0, 0, 0.3) !important;
+  background: transparent !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   display: none;
