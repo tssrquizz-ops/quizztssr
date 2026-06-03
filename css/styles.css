@@ -1865,7 +1865,7 @@ body.rpg-mode::before { opacity:0 !important; }
 /* TOP BAR */
 .menu-topbar { display:flex; align-items:center; justify-content:space-between; padding:12px 0 16px; }
 .menu-topbar-center { flex:1; text-align:center; }
-.menu-logo-img { height: 32px; width: auto; display: block; margin: 0 auto; }
+.menu-logo-img { height: 44px; width: auto; display: block; margin: 0 auto; }
 .menu-logo-small { font-family:monospace; font-size:13px; color:var(--acc); letter-spacing:2px; text-shadow:0 0 12px var(--acc); }
 .menu-ham-btn { background:none; border:1.5px solid var(--border2); border-radius:8px; padding:8px 10px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:border-color .15s; }
 .menu-ham-btn span { display:block; width:18px; height:2px; background:var(--text2); border-radius:2px; transition:all .2s; }
@@ -2535,7 +2535,7 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
 }
 
 /* ===================== RESPONSIVE MAIN MENU (NO-SCROLL) ===================== */
-@media (max-height: 1150px) {
+@media (max-height: 780px) {
   #app {
     padding-bottom: 10px !important;
   }
@@ -2546,7 +2546,7 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
     padding: 8px 0 10px !important;
   }
   .menu-logo-img {
-    height: 26px !important;
+    height: 34px !important;
   }
   .streak-bar, body.ui-neon .streak-bar {
     padding: 8px 12px !important;
@@ -2608,7 +2608,7 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
   }
 }
 
-@media (max-height: 1000px) {
+@media (max-height: 680px) {
   .streak-calendar, body.ui-neon .streak-calendar {
     display: none !important;
   }
@@ -2633,7 +2633,7 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
     padding: 4px 0 6px !important;
   }
   .menu-logo-img {
-    height: 22px !important;
+    height: 28px !important;
   }
   .start-btn-main, body.ui-neon .start-btn-main {
     margin: 6px 0 6px !important;
@@ -2642,7 +2642,7 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
   }
 }
 
-@media (max-height: 860px) {
+@media (max-height: 580px) {
   .slbl, #badges-row {
     display: none !important;
   }

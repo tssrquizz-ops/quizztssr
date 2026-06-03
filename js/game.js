@@ -1004,6 +1004,7 @@ function copyOnlineCode(){
   });
 }
 function goMenu(){
+  if (typeof srsSelGroup !== 'undefined') srsSelGroup = null;
   clearInterval(timerInt);paused=false;el('povl').classList.remove('show');
   var sh=el('score-hud'); if(sh) sh.style.display='grid';
   var jr=el('jokers-row'); if(jr) jr.style.display='none';

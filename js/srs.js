@@ -85,6 +85,8 @@ function getDuePool(pool) {
   });
 }
 
+var srsSelGroup = null;
+
 function showSRSScreen() {
   try {
     loadQDB();
@@ -124,36 +126,100 @@ function showSRSScreen() {
     if (el2('srs-new')) el2('srs-new').textContent = totalNew;
     if (el2('srs-mastered')) el2('srs-mastered').textContent = totalMastered;
 
-    // Category rows
+    // Category rows container
     var rows = document.getElementById('srs-cat-rows');
     if (!rows) return;
     rows.innerHTML = '';
     
-    Object.keys(catsObj).forEach(function(catId) {
-      if (catId === 'mix') return;
-      var cat = catsObj[catId];
-      if (!cat || !cat.qs) return;
-      var due = 0, seen = 0;
-      cat.qs.forEach(function(q) {
-        if (!q) return;
-        var r = getQRecord(q);
-        if (r.seen > 0) { seen++; if (now >= r.nextReview) due++; }
+    var GROUPS = window.GROUPS || {};
+    
+    if (srsSelGroup && GROUPS[srsSelGroup]) {
+      // LEVEL 2: Show categories inside selected group
+      var group = GROUPS[srsSelGroup];
+      
+      var backHeader = document.createElement('div');
+      backHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:2px 0;width:100%;';
+      backHeader.innerHTML = '<span style="font-family:monospace;font-size:10px;font-weight:bold;color:var(--text);">' + (group.label || srsSelGroup) + '</span>' +
+        '<button onclick="srsSelGroup=null;showSRSScreen();" style="background:var(--panel);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;font-family:monospace;font-size:8px;color:var(--acc);cursor:pointer;">◀ RETOUR</button>';
+      rows.appendChild(backHeader);
+
+      var gCats = group.cats || [];
+      gCats.forEach(function(catId) {
+        if (catId === 'mix') return;
+        var cat = catsObj[catId];
+        if (!cat || !cat.qs) return;
+        var due = 0, seen = 0;
+        cat.qs.forEach(function(q) {
+          if (!q) return;
+          var r = getQRecord(q);
+          if (r.seen > 0) { seen++; if (now >= r.nextReview) due++; }
+        });
+        var pct = cat.qs.length > 0 ? Math.round(seen / cat.qs.length * 100) : 0;
+        var row = document.createElement('div');
+        row.className = 'srs-cat-row';
+        row.style.cssText = 'padding:8px 12px; margin-bottom:4px;';
+        row.innerHTML =
+          '<span class="srs-cat-name">' + (cat.icon || '') + ' ' + (cat.label || catId) + '</span>' +
+          (due > 0 ? '<span class="srs-cat-due">'+due+' à revoir</span>' : '') +
+          '<div class="srs-cat-bar"><div class="srs-cat-fill" style="width:'+pct+'%"></div></div>' +
+          '<span style="font-family:monospace;font-size:8px;color:var(--dim);">'+pct+'%</span>';
+        row.onclick = (function(cid){ return function(){
+          selCat = cid;
+          selMode = 'srs_mode';
+          startSRSSession(cid);
+        }; })(catId);
+        rows.appendChild(row);
       });
-      var pct = cat.qs.length > 0 ? Math.round(seen / cat.qs.length * 100) : 0;
-      var row = document.createElement('div');
-      row.className = 'srs-cat-row';
-      row.innerHTML =
-        '<span class="srs-cat-name">' + (cat.icon || '') + ' ' + (cat.label || catId) + '</span>' +
-        (due > 0 ? '<span class="srs-cat-due">'+due+' à revoir</span>' : '') +
-        '<div class="srs-cat-bar"><div class="srs-cat-fill" style="width:'+pct+'%"></div></div>' +
-        '<span style="font-family:monospace;font-size:8px;color:var(--dim);">'+pct+'%</span>';
-      row.onclick = (function(cid){ return function(){
-        selCat = cid;
-        selMode = 'srs_mode';
-        startSRSSession(cid);
-      }; })(catId);
-      rows.appendChild(row);
-    });
+    } else {
+      // LEVEL 1: Show groups list
+      var headerMsg = document.createElement('div');
+      headerMsg.style.cssText = 'font-family:monospace;font-size:8px;color:var(--dim);text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;';
+      headerMsg.textContent = 'Réviser par groupe de catégories';
+      rows.appendChild(headerMsg);
+
+      Object.keys(GROUPS).forEach(function(groupId) {
+        var group = GROUPS[groupId];
+        var gCats = group.cats || [];
+        var groupTotalQs = 0;
+        var groupDueQs = 0;
+        var groupSeenQs = 0;
+        
+        gCats.forEach(function(catId) {
+          var cat = catsObj[catId];
+          if (cat && cat.qs) {
+            groupTotalQs += cat.qs.length;
+            cat.qs.forEach(function(q) {
+              var r = getQRecord(q);
+              if (r.seen > 0) {
+                groupSeenQs++;
+                if (now >= r.nextReview) groupDueQs++;
+              }
+            });
+          }
+        });
+
+        if (groupTotalQs === 0) return; // skip empty groups
+
+        var icon = group.label ? group.label.split(' ')[0] : '📁';
+        var labelWithoutIcon = group.label ? group.label.replace(icon, '').trim() : groupId;
+        var pct = groupTotalQs > 0 ? Math.round(groupSeenQs / groupTotalQs * 100) : 0;
+
+        var row = document.createElement('div');
+        row.className = 'srs-cat-row';
+        row.style.cssText = 'cursor:pointer; padding:8px 12px; margin-bottom:4px;';
+        row.innerHTML =
+          '<span class="srs-cat-name" style="font-size:9px;font-weight:bold;">' + icon + ' ' + labelWithoutIcon + '</span>' +
+          (groupDueQs > 0 ? '<span class="srs-cat-due" style="font-weight:bold;">'+groupDueQs+' à revoir</span>' : '') +
+          '<div class="srs-cat-bar"><div class="srs-cat-fill" style="width:'+pct+'%"></div></div>' +
+          '<span style="font-family:monospace;font-size:8px;color:var(--dim);">'+pct+'%</span>';
+        
+        row.onclick = function() {
+          srsSelGroup = groupId;
+          showSRSScreen();
+        };
+        rows.appendChild(row);
+      });
+    }
   } catch (err) {
     console.error("Error in showSRSScreen:", err);
     alert("Erreur lors de l'affichage de l'écran de révision : " + err.message);
