@@ -9,6 +9,7 @@ function escapeUserHtml(s){
 var QDB = {};  // {hash: {seen, correct, streak, ease, nextReview}}
 
 function getQHash(q) {
+  if (!q) return 'q0';
   var s = (q.q || '').slice(0, 40);
   var h = 0;
   for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff;
@@ -25,12 +26,14 @@ function saveQDB() {
 
 function getQRecord(q) {
   loadQDB();
+  if (!q) return {seen:0, correct:0, streak:0, ease:2.5, nextReview:0};
   var h = getQHash(q);
   if (!QDB[h]) QDB[h] = {seen:0, correct:0, streak:0, ease:2.5, nextReview:0};
   return QDB[h];
 }
 
 function updateQSRS(q, ok) {
+  if (!q) return;
   var h = getQHash(q);
   var r = getQRecord(q);
   r.seen++;
@@ -67,10 +70,13 @@ function getSRSLabel(q) {
 function getDuePool(pool) {
   loadQDB();
   var now = Date.now();
+  if (!pool || !Array.isArray(pool)) return [];
   return pool.filter(function(q) {
+    if (!q) return false;
     var r = getQRecord(q);
     return r.seen === 0 || now >= r.nextReview;
   }).sort(function(a, b) {
+    if (!a || !b) return 0;
     var ra = getQRecord(a), rb = getQRecord(b);
     // Unseen first, then most overdue, then hardest
     if (ra.seen === 0 && rb.seen > 0) return -1;
@@ -80,64 +86,94 @@ function getDuePool(pool) {
 }
 
 function showSRSScreen() {
-  loadQDB();
-  showScreen('srs');
-  var now = Date.now();
-  var totalSeen = 0, totalDue = 0, totalNew = 0, totalMastered = 0;
-  var allQs = [];
-  Object.keys(CATS).forEach(function(catId) {
-    if (catId === 'mix') return;
-    CATS[catId].qs.forEach(function(q) { allQs.push({q:q, cat:catId}); });
-  });
+  try {
+    loadQDB();
+    showScreen('srs');
+    var now = Date.now();
+    var totalSeen = 0, totalDue = 0, totalNew = 0, totalMastered = 0;
+    var allQs = [];
+    
+    var catsObj = window.CATS || (typeof CATS !== 'undefined' ? CATS : null);
+    if (!catsObj) {
+      console.error("CATS is not defined!");
+      return;
+    }
 
-  allQs.forEach(function(item) {
-    var r = getQRecord(item.q);
-    if (r.seen === 0) { totalNew++; return; }
-    totalSeen++;
-    if (now >= r.nextReview) totalDue++;
-    else if (r.streak >= 3) totalMastered++;
-  });
-
-  var el2 = function(id) { return document.getElementById(id); };
-  if (el2('srs-total')) el2('srs-total').textContent = totalSeen;
-  if (el2('srs-due')) el2('srs-due').textContent = totalDue;
-  if (el2('srs-new')) el2('srs-new').textContent = totalNew;
-  if (el2('srs-mastered')) el2('srs-mastered').textContent = totalMastered;
-
-  // Category rows
-  var rows = document.getElementById('srs-cat-rows');
-  if (!rows) return;
-  rows.innerHTML = '';
-  Object.keys(CATS).forEach(function(catId) {
-    if (catId === 'mix') return;
-    var cat = CATS[catId];
-    var due = 0, seen = 0;
-    cat.qs.forEach(function(q) {
-      var r = getQRecord(q);
-      if (r.seen > 0) { seen++; if (now >= r.nextReview) due++; }
+    Object.keys(catsObj).forEach(function(catId) {
+      if (catId === 'mix') return;
+      var cat = catsObj[catId];
+      if (cat && cat.qs && Array.isArray(cat.qs)) {
+        cat.qs.forEach(function(q) { 
+          if (q) allQs.push({q:q, cat:catId}); 
+        });
+      }
     });
-    var pct = cat.qs.length > 0 ? Math.round(seen / cat.qs.length * 100) : 0;
-    var row = document.createElement('div');
-    row.className = 'srs-cat-row';
-    row.innerHTML =
-      '<span class="srs-cat-name">' + cat.icon + ' ' + cat.label + '</span>' +
-      (due > 0 ? '<span class="srs-cat-due">'+due+' à revoir</span>' : '') +
-      '<div class="srs-cat-bar"><div class="srs-cat-fill" style="width:'+pct+'%"></div></div>' +
-      '<span style="font-family:monospace;font-size:8px;color:var(--dim);">'+pct+'%</span>';
-    row.onclick = (function(cid){ return function(){
-      selCat = cid;
-      selMode = 'srs_mode';
-      startSRSSession(cid);
-    }; })(catId);
-    rows.appendChild(row);
-  });
+
+    allQs.forEach(function(item) {
+      if (!item || !item.q) return;
+      var r = getQRecord(item.q);
+      if (r.seen === 0) { totalNew++; return; }
+      totalSeen++;
+      if (now >= r.nextReview) totalDue++;
+      else if (r.streak >= 3) totalMastered++;
+    });
+
+    var el2 = function(id) { return document.getElementById(id); };
+    if (el2('srs-total')) el2('srs-total').textContent = totalSeen;
+    if (el2('srs-due')) el2('srs-due').textContent = totalDue;
+    if (el2('srs-new')) el2('srs-new').textContent = totalNew;
+    if (el2('srs-mastered')) el2('srs-mastered').textContent = totalMastered;
+
+    // Category rows
+    var rows = document.getElementById('srs-cat-rows');
+    if (!rows) return;
+    rows.innerHTML = '';
+    
+    Object.keys(catsObj).forEach(function(catId) {
+      if (catId === 'mix') return;
+      var cat = catsObj[catId];
+      if (!cat || !cat.qs) return;
+      var due = 0, seen = 0;
+      cat.qs.forEach(function(q) {
+        if (!q) return;
+        var r = getQRecord(q);
+        if (r.seen > 0) { seen++; if (now >= r.nextReview) due++; }
+      });
+      var pct = cat.qs.length > 0 ? Math.round(seen / cat.qs.length * 100) : 0;
+      var row = document.createElement('div');
+      row.className = 'srs-cat-row';
+      row.innerHTML =
+        '<span class="srs-cat-name">' + (cat.icon || '') + ' ' + (cat.label || catId) + '</span>' +
+        (due > 0 ? '<span class="srs-cat-due">'+due+' à revoir</span>' : '') +
+        '<div class="srs-cat-bar"><div class="srs-cat-fill" style="width:'+pct+'%"></div></div>' +
+        '<span style="font-family:monospace;font-size:8px;color:var(--dim);">'+pct+'%</span>';
+      row.onclick = (function(cid){ return function(){
+        selCat = cid;
+        selMode = 'srs_mode';
+        startSRSSession(cid);
+      }; })(catId);
+      rows.appendChild(row);
+    });
+  } catch (err) {
+    console.error("Error in showSRSScreen:", err);
+    alert("Erreur lors de l'affichage de l'écran de révision : " + err.message);
+  }
 }
 
 function startSRSSession(catId) {
-  var cat = CATS[catId] || CATS['mix'];
-  var pool = catId === 'mix' ? [] : cat.qs;
+  var catsObj = window.CATS || (typeof CATS !== 'undefined' ? CATS : {});
+  var cat = catsObj[catId] || catsObj['mix'];
+  if (!cat) {
+    alert("Catégorie introuvable !");
+    return;
+  }
+  var pool = catId === 'mix' ? [] : (cat.qs || []);
   if (catId === 'mix') {
-    Object.keys(CATS).forEach(function(k) { if (k !== 'mix') CATS[k].qs.forEach(function(q){ pool.push(q); }); });
+    Object.keys(catsObj).forEach(function(k) { 
+      if (k !== 'mix' && catsObj[k] && catsObj[k].qs) {
+        catsObj[k].qs.forEach(function(q){ if (q) pool.push(q); }); 
+      }
+    });
   }
   var due = getDuePool(pool);
   if (due.length === 0) {
