@@ -1436,9 +1436,7 @@ var onlineSession={
 var unsubLobby = null;
 
 var ONLINE_MODES={
-  rounds:  { label:'🏁 ROUNDS',     desc:'5 questions × 3 rounds. Dernier round caché ! 🔥' },
-  course:  { label:'⚡ COURSE',     desc:'Premier à atteindre l\'objectif gagne' },
-  qbq:     { label:'🎯 QUESTION/QUESTION', desc:'Plus rapide gagne, attente entre chaque' }
+  rounds:  { label:'🏁 ROUNDS',     desc:'5 questions × 3 rounds. Dernier round caché ! 🔥' }
 };
 var ONLINE_COUNTS=[5,7,10,15];
 
@@ -1945,15 +1943,12 @@ window.validateOnlineConfig = function(){
   if(!onlineSession.localCount) onlineSession.localCount=5;
   var cats = onlineSession.localCategories || Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
   var cfg = {
-    mode: onlineSession.localMode,
-    qPerRound: (onlineSession.localMode==='rounds') ? onlineSession.localCount : 0,
-    totalRounds: (onlineSession.localMode==='rounds') ? 3 : 1,
-    target: (onlineSession.localMode==='course') ? onlineSession.localCount : 0,
+    mode: 'rounds',
+    qPerRound: onlineSession.localCount,
+    totalRounds: 3,
     speedBonus: !!onlineSession.localSpeedBonus,
     categories: cats
   };
-  if(cfg.mode==='qbq'){ cfg.qPerRound=onlineSession.localCount; cfg.totalRounds=1; }
-  
   _onlineUpdate({
     config: cfg,
     status: 'ready_to_start'
@@ -1963,254 +1958,200 @@ window.validateOnlineConfig = function(){
 function computeAndStartConfig(data){} // Legacy, not used.
 
 // ─── POPUP CATÉGORIES EN LIGNE ───
+// Navigation 2 niveaux : liste des groupes => clic => cats du groupe
 window.openOnlineCategoryPopup = function(){
-  // Supprimer ancienne popup
   var old = document.getElementById('online-cats-overlay');
   if(old) old.remove();
 
   var GROUPS = window.GROUPS || {};
   var activeCats = Object.keys(CATS).filter(function(k){ return k!=='mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length>0; });
   if(!onlineSession.localCategories) onlineSession.localCategories = activeCats.slice();
-
-  // Snapshot de travail (confirmé ou annulé)
   var popSel = onlineSession.localCategories.slice();
 
   // ── OVERLAY ──
   var overlay = document.createElement('div');
   overlay.id = 'online-cats-overlay';
-  overlay.style.cssText = [
-    'position:fixed;inset:0;z-index:9999;',
-    'display:flex;align-items:center;justify-content:center;',
-    'background:rgba(0,0,0,.6);backdrop-filter:blur(6px);',
-    '-webkit-backdrop-filter:blur(6px);'
-  ].join('');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);';
 
   // ── POPUP CARD ──
   var popup = document.createElement('div');
-  popup.style.cssText = [
-    'position:relative;width:min(94vw,520px);max-height:90vh;',
-    'display:flex;flex-direction:column;',
-    'background:var(--panel);border:1.5px solid var(--border2);border-radius:16px;',
-    'box-shadow:0 24px 64px rgba(0,0,0,.6);overflow:hidden;'
-  ].join('');
+  popup.style.cssText = 'position:relative;width:min(94vw,480px);max-height:88vh;display:flex;flex-direction:column;background:var(--panel);border:1.5px solid var(--border2);border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.6);overflow:hidden;';
 
-  // ── HEADER ──
+  // ── HEADER (dynamique selon le niveau) ──
   var header = document.createElement('div');
-  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;';
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;';
 
   var hdLeft = document.createElement('div');
-  hdLeft.innerHTML = '<div style="font-size:13px;font-weight:bold;color:var(--acc);margin-bottom:2px;">📁 CATÉGORIES</div>'
-    + '<div style="font-size:9px;color:var(--text2);font-family:monospace;">Sélectionne les catégories pour le duel</div>';
+  var hdTitle = document.createElement('div');
+  hdTitle.style.cssText = 'font-size:12px;font-weight:bold;color:var(--acc);';
+  hdTitle.textContent = '📁 GROUPES DE CATÉGORIES';
+  var hdSub = document.createElement('div');
+  hdSub.style.cssText = 'font-size:8px;color:var(--text2);font-family:monospace;margin-top:2px;';
+  hdSub.textContent = 'Clique sur un groupe pour choisir les catégories';
+  hdLeft.appendChild(hdTitle);
+  hdLeft.appendChild(hdSub);
 
   var closeBtn = document.createElement('button');
   closeBtn.textContent = '✕';
-  closeBtn.style.cssText = 'background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:12px;cursor:pointer;padding:4px 8px;transition:all .12s;';
-  closeBtn.onmouseover = function(){ closeBtn.style.borderColor='var(--acc)'; closeBtn.style.color='var(--acc)'; };
-  closeBtn.onmouseout = function(){ closeBtn.style.borderColor='var(--border2)'; closeBtn.style.color='var(--text2)'; };
+  closeBtn.style.cssText = 'background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:12px;cursor:pointer;padding:4px 8px;';
   closeBtn.onclick = function(){ overlay.remove(); };
-
   header.appendChild(hdLeft);
   header.appendChild(closeBtn);
   popup.appendChild(header);
 
-  // ── BOUTON MIX PLEINE LARGEUR ──
-  var mixWrap = document.createElement('div');
-  mixWrap.style.cssText = 'padding:10px 14px 6px;flex-shrink:0;';
-  var isMixSel = popSel.length === activeCats.length;
-
-  var mixBtn = document.createElement('div');
-  mixBtn.id = 'online-cat-mix-btn';
-  mixBtn.style.cssText = [
-    'display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;',
-    'border-radius:10px;border:1.5px solid var(--acc);',
-    'background:' + (isMixSel ? 'var(--a2)' : 'var(--panel)') + ';transition:all .14s;'
-  ].join('');
-
-  function refreshMixBtn(){
-    var allSel = popSel.length === activeCats.length;
-    mixBtn.style.background = allSel ? 'var(--a2)' : 'var(--panel)';
-    mixBtn.style.border = allSel ? '1.5px solid var(--acc)' : '1px dashed var(--acc)';
-    var badge = mixBtn.querySelector('#online-mix-badge');
-    if(badge){
-      badge.textContent = allSel ? '✓ TOUT SÉLECTIONNÉ' : '▶ TOUT CHOISIR';
-      badge.style.color = allSel ? 'var(--acc)' : 'var(--text2)';
-    }
-  }
-
-  mixBtn.innerHTML = '<span style="font-size:18px">🎲</span>'
-    + '<div style="flex:1">'
-      + '<div style="font-size:10px;font-weight:bold;color:var(--acc);">TOUT — TOUTES CATÉGORIES</div>'
-      + '<div style="font-size:8.5px;color:var(--text2);font-family:monospace;">' + activeCats.length + ' catégories disponibles</div>'
-    + '</div>'
-    + '<span id="online-mix-badge" style="font-size:8px;font-family:monospace;padding:3px 7px;border-radius:4px;background:var(--bg2);">▶ TOUT CHOISIR</span>';
-
-  mixBtn.onclick = function(){
-    if(popSel.length === activeCats.length){
-      // Garder au moins 1
-      popSel.length = 0;
-      if(activeCats.length > 0) popSel.push(activeCats[0]);
-    } else {
-      popSel.length = 0;
-      activeCats.forEach(function(c){ popSel.push(c); });
-    }
-    refreshMixBtn();
-    refreshGroupCards();
-  };
-  mixWrap.appendChild(mixBtn);
-  popup.appendChild(mixWrap);
-  refreshMixBtn();
-
-  // ── SEP ──
-  var sep = document.createElement('div');
-  sep.style.cssText = 'margin:0 14px;border-top:1px solid var(--border);flex-shrink:0;';
-  popup.appendChild(sep);
-
-  // ── CORPS SCROLLABLE (groupes) ──
+  // ── CORPS (scrollable) ──
   var body = document.createElement('div');
-  body.style.cssText = 'overflow-y:auto;padding:10px 14px;flex:1;';
+  body.style.cssText = 'overflow-y:auto;flex:1;padding:10px 12px;';
+  popup.appendChild(body);
 
-  function refreshGroupCards(){
+  // ── NIVEAU 1 : liste des groupes ──
+  function showGroupLevel(){
+    hdTitle.textContent = '\ud83d\udcc1 GROUPES DE CAT\u00c9GORIES';
+    hdSub.textContent = 'Clique sur un groupe pour choisir les cat\u00e9gories';
+    hdSub.onclick = null; hdSub.style.cursor = ''; hdSub.style.color = 'var(--text2)';
     body.innerHTML = '';
+
+    var allSel = activeCats.every(function(c){ return popSel.indexOf(c) > -1; });
+    var mixCard = document.createElement('div');
+    mixCard.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:8px;transition:all .13s;'
+      + 'background:' + (allSel ? 'var(--a2)' : 'var(--panel)') + ';'
+      + 'border:' + (allSel ? '1.5px solid var(--acc)' : '1px dashed var(--acc)') + ';';
+    var sc = popSel.length, tc = activeCats.length;
+    mixCard.innerHTML = '<span style="font-size:20px">\ud83c\udfb2</span>'
+      + '<div style="flex:1"><div style="font-family:monospace;font-size:10px;font-weight:bold;color:var(--acc);">TOUT \u2014 MIX COMPLET</div>'
+      + '<div style="font-family:monospace;font-size:8px;color:var(--text2);">' + tc + ' cat\u00e9gories disponibles</div></div>'
+      + '<span style="font-family:monospace;font-size:9px;padding:3px 8px;border-radius:12px;background:' + (allSel?'rgba(0,168,90,.15)':'var(--bg2)') + ';color:' + (allSel?'var(--acc)':'var(--text2)') + ';">' + sc + '/' + tc + '</span>';
+    mixCard.onclick = function(){
+      if(activeCats.every(function(c){ return popSel.indexOf(c) > -1; })){
+        popSel.length = 0; if(activeCats.length > 0) popSel.push(activeCats[0]);
+      } else {
+        popSel.length = 0; activeCats.forEach(function(c){ popSel.push(c); });
+      }
+      showGroupLevel();
+    };
+    body.appendChild(mixCard);
+
+    var sep = document.createElement('div');
+    sep.style.cssText = 'font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:2px;text-align:center;padding:4px 0 8px;text-transform:uppercase;';
+    sep.textContent = 'ou choisir par groupe';
+    body.appendChild(sep);
+
+    var GROUPS = window.GROUPS || {};
     var hasGroups = Object.keys(GROUPS).length > 0;
     if(hasGroups){
       Object.keys(GROUPS).forEach(function(groupId){
         var grp = GROUPS[groupId];
         var gCats = (grp.cats||[]).filter(function(c){ return activeCats.indexOf(c) > -1; });
         if(gCats.length === 0) return;
-
         var groupTotal = 0;
         gCats.forEach(function(c){ if(CATS[c] && CATS[c].qs) groupTotal += CATS[c].qs.length; });
         var gSelCount = gCats.filter(function(c){ return popSel.indexOf(c) > -1; }).length;
-        var allGrpSel = gSelCount === gCats.length;
+        var allGrpSel = gSelCount === gCats.length && gCats.length > 0;
+        var icon = grp.label ? grp.label.split(' ')[0] : '\ud83d\udcc1';
 
-        // En-tête groupe
-        var grpHeader = document.createElement('div');
-        grpHeader.style.cssText = [
-          'display:flex;align-items:center;justify-content:space-between;',
-          'padding:8px 10px;margin-bottom:6px;border-radius:8px;cursor:pointer;',
-          'background:' + (allGrpSel ? 'var(--a2)' : 'var(--bg2)') + ';',
-          'border:1px solid ' + (allGrpSel ? 'var(--acc)' : 'var(--border)') + ';transition:all .13s;'
-        ].join('');
-
-        (function(gId, gCatsLocal){
-          grpHeader.onclick = function(){
-            if(gCatsLocal.every(function(c){ return popSel.indexOf(c) > -1; })){
-              // Tout désélectionner
-              gCatsLocal.forEach(function(c){ var i=popSel.indexOf(c); if(i>-1) popSel.splice(i,1); });
-              if(popSel.length === 0) popSel.push(activeCats[0]);
-            } else {
-              // Tout sélectionner
-              gCatsLocal.forEach(function(c){ if(popSel.indexOf(c)===-1) popSel.push(c); });
-            }
-            refreshMixBtn();
-            refreshGroupCards();
-          };
-        })(groupId, gCats);
-
-        grpHeader.innerHTML = '<div style="display:flex;align-items:center;gap:8px;">'
-          + '<span style="font-size:16px">' + (grp.label ? grp.label.split(' ')[0] : '📁') + '</span>'
-          + '<div>'
-            + '<div style="font-size:10px;font-weight:bold;color:var(--text);">' + (grp.label||groupId) + '</div>'
-            + '<div style="font-size:8px;color:var(--text2);font-family:monospace;">' + groupTotal + ' Q · ' + gCats.length + ' cat.</div>'
-          + '</div></div>'
-          + '<span style="font-family:monospace;font-size:8px;padding:3px 8px;border-radius:4px;'
-            + 'background:' + (allGrpSel ? 'rgba(0,168,90,.15)' : 'var(--bg2)') + ';'
-            + 'color:' + (allGrpSel ? 'var(--acc)' : 'var(--text2)') + ';">' + gSelCount + '/' + gCats.length + '</span>';
-
-        body.appendChild(grpHeader);
-
-        // Grille des cats du groupe
-        var catGrid = document.createElement('div');
-        catGrid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;';
-
-        gCats.forEach(function(catId){
-          var c = CATS[catId];
-          if(!c) return;
-          var isSel = popSel.indexOf(catId) > -1;
-          var cCard = document.createElement('div');
-          cCard.style.cssText = [
-            'display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;',
-            'border-radius:8px;min-height:40px;box-sizing:border-box;transition:all .12s;',
-            'background:' + (isSel ? 'var(--a2)' : 'var(--panel)') + ';',
-            'border:' + (isSel ? '1.5px solid var(--acc)' : '1px solid var(--border)') + ';'
-          ].join('');
-          cCard.innerHTML = '<span style="font-size:15px;flex-shrink:0;">' + (c.icon||'📁') + '</span>'
-            + '<div style="flex:1;min-width:0;">'
-              + '<div style="font-family:monospace;font-size:8px;font-weight:bold;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.label||catId) + '</div>'
-              + '<div style="font-family:monospace;font-size:7px;color:var(--dim);">' + (c.qs?c.qs.length:0) + ' Q</div>'
-            + '</div>'
-            + (isSel ? '<span style="font-size:10px;color:var(--acc);">✓</span>' : '');
-
-          (function(cId){
-            cCard.onclick = function(){
-              var idx = popSel.indexOf(cId);
-              if(idx > -1){
-                if(popSel.length > 1) popSel.splice(idx, 1);
-              } else {
-                popSel.push(cId);
-              }
-              refreshMixBtn();
-              refreshGroupCards();
-            };
-          })(catId);
-          catGrid.appendChild(cCard);
-        });
-        body.appendChild(catGrid);
+        var grpCard = document.createElement('div');
+        grpCard.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:6px;transition:all .13s;'
+          + 'background:' + (allGrpSel ? 'var(--a2)' : 'var(--panel)') + ';'
+          + 'border:' + (allGrpSel ? '1.5px solid var(--acc)' : '1px solid var(--border)') + ';';
+        grpCard.innerHTML = '<span style="font-size:20px">' + icon + '</span>'
+          + '<div style="flex:1;min-width:0;">'
+            + '<div style="font-family:monospace;font-size:10px;font-weight:bold;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (grp.label||groupId) + '</div>'
+            + '<div style="font-family:monospace;font-size:8px;color:var(--text2);">' + groupTotal + ' Q \u00b7 ' + gCats.length + ' cat.</div>'
+          + '</div>'
+          + '<span style="font-family:monospace;font-size:9px;padding:3px 8px;border-radius:12px;background:' + (allGrpSel?'rgba(0,168,90,.15)':'var(--bg2)') + ';color:' + (allGrpSel?'var(--acc)':'var(--text2)') + ';">' + gSelCount + '/' + gCats.length + '</span>'
+          + '<span style="color:var(--text2);font-size:16px;margin-left:4px;">\u203a</span>';
+        (function(gId, gCatsLocal, grpData){
+          grpCard.onclick = function(){ showCatLevel(gId, gCatsLocal, grpData); };
+        })(groupId, gCats, grp);
+        body.appendChild(grpCard);
       });
     } else {
-      // Pas de groupes : afficher les cats directement
-      var flatGrid = document.createElement('div');
-      flatGrid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;';
-      activeCats.forEach(function(catId){
-        var c = CATS[catId];
-        if(!c) return;
-        var isSel = popSel.indexOf(catId) > -1;
-        var cCard = document.createElement('div');
-        cCard.style.cssText = [
-          'display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;',
-          'border-radius:8px;min-height:40px;box-sizing:border-box;transition:all .12s;',
-          'background:' + (isSel ? 'var(--a2)' : 'var(--panel)') + ';',
-          'border:' + (isSel ? '1.5px solid var(--acc)' : '1px solid var(--border)') + ';'
-        ].join('');
-        cCard.innerHTML = '<span style="font-size:15px;flex-shrink:0;">' + (c.icon||'📁') + '</span>'
-          + '<div style="flex:1;min-width:0;">'
-            + '<div style="font-family:monospace;font-size:8px;font-weight:bold;color:var(--text);">' + (c.label||catId) + '</div>'
-          + '</div>'
-          + (isSel ? '<span style="font-size:10px;color:var(--acc);">✓</span>' : '');
-        (function(cId){
-          cCard.onclick = function(){
-            var idx = popSel.indexOf(cId);
-            if(idx > -1){ if(popSel.length > 1) popSel.splice(idx, 1); }
-            else { popSel.push(cId); }
-            refreshMixBtn();
-            refreshGroupCards();
-          };
-        })(catId);
-        flatGrid.appendChild(cCard);
-      });
-      body.appendChild(flatGrid);
+      // Pas de groupes : aller direct aux cats
+      showCatLevel('all', activeCats, {label:'Toutes les cat\u00e9gories'});
     }
   }
-  refreshGroupCards();
-  popup.appendChild(body);
+
+  // ── NIVEAU 2 : cats d'un groupe ──
+  function showCatLevel(groupId, gCats, grpData){
+    hdTitle.textContent = (grpData.label||groupId);
+    hdSub.style.cursor = 'pointer'; hdSub.style.color = 'var(--acc)';
+    hdSub.textContent = '\u25c4 Retour aux groupes';
+    hdSub.onclick = function(){ showGroupLevel(); };
+    body.innerHTML = '';
+
+    // Bouton tout/d\u00e9tout le groupe
+    var allGrpSel = gCats.every(function(c){ return popSel.indexOf(c) > -1; });
+    var gSelCount = gCats.filter(function(c){ return popSel.indexOf(c) > -1; }).length;
+    var groupAllBtn = document.createElement('div');
+    groupAllBtn.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-radius:9px;margin-bottom:8px;transition:all .13s;'
+      + 'background:' + (allGrpSel?'var(--a2)':'var(--panel)') + ';'
+      + 'border:' + (allGrpSel?'1.5px solid var(--acc)':'1px dashed var(--acc)') + ';';
+    groupAllBtn.innerHTML = '<span style="font-size:16px">\u26a1</span>'
+      + '<div style="flex:1"><div style="font-family:monospace;font-size:9px;font-weight:bold;color:var(--acc);">TOUT LE GROUPE</div></div>'
+      + '<span style="font-family:monospace;font-size:9px;padding:2px 8px;border-radius:10px;background:' + (allGrpSel?'rgba(0,168,90,.15)':'var(--bg2)') + ';color:' + (allGrpSel?'var(--acc)':'var(--text2)') + ';">' + gSelCount + '/' + gCats.length + '</span>';
+    groupAllBtn.onclick = function(){
+      if(gCats.every(function(c){ return popSel.indexOf(c) > -1; })){
+        gCats.forEach(function(c){ var i=popSel.indexOf(c); if(i>-1) popSel.splice(i,1); });
+        if(popSel.length === 0) popSel.push(activeCats[0]);
+      } else {
+        gCats.forEach(function(c){ if(popSel.indexOf(c)===-1) popSel.push(c); });
+      }
+      showCatLevel(groupId, gCats, grpData);
+    };
+    body.appendChild(groupAllBtn);
+
+    var sep2 = document.createElement('div');
+    sep2.style.cssText = 'font-family:monospace;font-size:7px;color:var(--dim);letter-spacing:2px;text-align:center;padding:2px 0 8px;text-transform:uppercase;';
+    sep2.textContent = 'ou cat\u00e9gorie par cat\u00e9gorie';
+    body.appendChild(sep2);
+
+    var catGrid = document.createElement('div');
+    catGrid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;';
+    gCats.forEach(function(catId){
+      var c = CATS[catId]; if(!c) return;
+      var isSel = popSel.indexOf(catId) > -1;
+      var cCard = document.createElement('div');
+      cCard.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-radius:8px;min-height:42px;box-sizing:border-box;transition:all .12s;'
+        + 'background:' + (isSel?'var(--a2)':'var(--panel)') + ';'
+        + 'border:' + (isSel?'1.5px solid var(--acc)':'1px solid var(--border)') + ';';
+      cCard.innerHTML = '<span style="font-size:15px;flex-shrink:0;">' + (c.icon||'\ud83d\udcc1') + '</span>'
+        + '<div style="flex:1;min-width:0;">'
+          + '<div style="font-family:monospace;font-size:8px;font-weight:bold;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.label||catId) + '</div>'
+          + '<div style="font-family:monospace;font-size:7px;color:var(--dim);">' + (c.qs?c.qs.length:0) + ' Q</div>'
+        + '</div>'
+        + (isSel ? '<span style="font-size:11px;color:var(--acc);">\u2713</span>' : '');
+      (function(cId){
+        cCard.onclick = function(){
+          var idx = popSel.indexOf(cId);
+          if(idx > -1){ if(popSel.length > 1) popSel.splice(idx, 1); }
+          else { popSel.push(cId); }
+          showCatLevel(groupId, gCats, grpData);
+        };
+      })(catId);
+      catGrid.appendChild(cCard);
+    });
+    body.appendChild(catGrid);
+  }
+
+  showGroupLevel();
+
 
   // ── FOOTER ──
   var footer = document.createElement('div');
-  footer.style.cssText = 'display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg2);';
+  footer.style.cssText = 'display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg2);';
 
   var cancelFBtn = document.createElement('button');
   cancelFBtn.textContent = '✕ Annuler';
-  cancelFBtn.style.cssText = 'flex:1;padding:12px;border-radius:8px;background:var(--panel);border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:9px;cursor:pointer;letter-spacing:1px;';
+  cancelFBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;background:var(--panel);border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:9px;cursor:pointer;';
   cancelFBtn.onclick = function(){ overlay.remove(); };
 
   var confirmFBtn = document.createElement('button');
   confirmFBtn.textContent = '✓ CONFIRMER';
-  confirmFBtn.style.cssText = 'flex:2;padding:12px;border-radius:8px;background:var(--acc);border:none;color:var(--bg);font-family:monospace;font-size:10px;cursor:pointer;letter-spacing:1px;font-weight:bold;';
+  confirmFBtn.style.cssText = 'flex:2;padding:10px;border-radius:8px;background:var(--acc);border:none;color:var(--bg);font-family:monospace;font-size:10px;cursor:pointer;font-weight:bold;';
   confirmFBtn.onclick = function(){
     if(popSel.length === 0) popSel.push(activeCats[0]);
     onlineSession.localCategories = popSel.slice();
     overlay.remove();
-    // Rafraîchir le bouton catégories dans le panneau de vote
     var d = {status:'voting', players:{}};
     handleOnlineSessionUpdate(d);
   };
@@ -2235,8 +2176,6 @@ async function hostGenerateQuestionsAndStart(data){
 
     var totalQ = 0;
     if(cfg.mode==='rounds') totalQ = cfg.qPerRound * cfg.totalRounds;
-    else if(cfg.mode==='course') totalQ = Math.max(cfg.target * 3, 15);
-    else if(cfg.mode==='qbq') totalQ = cfg.qPerRound;
     if(totalQ < 1) totalQ = 10;
 
     // Build from selected categories
@@ -2626,26 +2565,44 @@ function renderOnlineQuestion(q){
   `;
   area.appendChild(fRow);
 
-  // Timer visuel et logique de temps écoulé
+  // Timer pausable (setInterval vérifie isPaused chaque 100ms)
   setTimeout(function(){
     var timer = getQTimer(obj, 20);
-    if(tbar){ tbar.style.transition = 'width '+timer+'s linear'; tbar.style.width = '0%'; }
-    
-    if (window._onlineTimerInt) clearTimeout(window._onlineTimerInt);
-    window._onlineTimerInt = setTimeout(function(){
-      if (!onlineSession.myAnswered && !onlineSession.revealing) {
-        onlineAnswer('__timeout__');
-      }
-    }, timer * 1000 + 500);
+    var totalMs = timer * 1000;
+    var elapsedMs = 0;
+    var forceElapsedMs = 0;
+    var forceTotalMs = (timer + 3) * 1000;
+    var TICK = 100;
 
-    // Hôte : force reveal 3s après la fin du timer (laisse le temps aux guests de répondre)
-    if (onlineSession.role === 'host') {
-      if (window._onlineForceRevealInt) clearTimeout(window._onlineForceRevealInt);
-      window._onlineForceRevealInt = setTimeout(function(){
-        if (!onlineSession.revealing) {
-          _onlineUpdate({ reveal: true });
+    // Barre visuelle : mise à jour manuelle chaque tick
+    if(tbar){ tbar.style.transition = 'none'; tbar.style.width = '100%'; tbar.style.background = 'var(--acc)'; }
+
+    if(window._onlineTimerInt) { clearInterval(window._onlineTimerInt); window._onlineTimerInt = null; }
+    if(window._onlineForceRevealInt) { clearInterval(window._onlineForceRevealInt); window._onlineForceRevealInt = null; }
+
+    window._onlineTimerInt = setInterval(function(){
+      if(onlineSession.isPaused) return; // ⏸ Ne pas avancer si en pause
+      elapsedMs += TICK;
+      var pct = Math.max(0, 100 - (elapsedMs / totalMs * 100));
+      if(tbar){ tbar.style.transition = 'none'; tbar.style.width = pct + '%'; }
+      if(elapsedMs >= totalMs + 500){
+        clearInterval(window._onlineTimerInt); window._onlineTimerInt = null;
+        if(!onlineSession.myAnswered && !onlineSession.revealing){
+          onlineAnswer('__timeout__');
         }
-      }, (timer + 3) * 1000);
+      }
+    }, TICK);
+
+    // Hôte : force reveal après timer+3s (ne compte pas pendant la pause)
+    if(onlineSession.role === 'host'){
+      window._onlineForceRevealInt = setInterval(function(){
+        if(onlineSession.isPaused) return;
+        forceElapsedMs += TICK;
+        if(forceElapsedMs >= forceTotalMs){
+          clearInterval(window._onlineForceRevealInt); window._onlineForceRevealInt = null;
+          if(!onlineSession.revealing){ _onlineUpdate({ reveal: true }); }
+        }
+      }, TICK);
     }
   }, 50);
 }
@@ -2655,11 +2612,11 @@ window.onlineAnswer = function(val){
   onlineSession.myAnswered=true;
 
   if (window._onlineTimerInt) {
-    clearTimeout(window._onlineTimerInt);
+    clearInterval(window._onlineTimerInt);
     window._onlineTimerInt = null;
   }
   if (window._onlineForceRevealInt) {
-    clearTimeout(window._onlineForceRevealInt);
+    clearInterval(window._onlineForceRevealInt);
     window._onlineForceRevealInt = null;
   }
 
