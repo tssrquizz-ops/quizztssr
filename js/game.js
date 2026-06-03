@@ -1430,6 +1430,7 @@ var onlineSession={
   qStartTs:0,             // timestamp local start question
   myAnswered:false,       // bool
   revealing:false,        // bool guard
+  isPaused:false,         // pause collective
   perRoundScores:{}       // map uid -> [score_round1, score_round2,...]
 };
 var unsubLobby = null;
@@ -1655,7 +1656,7 @@ function cancelOnlineSession(){
   // Stopper tous les timers online en cours
   if(window._onlineTimerInt){ clearTimeout(window._onlineTimerInt); window._onlineTimerInt=null; }
   if(window._onlineForceRevealInt){ clearTimeout(window._onlineForceRevealInt); window._onlineForceRevealInt=null; }
-  onlineSession={code:null,uid:null,role:null,status:null,unsubscribe:null,config:null,qIdx:0,roundIdx:0,questionsPool:[],qStartTs:0,myAnswered:false,revealing:false,perRoundScores:{}};
+  onlineSession={code:null,uid:null,role:null,status:null,unsubscribe:null,config:null,qIdx:0,roundIdx:0,questionsPool:[],qStartTs:0,myAnswered:false,revealing:false,isPaused:false,perRoundScores:{}};
   
   // Reset all panels
   var setupPanel = document.getElementById('online-setup-panel');
@@ -1687,6 +1688,12 @@ function handleOnlineSessionUpdate(data){
     if(data.config) onlineSession.config = data.config;
     if(data.qIdx !== undefined) onlineSession.qIdx = data.qIdx;
     if(data.roundIdx !== undefined) onlineSession.roundIdx = data.roundIdx;
+    // ── Pause collective ──
+    if(data.paused !== undefined){
+      onlineSession.isPaused = !!data.paused;
+      var _povl = document.getElementById('online-povl');
+      if(_povl) _povl.classList.toggle('show', !!data.paused);
+    }
   }
   var isHost=onlineSession.role==='host';
   var playersList = data.players ? Object.values(data.players) : [];
@@ -1860,7 +1867,7 @@ function renderVotePanel(data, isHost){
   html+='<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">MODE DE JEU :</div>';
   html+='<div class="vote-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">';
   Object.keys(ONLINE_MODES).forEach(function(m){
-    var sel = (onlineSession.localMode===m) ? ' border:2px solid var(--primary);background:var(--bg3);' : 'border:2px solid var(--border);';
+    var sel = (onlineSession.localMode===m) ? ' border:2px solid var(--acc);background:var(--a2);' : 'border:2px solid var(--border);';
     html+='<button onclick="setOnlineVote(\'mode\',\''+m+'\')" style="padding:15px;border-radius:12px;cursor:pointer;'+sel+'color:var(--text);">'
         + '<div style="font-weight:bold;margin-bottom:4px;pointer-events:none;">'+ONLINE_MODES[m].label+'</div>'
         + '<div style="font-size:0.8rem;color:var(--text2);pointer-events:none;">'+ONLINE_MODES[m].desc+'</div></button>';
@@ -1870,43 +1877,30 @@ function renderVotePanel(data, isHost){
   html+='<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">QUESTIONS (par round ou total) :</div>';
   html+='<div style="display:flex;gap:10px;margin-bottom:20px;justify-content:center;">';
   ONLINE_COUNTS.forEach(function(c){
-    var sel = (onlineSession.localCount===c) ? ' border:2px solid var(--primary);background:var(--bg3);' : 'border:2px solid var(--border);';
+    var sel = (onlineSession.localCount===c) ? ' border:2px solid var(--acc);background:var(--a2);' : 'border:2px solid var(--border);';
     html+='<button onclick="setOnlineVote(\'count\','+c+')" style="padding:10px 20px;border-radius:8px;font-weight:bold;color:var(--text);cursor:pointer;'+sel+'">'+c+'</button>';
   });
   html+='</div>';
 
-  html+='<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">CHOIX DES CATÉGORIES :</div>';
-  html+='<div style="display:flex;gap:10px;margin-bottom:10px;justify-content:center;">'
-      + '<button onclick="setOnlineAllCategories(true)" style="padding:6px 12px;border-radius:6px;font-size:0.8rem;background:var(--bg2);border:1px solid var(--border2);color:var(--text);cursor:pointer;">Tout sélectionner</button>'
-      + '<button onclick="setOnlineAllCategories(false)" style="padding:6px 12px;border-radius:6px;font-size:0.8rem;background:var(--bg2);border:1px solid var(--border2);color:var(--text);cursor:pointer;">Tout désélectionner</button>'
-      + '</div>';
-
-  html+='<div class="vote-cats-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));gap:8px;max-height:160px;overflow-y:auto;background:var(--bg2);padding:10px;border-radius:12px;margin-bottom:20px;border:1.5px solid var(--border2);">';
-  
+  // Initialiser les catégories locales si vide
   var activeCats = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
-  if (!onlineSession.localCategories) {
-    onlineSession.localCategories = activeCats.slice();
-  }
-  
-  activeCats.forEach(function(k){
-    var isSelected = onlineSession.localCategories.indexOf(k) > -1;
-    var selStyle = isSelected ? 'background:var(--acc);color:#000;border:1.5px solid var(--acc);' : 'background:var(--bg2);color:var(--text2);border:1.5px solid var(--border2);';
-    var icon = CATS[k].icon || '📁';
-    var label = CATS[k].label || k;
-    html+='<button onclick="toggleOnlineCategory(\''+k+'\')" style="padding:8px 6px;border-radius:8px;font-size:0.75rem;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:6px;justify-content:center;'+selStyle+'">'
-        + '<span>'+icon+'</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+label+'</span></button>';
-  });
-  html+='</div>';
+  if (!onlineSession.localCategories) { onlineSession.localCategories = activeCats.slice(); }
+  var selCount = onlineSession.localCategories.length;
+  var totalCount = activeCats.length;
+
+  html += '<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">CHOIX DES CATÉGORIES :</div>';
+  html += '<button onclick="openOnlineCategoryPopup()" style="width:100%;padding:13px 16px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg2);border:1.5px solid var(--border2);color:var(--text);font-family:monospace;font-size:11px;letter-spacing:1px;transition:border-color .15s;margin-bottom:20px;" onmouseover="this.style.borderColor=\'var(--acc)\'" onmouseout="this.style.borderColor=\'var(--border2)\'"><span>📁 CATÉGORIES</span><span style="background:var(--acc);color:var(--bg);border-radius:20px;padding:3px 10px;font-size:10px;">' + selCount + ' / ' + totalCount + '</span></button>';
+
 
   html+='<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">OPTIONS :</div>';
   html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:30px;justify-content:center;">';
   var sbCheck = onlineSession.localSpeedBonus ? 'checked' : '';
   html+='<label style="color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px;">'
-      + '<input type="checkbox" id="online-speed-cb" onchange="onlineSession.localSpeedBonus=this.checked" style="accent-color:var(--primary);width:18px;height:18px;" '+sbCheck+'>'
+      + '<input type="checkbox" id="online-speed-cb" onchange="onlineSession.localSpeedBonus=this.checked" style="accent-color:var(--acc);width:18px;height:18px;" '+sbCheck+'>'
       + 'Bonus de vitesse (score dégressif selon le temps)</label>';
   html+='</div>';
 
-  html+='<button onclick="validateOnlineConfig()" style="width:100%;padding:15px;border-radius:12px;background:var(--primary);color:#000;font-weight:bold;font-size:1.1rem;cursor:pointer;border:none;">⚔️ VALIDER & JOUER</button>';
+  html+='<button onclick="validateOnlineConfig()" style="width:100%;padding:15px;border-radius:12px;background:var(--acc);color:var(--bg);font-weight:bold;font-size:1.1rem;cursor:pointer;border:none;">⚔️ VALIDER & JOUER</button>';
   
   area.innerHTML=html;
 }
@@ -1967,6 +1961,267 @@ window.validateOnlineConfig = function(){
 }
 
 function computeAndStartConfig(data){} // Legacy, not used.
+
+// ─── POPUP CATÉGORIES EN LIGNE ───
+window.openOnlineCategoryPopup = function(){
+  // Supprimer ancienne popup
+  var old = document.getElementById('online-cats-overlay');
+  if(old) old.remove();
+
+  var GROUPS = window.GROUPS || {};
+  var activeCats = Object.keys(CATS).filter(function(k){ return k!=='mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length>0; });
+  if(!onlineSession.localCategories) onlineSession.localCategories = activeCats.slice();
+
+  // Snapshot de travail (confirmé ou annulé)
+  var popSel = onlineSession.localCategories.slice();
+
+  // ── OVERLAY ──
+  var overlay = document.createElement('div');
+  overlay.id = 'online-cats-overlay';
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:9999;',
+    'display:flex;align-items:center;justify-content:center;',
+    'background:rgba(0,0,0,.6);backdrop-filter:blur(6px);',
+    '-webkit-backdrop-filter:blur(6px);'
+  ].join('');
+
+  // ── POPUP CARD ──
+  var popup = document.createElement('div');
+  popup.style.cssText = [
+    'position:relative;width:min(94vw,520px);max-height:90vh;',
+    'display:flex;flex-direction:column;',
+    'background:var(--panel);border:1.5px solid var(--border2);border-radius:16px;',
+    'box-shadow:0 24px 64px rgba(0,0,0,.6);overflow:hidden;'
+  ].join('');
+
+  // ── HEADER ──
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;';
+
+  var hdLeft = document.createElement('div');
+  hdLeft.innerHTML = '<div style="font-size:13px;font-weight:bold;color:var(--acc);margin-bottom:2px;">📁 CATÉGORIES</div>'
+    + '<div style="font-size:9px;color:var(--text2);font-family:monospace;">Sélectionne les catégories pour le duel</div>';
+
+  var closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:12px;cursor:pointer;padding:4px 8px;transition:all .12s;';
+  closeBtn.onmouseover = function(){ closeBtn.style.borderColor='var(--acc)'; closeBtn.style.color='var(--acc)'; };
+  closeBtn.onmouseout = function(){ closeBtn.style.borderColor='var(--border2)'; closeBtn.style.color='var(--text2)'; };
+  closeBtn.onclick = function(){ overlay.remove(); };
+
+  header.appendChild(hdLeft);
+  header.appendChild(closeBtn);
+  popup.appendChild(header);
+
+  // ── BOUTON MIX PLEINE LARGEUR ──
+  var mixWrap = document.createElement('div');
+  mixWrap.style.cssText = 'padding:10px 14px 6px;flex-shrink:0;';
+  var isMixSel = popSel.length === activeCats.length;
+
+  var mixBtn = document.createElement('div');
+  mixBtn.id = 'online-cat-mix-btn';
+  mixBtn.style.cssText = [
+    'display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;',
+    'border-radius:10px;border:1.5px solid var(--acc);',
+    'background:' + (isMixSel ? 'var(--a2)' : 'var(--panel)') + ';transition:all .14s;'
+  ].join('');
+
+  function refreshMixBtn(){
+    var allSel = popSel.length === activeCats.length;
+    mixBtn.style.background = allSel ? 'var(--a2)' : 'var(--panel)';
+    mixBtn.style.border = allSel ? '1.5px solid var(--acc)' : '1px dashed var(--acc)';
+    var badge = mixBtn.querySelector('#online-mix-badge');
+    if(badge){
+      badge.textContent = allSel ? '✓ TOUT SÉLECTIONNÉ' : '▶ TOUT CHOISIR';
+      badge.style.color = allSel ? 'var(--acc)' : 'var(--text2)';
+    }
+  }
+
+  mixBtn.innerHTML = '<span style="font-size:18px">🎲</span>'
+    + '<div style="flex:1">'
+      + '<div style="font-size:10px;font-weight:bold;color:var(--acc);">TOUT — TOUTES CATÉGORIES</div>'
+      + '<div style="font-size:8.5px;color:var(--text2);font-family:monospace;">' + activeCats.length + ' catégories disponibles</div>'
+    + '</div>'
+    + '<span id="online-mix-badge" style="font-size:8px;font-family:monospace;padding:3px 7px;border-radius:4px;background:var(--bg2);">▶ TOUT CHOISIR</span>';
+
+  mixBtn.onclick = function(){
+    if(popSel.length === activeCats.length){
+      // Garder au moins 1
+      popSel.length = 0;
+      if(activeCats.length > 0) popSel.push(activeCats[0]);
+    } else {
+      popSel.length = 0;
+      activeCats.forEach(function(c){ popSel.push(c); });
+    }
+    refreshMixBtn();
+    refreshGroupCards();
+  };
+  mixWrap.appendChild(mixBtn);
+  popup.appendChild(mixWrap);
+  refreshMixBtn();
+
+  // ── SEP ──
+  var sep = document.createElement('div');
+  sep.style.cssText = 'margin:0 14px;border-top:1px solid var(--border);flex-shrink:0;';
+  popup.appendChild(sep);
+
+  // ── CORPS SCROLLABLE (groupes) ──
+  var body = document.createElement('div');
+  body.style.cssText = 'overflow-y:auto;padding:10px 14px;flex:1;';
+
+  function refreshGroupCards(){
+    body.innerHTML = '';
+    var hasGroups = Object.keys(GROUPS).length > 0;
+    if(hasGroups){
+      Object.keys(GROUPS).forEach(function(groupId){
+        var grp = GROUPS[groupId];
+        var gCats = (grp.cats||[]).filter(function(c){ return activeCats.indexOf(c) > -1; });
+        if(gCats.length === 0) return;
+
+        var groupTotal = 0;
+        gCats.forEach(function(c){ if(CATS[c] && CATS[c].qs) groupTotal += CATS[c].qs.length; });
+        var gSelCount = gCats.filter(function(c){ return popSel.indexOf(c) > -1; }).length;
+        var allGrpSel = gSelCount === gCats.length;
+
+        // En-tête groupe
+        var grpHeader = document.createElement('div');
+        grpHeader.style.cssText = [
+          'display:flex;align-items:center;justify-content:space-between;',
+          'padding:8px 10px;margin-bottom:6px;border-radius:8px;cursor:pointer;',
+          'background:' + (allGrpSel ? 'var(--a2)' : 'var(--bg2)') + ';',
+          'border:1px solid ' + (allGrpSel ? 'var(--acc)' : 'var(--border)') + ';transition:all .13s;'
+        ].join('');
+
+        (function(gId, gCatsLocal){
+          grpHeader.onclick = function(){
+            if(gCatsLocal.every(function(c){ return popSel.indexOf(c) > -1; })){
+              // Tout désélectionner
+              gCatsLocal.forEach(function(c){ var i=popSel.indexOf(c); if(i>-1) popSel.splice(i,1); });
+              if(popSel.length === 0) popSel.push(activeCats[0]);
+            } else {
+              // Tout sélectionner
+              gCatsLocal.forEach(function(c){ if(popSel.indexOf(c)===-1) popSel.push(c); });
+            }
+            refreshMixBtn();
+            refreshGroupCards();
+          };
+        })(groupId, gCats);
+
+        grpHeader.innerHTML = '<div style="display:flex;align-items:center;gap:8px;">'
+          + '<span style="font-size:16px">' + (grp.label ? grp.label.split(' ')[0] : '📁') + '</span>'
+          + '<div>'
+            + '<div style="font-size:10px;font-weight:bold;color:var(--text);">' + (grp.label||groupId) + '</div>'
+            + '<div style="font-size:8px;color:var(--text2);font-family:monospace;">' + groupTotal + ' Q · ' + gCats.length + ' cat.</div>'
+          + '</div></div>'
+          + '<span style="font-family:monospace;font-size:8px;padding:3px 8px;border-radius:4px;'
+            + 'background:' + (allGrpSel ? 'rgba(0,168,90,.15)' : 'var(--bg2)') + ';'
+            + 'color:' + (allGrpSel ? 'var(--acc)' : 'var(--text2)') + ';">' + gSelCount + '/' + gCats.length + '</span>';
+
+        body.appendChild(grpHeader);
+
+        // Grille des cats du groupe
+        var catGrid = document.createElement('div');
+        catGrid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;';
+
+        gCats.forEach(function(catId){
+          var c = CATS[catId];
+          if(!c) return;
+          var isSel = popSel.indexOf(catId) > -1;
+          var cCard = document.createElement('div');
+          cCard.style.cssText = [
+            'display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;',
+            'border-radius:8px;min-height:40px;box-sizing:border-box;transition:all .12s;',
+            'background:' + (isSel ? 'var(--a2)' : 'var(--panel)') + ';',
+            'border:' + (isSel ? '1.5px solid var(--acc)' : '1px solid var(--border)') + ';'
+          ].join('');
+          cCard.innerHTML = '<span style="font-size:15px;flex-shrink:0;">' + (c.icon||'📁') + '</span>'
+            + '<div style="flex:1;min-width:0;">'
+              + '<div style="font-family:monospace;font-size:8px;font-weight:bold;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.label||catId) + '</div>'
+              + '<div style="font-family:monospace;font-size:7px;color:var(--dim);">' + (c.qs?c.qs.length:0) + ' Q</div>'
+            + '</div>'
+            + (isSel ? '<span style="font-size:10px;color:var(--acc);">✓</span>' : '');
+
+          (function(cId){
+            cCard.onclick = function(){
+              var idx = popSel.indexOf(cId);
+              if(idx > -1){
+                if(popSel.length > 1) popSel.splice(idx, 1);
+              } else {
+                popSel.push(cId);
+              }
+              refreshMixBtn();
+              refreshGroupCards();
+            };
+          })(catId);
+          catGrid.appendChild(cCard);
+        });
+        body.appendChild(catGrid);
+      });
+    } else {
+      // Pas de groupes : afficher les cats directement
+      var flatGrid = document.createElement('div');
+      flatGrid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;';
+      activeCats.forEach(function(catId){
+        var c = CATS[catId];
+        if(!c) return;
+        var isSel = popSel.indexOf(catId) > -1;
+        var cCard = document.createElement('div');
+        cCard.style.cssText = [
+          'display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;',
+          'border-radius:8px;min-height:40px;box-sizing:border-box;transition:all .12s;',
+          'background:' + (isSel ? 'var(--a2)' : 'var(--panel)') + ';',
+          'border:' + (isSel ? '1.5px solid var(--acc)' : '1px solid var(--border)') + ';'
+        ].join('');
+        cCard.innerHTML = '<span style="font-size:15px;flex-shrink:0;">' + (c.icon||'📁') + '</span>'
+          + '<div style="flex:1;min-width:0;">'
+            + '<div style="font-family:monospace;font-size:8px;font-weight:bold;color:var(--text);">' + (c.label||catId) + '</div>'
+          + '</div>'
+          + (isSel ? '<span style="font-size:10px;color:var(--acc);">✓</span>' : '');
+        (function(cId){
+          cCard.onclick = function(){
+            var idx = popSel.indexOf(cId);
+            if(idx > -1){ if(popSel.length > 1) popSel.splice(idx, 1); }
+            else { popSel.push(cId); }
+            refreshMixBtn();
+            refreshGroupCards();
+          };
+        })(catId);
+        flatGrid.appendChild(cCard);
+      });
+      body.appendChild(flatGrid);
+    }
+  }
+  refreshGroupCards();
+  popup.appendChild(body);
+
+  // ── FOOTER ──
+  var footer = document.createElement('div');
+  footer.style.cssText = 'display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg2);';
+
+  var cancelFBtn = document.createElement('button');
+  cancelFBtn.textContent = '✕ Annuler';
+  cancelFBtn.style.cssText = 'flex:1;padding:12px;border-radius:8px;background:var(--panel);border:1.5px solid var(--border2);color:var(--text2);font-family:monospace;font-size:9px;cursor:pointer;letter-spacing:1px;';
+  cancelFBtn.onclick = function(){ overlay.remove(); };
+
+  var confirmFBtn = document.createElement('button');
+  confirmFBtn.textContent = '✓ CONFIRMER';
+  confirmFBtn.style.cssText = 'flex:2;padding:12px;border-radius:8px;background:var(--acc);border:none;color:var(--bg);font-family:monospace;font-size:10px;cursor:pointer;letter-spacing:1px;font-weight:bold;';
+  confirmFBtn.onclick = function(){
+    if(popSel.length === 0) popSel.push(activeCats[0]);
+    onlineSession.localCategories = popSel.slice();
+    overlay.remove();
+    // Rafraîchir le bouton catégories dans le panneau de vote
+    var d = {status:'voting', players:{}};
+    handleOnlineSessionUpdate(d);
+  };
+
+  footer.appendChild(cancelFBtn);
+  footer.appendChild(confirmFBtn);
+  popup.appendChild(footer);
+
+  overlay.appendChild(popup);
+  document.body.appendChild(overlay);
+};
 
 // ─── STARTING ───
 async function hostGenerateQuestionsAndStart(data){
@@ -3285,8 +3540,22 @@ function updLives(){
 function flash(t){var e=el('flash');e.className='flash f'+t;e.style.opacity='1';setTimeout(function(){e.style.opacity='0';},140);}
 function togglePause(){paused=!paused;el('povl').classList.toggle('show',paused);}
 window.toggleOnlinePause = function(){
-  var e = el('online-povl');
-  if(e) e.classList.toggle('show');
+  // Si en session active, syncer la pause sur Firestore (pause collective)
+  if(onlineSession.code && window._fbUpdateDoc && window._fbDoc && window._fbDb){
+    var newPaused = !onlineSession.isPaused;
+    window._fbUpdateDoc(
+      window._fbDoc(window._fbDb,'duels',onlineSession.code),
+      {paused: newPaused}
+    ).catch(function(){});
+    // Mise à jour optimiste locale
+    onlineSession.isPaused = newPaused;
+    var _e = document.getElementById('online-povl');
+    if(_e) _e.classList.toggle('show', newPaused);
+  } else {
+    // Hors session (ex: menu) : simple toggle
+    var _e = document.getElementById('online-povl');
+    if(_e) _e.classList.toggle('show');
+  }
 };
 
 function next(){

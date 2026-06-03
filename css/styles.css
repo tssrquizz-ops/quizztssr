@@ -2684,3 +2684,44 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
 #group-cats-popup-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 #group-cats-popup-body::-webkit-scrollbar-thumb:hover { background: var(--acc); }
 
+/* ── DUEL EN LIGNE - Page compacte sans scroll ── */
+#screen-online-duel .topbar {
+  margin-bottom: 4px !important;
+  padding: 8px 12px !important;
+}
+#screen-online-duel .online-hud-v2 {
+  padding: 6px 12px !important;
+  margin-bottom: 6px !important;
+}
+#screen-online-duel .online-qcard {
+  margin-bottom: 8px !important;
+  padding: 10px 14px !important;
+}
+#screen-online-duel .qtext {
+  font-size: 0.95rem !important;
+}
+#screen-online-duel pre.debug-code, 
+#screen-online-duel pre.fill-code {
+  margin-bottom: 8px !important;
+  padding: 8px 12px !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+  max-height: 150px !important;
+  overflow-y: auto !important;
+}
+#screen-online-duel .opts {
+  gap: 8px !important;
+}
+#screen-online-duel .opt {
+  padding: 8px 12px !important;
+  font-size: 0.85rem !important;
+}
+#screen-online-duel .q-feedback-row {
+  margin-top: 10px !important;
+}
+#screen-online-duel .skip-btn {
+  margin-top: 8px !important;
+  padding: 4px 12px !important;
+}
+
+
