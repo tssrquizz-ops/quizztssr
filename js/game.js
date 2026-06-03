@@ -3821,7 +3821,8 @@ function getDailyQuestion(){
   var hardQs=[];
   Object.keys(CATS).forEach(function(k){
     if(k==='mix') return;
-    CATS[k].qs.filter(function(q){return q.d===3&&(q.t==='qcm'||q.t==='debug');}).forEach(function(q){
+    // Seulement les QCM avec des options valides
+    CATS[k].qs.filter(function(q){ return q.d===3 && q.t==='qcm' && q.opts && q.opts.length >= 2; }).forEach(function(q){
       hardQs.push(Object.assign({},q,{_cat:CATS[k].label}));
     });
   });
@@ -3909,6 +3910,12 @@ function openDailyScreen(){
   scr.classList.add('active');
   scr.style.display='flex';
   try{window.scrollTo(0,0);}catch(e){}
+  // Guard : si la question n'a pas d'options valides, on ne peut pas afficher
+  if(!q.opts || !q.opts.length){
+    var optsDiv2=document.getElementById('daily-opts');
+    if(optsDiv2) optsDiv2.innerHTML='<p style="color:var(--text2);font-size:11px;text-align:center;padding:10px 0">Réponses indisponibles pour cette question.</p>';
+    return;
+  }
   var shuffled=shuffle(q.opts.map(function(t,i){return{t:t,i:i};}));
   var optsDiv=document.getElementById('daily-opts');
   ['A','B','C','D'].forEach(function(k,i){
