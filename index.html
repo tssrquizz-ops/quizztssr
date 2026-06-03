@@ -611,31 +611,33 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 <!-- RESULTS -->
 <div id="screen-results" class="screen">
-  <div class="restitle">RÉSULTATS</div>
-  <div class="rank" id="resrank"></div>
-  <div class="big-score"><span id="res-correct" style="color:var(--acc)">0</span><span class="den"> / <span id="res-total">10</span></span></div>
-  <div class="result-bar"><div class="result-fill" id="result-fill" style="width:0%"></div></div>
-  <div id="res-badges"></div>
-  <div id="exam-summary" style="display:none"></div>
-  <div class="time-summary" id="time-summary" style="display:none">
-    <div class="ts-box"><span class="ts-val" id="ts-avg" style="color:#fbbf24">-</span><div class="ts-lbl">Temps moyen</div></div>
-    <div class="ts-box"><span class="ts-val" id="ts-best" style="color:#00a85a">-</span><div class="ts-lbl">Plus rapide</div></div>
-    <div class="ts-box"><span class="ts-val" id="ts-acc" style="color:var(--acc)">-</span><div class="ts-lbl">Précision</div></div>
-  </div>
-  <div class="rtabs" id="res-tabs">
-    <div class="rtab active" onclick="switchTab('recap',event)">RÉCAP</div>
-    <div class="rtab" onclick="switchTab('errors',event)">ERREURS</div>
+  <div class="results-fixed-header">
+    <div class="restitle">RÉSULTATS</div>
+    <div class="rank" id="resrank"></div>
+    <div class="big-score"><span id="res-correct" style="color:var(--acc)">0</span><span class="den"> / <span id="res-total">10</span></span></div>
+    <div class="result-bar"><div class="result-fill" id="result-fill" style="width:0%"></div></div>
+    <div id="res-badges"></div>
+    <div id="exam-summary" style="display:none"></div>
+    <div class="time-summary" id="time-summary" style="display:none">
+      <div class="ts-box"><span class="ts-val" id="ts-avg" style="color:#fbbf24">-</span><div class="ts-lbl">Temps moyen</div></div>
+      <div class="ts-box"><span class="ts-val" id="ts-best" style="color:#00a85a">-</span><div class="ts-lbl">Plus rapide</div></div>
+      <div class="ts-box"><span class="ts-val" id="ts-acc" style="color:var(--acc)">-</span><div class="ts-lbl">Précision</div></div>
+    </div>
+    <div class="rtabs" id="res-tabs">
+      <div class="rtab active" onclick="switchTab('recap',event)">RÉCAP</div>
+      <div class="rtab" onclick="switchTab('errors',event)">ERREURS</div>
+    </div>
   </div>
   <div class="tbody active" id="tab-recap"></div>
   <div class="tbody" id="tab-errors"></div>
-<div class="tbody" id="tab-qstats"></div>
-  <div style="text-align:center;margin-top:12px;">
+  <div class="tbody" id="tab-qstats"></div>
+  <div style="text-align:center;margin-top:12px;flex-shrink:0;">
     <button class="share-btn" onclick="toggleShare()">📤 PARTAGER MON SCORE</button>
     <button class="share-btn" id="copy-share-btn" onclick="copyShare()" style="display:none;margin-left:8px;">📋 COPIER</button>
     <div class="copied-toast" id="copied-toast">✅ Copié !</div>
     <div class="share-box" id="share-box" style="display:none"></div>
   </div>
-  <div class="rbtns">
+  <div class="rbtns" style="flex-shrink:0;">
     <button class="btng" onclick="startGame()">↩ REJOUER</button>
     <button class="btnr" id="btnrev" onclick="startReview()" style="display:none">📌 RÉVISER ERREURS</button>
     <button class="btnm" onclick="goMenu()">MENU</button>
