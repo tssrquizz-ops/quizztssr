@@ -1875,6 +1875,29 @@ function renderVotePanel(data, isHost){
   });
   html+='</div>';
 
+  html+='<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">CHOIX DES CATÉGORIES :</div>';
+  html+='<div style="display:flex;gap:10px;margin-bottom:10px;justify-content:center;">'
+      + '<button onclick="setOnlineAllCategories(true)" style="padding:6px 12px;border-radius:6px;font-size:0.8rem;background:var(--bg2);border:1px solid var(--border2);color:var(--text);cursor:pointer;">Tout sélectionner</button>'
+      + '<button onclick="setOnlineAllCategories(false)" style="padding:6px 12px;border-radius:6px;font-size:0.8rem;background:var(--bg2);border:1px solid var(--border2);color:var(--text);cursor:pointer;">Tout désélectionner</button>'
+      + '</div>';
+
+  html+='<div class="vote-cats-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));gap:8px;max-height:160px;overflow-y:auto;background:var(--bg2);padding:10px;border-radius:12px;margin-bottom:20px;border:1.5px solid var(--border2);">';
+  
+  var activeCats = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
+  if (!onlineSession.localCategories) {
+    onlineSession.localCategories = activeCats.slice();
+  }
+  
+  activeCats.forEach(function(k){
+    var isSelected = onlineSession.localCategories.indexOf(k) > -1;
+    var selStyle = isSelected ? 'background:var(--acc);color:#000;border:1.5px solid var(--acc);' : 'background:var(--bg2);color:var(--text2);border:1.5px solid var(--border2);';
+    var icon = CATS[k].icon || '📁';
+    var label = CATS[k].label || k;
+    html+='<button onclick="toggleOnlineCategory(\''+k+'\')" style="padding:8px 6px;border-radius:8px;font-size:0.75rem;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:6px;justify-content:center;'+selStyle+'">'
+        + '<span>'+icon+'</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+label+'</span></button>';
+  });
+  html+='</div>';
+
   html+='<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">OPTIONS :</div>';
   html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:30px;justify-content:center;">';
   var sbCheck = onlineSession.localSpeedBonus ? 'checked' : '';
@@ -1895,15 +1918,45 @@ window.setOnlineVote = function(type, val){
   handleOnlineSessionUpdate(d); // re-render fast
 }
 
+window.toggleOnlineCategory = function(catId) {
+  var activeCats = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
+  if (!onlineSession.localCategories) {
+    onlineSession.localCategories = activeCats.slice();
+  }
+  var idx = onlineSession.localCategories.indexOf(catId);
+  if (idx > -1) {
+    if (onlineSession.localCategories.length > 1) {
+      onlineSession.localCategories.splice(idx, 1);
+    }
+  } else {
+    onlineSession.localCategories.push(catId);
+  }
+  var d = {status:'voting', players:{}};
+  handleOnlineSessionUpdate(d);
+};
+
+window.setOnlineAllCategories = function(val) {
+  var activeCats = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
+  if (val) {
+    onlineSession.localCategories = activeCats.slice();
+  } else {
+    onlineSession.localCategories = [activeCats[0]];
+  }
+  var d = {status:'voting', players:{}};
+  handleOnlineSessionUpdate(d);
+};
+
 window.validateOnlineConfig = function(){
   if(!onlineSession.localMode) onlineSession.localMode='rounds';
   if(!onlineSession.localCount) onlineSession.localCount=5;
+  var cats = onlineSession.localCategories || Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
   var cfg = {
     mode: onlineSession.localMode,
     qPerRound: (onlineSession.localMode==='rounds') ? onlineSession.localCount : 0,
     totalRounds: (onlineSession.localMode==='rounds') ? 3 : 1,
     target: (onlineSession.localMode==='course') ? onlineSession.localCount : 0,
-    speedBonus: !!onlineSession.localSpeedBonus
+    speedBonus: !!onlineSession.localSpeedBonus,
+    categories: cats
   };
   if(cfg.mode==='qbq'){ cfg.qPerRound=onlineSession.localCount; cfg.totalRounds=1; }
   
@@ -1931,11 +1984,15 @@ async function hostGenerateQuestionsAndStart(data){
     else if(cfg.mode==='qbq') totalQ = cfg.qPerRound;
     if(totalQ < 1) totalQ = 10;
 
-    // Build from ALL cats that have questions (using .qs, the correct field)
+    // Build from selected categories
+    var selectedCats = cfg.categories || [];
+    if (selectedCats.length === 0) {
+      selectedCats = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
+    }
+
     var allQs = [];
-    var catList = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
     var okTypes = ['qcm','debug','tf','fill','calc','type','match','order','word','slider','scramble','multiblank','categorize','hotspot'];
-    catList.forEach(function(c){
+    selectedCats.forEach(function(c){
       if(CATS[c] && CATS[c].qs){
         CATS[c].qs.forEach(function(q){
           if(q && okTypes.indexOf(q.t) !== -1){
@@ -2155,6 +2212,21 @@ function renderOnlineQuestion(q){
   card.appendChild(qtxt);
   area.appendChild(card);
 
+  // Afficher le code pour fill/debug si présent
+  if ((m === 'fill' || m === 'debug') && obj.code) {
+    var pre = document.createElement('pre');
+    pre.className = m === 'debug' ? 'debug-code' : 'fill-code';
+    var escHtmlOnline = function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+    if (m === 'fill' && obj.blank) {
+      var safeCode = escHtmlOnline(obj.code);
+      var safeBlank = escHtmlOnline(obj.blank);
+      pre.innerHTML = safeCode.replace(safeBlank, '<span class="fill-blank" style="background:var(--primary);color:#000;padding:0 4px;border-radius:4px;">'+safeBlank+'</span>');
+    } else {
+      pre.textContent = obj.code;
+    }
+    area.appendChild(pre);
+  }
+
   // Options — mêmes classes que quiz solo
   // Format: obj.opts = tableau de toutes les options, obj.a = INDEX de la bonne réponse
   if(m === 'qcm' || m === 'debug'){
@@ -2287,6 +2359,18 @@ function renderOnlineQuestion(q){
   feedWait.className = 'online-feedback';
   area.appendChild(feedWait);
 
+  // feedback row (like/dislike/report)
+  var fRow = document.createElement('div');
+  fRow.className = 'q-feedback-row';
+  fRow.innerHTML = `
+    <button class="q-f-btn bug" onclick="reportBug(window._curOnlineQ)" title="Signaler un problème">⚠️ Bug</button>
+    <div class="q-f-votes">
+      <button class="q-f-btn vote" onclick="voteQ(window._curOnlineQ, 1)" title="Utile">👍</button>
+      <button class="q-f-btn vote" onclick="voteQ(window._curOnlineQ, -1)" title="Pas utile">👎</button>
+    </div>
+  `;
+  area.appendChild(fRow);
+
   // Timer visuel et logique de temps écoulé
   setTimeout(function(){
     var timer = getQTimer(obj, 20);
@@ -2349,7 +2433,7 @@ window.onlineAnswer = function(val){
     isCorrect = val;
     ansText = val ? 'Correct' : 'Incorrect';
 
-  } else if(obj.t === 'qcm'){
+  } else if(obj.t === 'qcm' || obj.t === 'debug'){
     var o = window._curOnlineOpts;
     ansText = typeof val === 'number' ? String(o[val]) : '';
     // Mark selected button visually
@@ -3200,6 +3284,10 @@ function updLives(){
 
 function flash(t){var e=el('flash');e.className='flash f'+t;e.style.opacity='1';setTimeout(function(){e.style.opacity='0';},140);}
 function togglePause(){paused=!paused;el('povl').classList.toggle('show',paused);}
+window.toggleOnlinePause = function(){
+  var e = el('online-povl');
+  if(e) e.classList.toggle('show');
+};
 
 function next(){
   if(selMode==='duel'){showDuelQ();return;}

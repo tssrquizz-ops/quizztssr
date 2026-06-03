@@ -1394,6 +1394,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <!-- GAME PANEL -->
   <div id="online-game-panel" style="display:none;">
+    <div class="topbar" role="toolbar" style="margin-bottom:12px;">
+      <button class="side-menu-btn" onclick="toggleOnlinePause()">☰</button>
+      <div class="gbadge">⚔️ DUEL EN LIGNE</div>
+      <button class="pause-btn" onclick="toggleOnlinePause()">⏸</button>
+    </div>
     <div id="online-hud" class="online-hud-v2"></div>
     <div class="tbarwrap" style="margin-bottom:12px;"><div class="tbar" style="width:100%;background:var(--acc);height:4px;border-radius:2px;" id="tbar-online-bar"></div></div>
     <div id="online-question-area"></div>
@@ -1419,6 +1424,12 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="ptitle">⏸ PAUSE</div>
   <button class="pbtn" onclick="togglePause()">▶ REPRENDRE</button>
   <button class="pbtn2" onclick="goMenu()">MENU</button>
+</div>
+<div class="povl" id="online-povl">
+  <div class="ptitle">⏸ PAUSE DUEL</div>
+  <div style="font-size:10px;color:var(--text2);margin-bottom:20px;text-align:center;">Note : Le jeu continue pour les autres joueurs en temps réel !</div>
+  <button class="pbtn" onclick="toggleOnlinePause()">▶ REPRENDRE</button>
+  <button class="pbtn2" onclick="cancelOnlineSession(); toggleOnlinePause();">✕ QUITTER LE DUEL</button>
 </div>
 <!-- ============ SCRIPTS PRINCIPAUX — defer pour perf ============ -->
 <script src="js/data.js?v=1.1" defer></script>
