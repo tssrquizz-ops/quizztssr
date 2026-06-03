@@ -1518,8 +1518,8 @@ async function joinOnlineSession(forcedCode){
     
     var pCount = data.players ? Object.keys(data.players).length : 0;
     var alreadyIn = data.players && data.players[window._fbUser.uid];
-    if(!alreadyIn && pCount >= 5){
-      showOnlineError('Cette session est pleine (5 joueurs max).');return;
+    if(!alreadyIn && pCount >= 10){
+      showOnlineError('Cette session est pleine (10 joueurs max).');return;
     }
 
     onlineSession.code=code;
@@ -1620,7 +1620,7 @@ function loadOpenSessions(){
         ? '<button disabled style="background:var(--border2);color:var(--text2);border:none;border-radius:6px;padding:5px 10px;cursor:not-allowed;">Plein</button>'
         : '<button onclick="joinOnlineSession(\''+d.code+'\')" style="background:var(--primary);color:#000;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-weight:bold;">Rejoindre</button>';
       html += '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg3);padding:10px;border-radius:8px;border:1px solid var(--border2);">'
-            + '<div><span style="font-weight:bold;color:var(--text);">'+hostName+'</span> <span style="color:var(--text2);font-size:0.8rem;">('+pCount+'/5 joueurs)</span></div>'
+            + '<div><span style="font-weight:bold;color:var(--text);">'+hostName+'</span> <span style="color:var(--text2);font-size:0.8rem;">('+pCount+'/10 joueurs)</span></div>'
             + btnHtml + '</div>';
     });
     listArea.innerHTML = html;
@@ -1718,10 +1718,10 @@ function handleOnlineSessionUpdate(data){
 
     if(isHost) {
       if(playersList.length > 1) {
-        if(wMsg) wMsg.textContent = playersList.length + '/5 joueurs – Prêts à commencer !';
+        if(wMsg) wMsg.textContent = playersList.length + '/10 joueurs – Prêts à commencer !';
         if(hBtn) hBtn.style.display='block';
       } else {
-        if(wMsg) wMsg.textContent = 'En attente de joueurs... (1/5)';
+        if(wMsg) wMsg.textContent = 'En attente de joueurs... (1/10)';
         if(hBtn) hBtn.style.display='none';
       }
     } else {
