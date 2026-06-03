@@ -1436,9 +1436,8 @@ var onlineSession={
 var unsubLobby = null;
 
 var ONLINE_MODES={
-  rounds:  { label:'🏁 ROUNDS',     desc:'5 questions × 3 rounds. Dernier round caché ! 🔥' }
+  rounds:  { label:'🏁 MODE ROUNDS',     desc:'Enchaînez 3 rounds de questions. Le score du dernier round reste secret jusqu\'à la fin ! 🔥' }
 };
-var ONLINE_COUNTS=[5,7,10,15];
 
 function genSessionCode(){
   var chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -1460,6 +1459,9 @@ async function createOnlineSession(){
   onlineSession.code=code;
   onlineSession.role='host';
   onlineSession.uid=window._fbUser.uid;
+  onlineSession.localCategories = [];
+  onlineSession.localCount = 10;
+  onlineSession.localSpeedBonus = false;
 
   var profile=lsGet('tssr5_profile',{});
   var pseudo=profile.pseudo||(window._fbUser.email?window._fbUser.email.split('@')[0]:'Joueur');
@@ -1477,7 +1479,13 @@ async function createOnlineSession(){
       status:'waiting',
       qIdx:0, roundIdx:0,
       currentQ:null,
-      config:null,
+      config: {
+        mode: 'rounds',
+        qPerRound: 10,
+        totalRounds: 3,
+        speedBonus: false,
+        categories: []
+      },
       reveal:false,
       cat:selCat||'mix',
       createdAt:window._fbServerTs?window._fbServerTs():new Date().toISOString()
@@ -1524,6 +1532,9 @@ async function joinOnlineSession(forcedCode){
     onlineSession.code=code;
     onlineSession.role= (data.host === window._fbUser.uid) ? 'host' : 'guest';
     onlineSession.uid=window._fbUser.uid;
+    onlineSession.localCategories = (data.config && data.config.categories) ? data.config.categories.slice() : [];
+    onlineSession.localCount = (data.config && data.config.qPerRound) ? data.config.qPerRound : 10;
+    onlineSession.localSpeedBonus = (data.config && data.config.speedBonus) ? !!data.config.speedBonus : false;
 
     if(!alreadyIn){
       var upd = {};
@@ -1654,7 +1665,7 @@ function cancelOnlineSession(){
   // Stopper tous les timers online en cours
   if(window._onlineTimerInt){ clearTimeout(window._onlineTimerInt); window._onlineTimerInt=null; }
   if(window._onlineForceRevealInt){ clearTimeout(window._onlineForceRevealInt); window._onlineForceRevealInt=null; }
-  onlineSession={code:null,uid:null,role:null,status:null,unsubscribe:null,config:null,qIdx:0,roundIdx:0,questionsPool:[],qStartTs:0,myAnswered:false,revealing:false,isPaused:false,perRoundScores:{}};
+  onlineSession={code:null,uid:null,role:null,status:null,unsubscribe:null,config:null,qIdx:0,roundIdx:0,questionsPool:[],qStartTs:0,myAnswered:false,revealing:false,isPaused:false,perRoundScores:{},localCategories:[],localCount:10,localSpeedBonus:false};
   
   // Reset all panels
   var setupPanel = document.getElementById('online-setup-panel');
@@ -1721,10 +1732,16 @@ function handleOnlineSessionUpdate(data){
       rosterEl.innerHTML = rHtml;
     }
 
+    // Render configuration panel inside the lobby/waiting area
+    renderLobbyConfigPanel(data, isHost);
+
     if(isHost) {
       if(playersList.length > 1) {
         if(wMsg) wMsg.textContent = playersList.length + '/10 joueurs – Prêts à commencer !';
-        if(hBtn) hBtn.style.display='block';
+        if(hBtn) {
+          hBtn.style.display='block';
+          hBtn.onclick = hostManualStart;
+        }
       } else {
         if(wMsg) wMsg.textContent = 'En attente de joueurs... (1/10)';
         if(hBtn) hBtn.style.display='none';
@@ -1736,42 +1753,11 @@ function handleOnlineSessionUpdate(data){
     return; 
   }
 
-
-  // 2. VOTING — config by host
-  if(data.status==='voting'){
-    _showOnlinePanel('vote');
-    renderVotePanel(data, isHost);
-    return;
-  }
-
   // 3. STARTING — host génère la pool
   if(data.status==='starting'){
     _showOnlinePanel('round');
     renderRoundRecap(data, true /*starting*/);
     if(isHost){ hostGenerateQuestionsAndStart(data); }
-    return;
-  }
-
-  // 3b. READY TO START
-  if(data.status==='ready_to_start'){
-    _showOnlinePanel('setup');
-    var wMsg = document.getElementById('online-waiting-msg');
-    var wAnim = document.getElementById('online-waiting-anim');
-    var hBtn = document.getElementById('online-host-start-btn');
-    var cBox = document.getElementById('online-code-box');
-    var cBtn = document.getElementById('online-create-btn');
-    if(cBtn) cBtn.style.display='none';
-    if(cBox) cBox.style.display='none';
-    document.getElementById('online-waiting').style.display='block';
-    if(isHost){
-      if(wMsg) wMsg.textContent='Configuration terminée !';
-      if(wAnim) wAnim.style.display='none';
-      if(hBtn) { hBtn.style.display='block'; hBtn.onclick=hostStartNow; }
-    } else {
-      if(wMsg) wMsg.textContent="L'hôte va lancer la partie...";
-      if(wAnim) wAnim.style.display='flex';
-      if(hBtn) hBtn.style.display='none';
-    }
     return;
   }
 
@@ -1840,122 +1826,145 @@ function _showOnlinePanel(id){
   });
 }
 
-function hostManualStart(){
+async function hostManualStart(){
   if(onlineSession.role!=='host')return;
-  _onlineUpdate({status:'voting'});
-}
-
-function hostStartNow(){
-  if(onlineSession.role!=='host')return;
-  _onlineUpdate({status:'starting'});
-}
-
-// ─── CONFIG PANEL (ex-Vote) ───
-function renderVotePanel(data, isHost){
-  var area=document.getElementById('online-vote-area');
-  if(!area)return;
   
-  if(!isHost){
-    area.innerHTML='<div class="online-waiting"><div class="online-waiting-text">L\'hôte configure la partie...</div><div class="online-waiting-dots"><div class="online-waiting-dot"></div><div class="online-waiting-dot"></div><div class="online-waiting-dot"></div></div></div>';
+  var qInput = document.getElementById('online-q-count');
+  var speedCb = document.getElementById('online-speed-bonus');
+  
+  var qCount = qInput ? parseInt(qInput.value) || 10 : 10;
+  if (qCount < 1) qCount = 1;
+  if (qCount > 100) qCount = 100;
+  
+  var cats = onlineSession.localCategories || [];
+  if (cats.length === 0) {
+    showOnlineError('⚠️ Sélectionnez au moins une catégorie avant de commencer !');
     return;
   }
-
-  var html='<div class="vote-title" style="margin-bottom:20px;text-align:center;font-family:var(--font-title);color:var(--text);font-size:1.2rem;">⚙️ Configuration</div>';
   
-  html+='<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">MODE DE JEU :</div>';
-  html+='<div class="vote-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">';
-  Object.keys(ONLINE_MODES).forEach(function(m){
-    var sel = (onlineSession.localMode===m) ? ' border:2px solid var(--acc);background:var(--a2);' : 'border:2px solid var(--border);';
-    html+='<button onclick="setOnlineVote(\'mode\',\''+m+'\')" style="padding:15px;border-radius:12px;cursor:pointer;'+sel+'color:var(--text);">'
-        + '<div style="font-weight:bold;margin-bottom:4px;pointer-events:none;">'+ONLINE_MODES[m].label+'</div>'
-        + '<div style="font-size:0.8rem;color:var(--text2);pointer-events:none;">'+ONLINE_MODES[m].desc+'</div></button>';
-  });
-  html+='</div>';
-
-  html+='<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">QUESTIONS (par round ou total) :</div>';
-  html+='<div style="display:flex;gap:10px;margin-bottom:20px;justify-content:center;">';
-  ONLINE_COUNTS.forEach(function(c){
-    var sel = (onlineSession.localCount===c) ? ' border:2px solid var(--acc);background:var(--a2);' : 'border:2px solid var(--border);';
-    html+='<button onclick="setOnlineVote(\'count\','+c+')" style="padding:10px 20px;border-radius:8px;font-weight:bold;color:var(--text);cursor:pointer;'+sel+'">'+c+'</button>';
-  });
-  html+='</div>';
-
-  // Initialiser les catégories locales si vide
-  var activeCats = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
-  if (!onlineSession.localCategories) { onlineSession.localCategories = activeCats.slice(); }
-  var selCount = onlineSession.localCategories.length;
-  var totalCount = activeCats.length;
-
-  html += '<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">CHOIX DES CATÉGORIES :</div>';
-  html += '<button onclick="openOnlineCategoryPopup()" style="width:100%;padding:13px 16px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg2);border:1.5px solid var(--border2);color:var(--text);font-family:monospace;font-size:11px;letter-spacing:1px;transition:border-color .15s;margin-bottom:20px;" onmouseover="this.style.borderColor=\'var(--acc)\'" onmouseout="this.style.borderColor=\'var(--border2)\'"><span>📁 CATÉGORIES</span><span style="background:var(--acc);color:var(--bg);border-radius:20px;padding:3px 10px;font-size:10px;">' + selCount + ' / ' + totalCount + '</span></button>';
-
-
-  html+='<div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;">OPTIONS :</div>';
-  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:30px;justify-content:center;">';
-  var sbCheck = onlineSession.localSpeedBonus ? 'checked' : '';
-  html+='<label style="color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px;">'
-      + '<input type="checkbox" id="online-speed-cb" onchange="onlineSession.localSpeedBonus=this.checked" style="accent-color:var(--acc);width:18px;height:18px;" '+sbCheck+'>'
-      + 'Bonus de vitesse (score dégressif selon le temps)</label>';
-  html+='</div>';
-
-  html+='<button onclick="validateOnlineConfig()" style="width:100%;padding:15px;border-radius:12px;background:var(--acc);color:var(--bg);font-weight:bold;font-size:1.1rem;cursor:pointer;border:none;">⚔️ VALIDER & JOUER</button>';
-  
-  area.innerHTML=html;
-}
-
-window.setOnlineVote = function(type, val){
-  if(type==='mode') onlineSession.localMode = val;
-  if(type==='count') onlineSession.localCount = val;
-  var d={status:'voting', players:{}};
-  handleOnlineSessionUpdate(d); // re-render fast
-}
-
-window.toggleOnlineCategory = function(catId) {
-  var activeCats = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
-  if (!onlineSession.localCategories) {
-    onlineSession.localCategories = activeCats.slice();
-  }
-  var idx = onlineSession.localCategories.indexOf(catId);
-  if (idx > -1) {
-    if (onlineSession.localCategories.length > 1) {
-      onlineSession.localCategories.splice(idx, 1);
-    }
-  } else {
-    onlineSession.localCategories.push(catId);
-  }
-  var d = {status:'voting', players:{}};
-  handleOnlineSessionUpdate(d);
-};
-
-window.setOnlineAllCategories = function(val) {
-  var activeCats = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
-  if (val) {
-    onlineSession.localCategories = activeCats.slice();
-  } else {
-    onlineSession.localCategories = [activeCats[0]];
-  }
-  var d = {status:'voting', players:{}};
-  handleOnlineSessionUpdate(d);
-};
-
-window.validateOnlineConfig = function(){
-  if(!onlineSession.localMode) onlineSession.localMode='rounds';
-  if(!onlineSession.localCount) onlineSession.localCount=5;
-  var cats = onlineSession.localCategories || Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
   var cfg = {
     mode: 'rounds',
-    qPerRound: onlineSession.localCount,
+    qPerRound: qCount,
     totalRounds: 3,
-    speedBonus: !!onlineSession.localSpeedBonus,
+    speedBonus: speedCb ? !!speedCb.checked : false,
     categories: cats
   };
-  _onlineUpdate({
-    config: cfg,
-    status: 'ready_to_start'
-  });
+  
+  try {
+    await _onlineUpdate({
+      config: cfg,
+      status: 'starting'
+    });
+  } catch(e) {
+    showOnlineError('Erreur de lancement : ' + (e.message || e));
+  }
 }
 
-function computeAndStartConfig(data){} // Legacy, not used.
+// Update config to Firestore on UI change
+window.updateOnlineConfigFromUI = function() {
+  if (onlineSession.role !== 'host') return;
+  var qInput = document.getElementById('online-q-count');
+  var speedCb = document.getElementById('online-speed-bonus');
+  
+  var qCount = qInput ? parseInt(qInput.value) || 10 : 10;
+  if (qCount < 1) qCount = 1;
+  if (qCount > 100) qCount = 100;
+  
+  var cats = onlineSession.localCategories || [];
+  
+  var cfg = {
+    mode: 'rounds',
+    qPerRound: qCount,
+    totalRounds: 3,
+    speedBonus: speedCb ? !!speedCb.checked : false,
+    categories: cats
+  };
+  
+  _onlineUpdate({ config: cfg });
+};
+
+// Render config panel directly inside waiting screen (lobby)
+function renderLobbyConfigPanel(data, isHost) {
+  var container = document.getElementById('online-waiting-config');
+  if (!container) return;
+
+  var cfg = data.config || {};
+  var qCount = cfg.qPerRound || 10;
+  var speedBonus = !!cfg.speedBonus;
+  var cats = cfg.categories || [];
+  
+  // Keep localCategories synchronized with Firebase configuration
+  if (!onlineSession.localCategories || (cats.length > 0 && onlineSession.localCategories.length === 0)) {
+    onlineSession.localCategories = cats.slice();
+  }
+
+  var activeCats = Object.keys(CATS).filter(function(k){ return k !== 'mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length > 0; });
+  var selCount = cats.length;
+  var totalCount = activeCats.length;
+
+  var html = '';
+
+  // Presentation card
+  html += '<div style="background:var(--bg2);border:1.5px solid var(--border2);border-radius:12px;padding:12px;margin-bottom:15px;text-align:center;box-shadow:inset 0 1px 3px rgba(0,0,0,0.2);">';
+  html += '  <div style="font-weight:bold;color:var(--acc);margin-bottom:4px;font-size:0.95rem;font-family:var(--font-title);">🏁 MODE ROUNDS</div>';
+  html += '  <div style="font-size:0.8rem;color:var(--text2);line-height:1.4;">' + ONLINE_MODES.rounds.desc + '</div>';
+  html += '</div>';
+
+  if (isHost) {
+    // Input for questions count
+    html += '<div style="margin-bottom:15px;text-align:left;">';
+    html += '  <div style="font-size:0.85rem;color:var(--text2);margin-bottom:6px;font-weight:bold;font-family:monospace;letter-spacing:0.5px;">NOMBRE DE QUESTIONS PAR ROUND :</div>';
+    html += '  <input type="number" id="online-q-count" min="1" max="50" value="' + qCount + '" ';
+    html += '         onchange="updateOnlineConfigFromUI()" ';
+    html += '         style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--panel);color:var(--text);font-weight:bold;font-size:1rem;box-sizing:border-box;outline:none;transition:border-color 0.15s;" ';
+    html += '         onfocus="this.style.borderColor=\'var(--acc)\'" onblur="this.style.borderColor=\'var(--border)\'">';
+    html += '</div>';
+
+    // Categories selector
+    html += '<div style="margin-bottom:15px;text-align:left;">';
+    html += '  <div style="font-size:0.85rem;color:var(--text2);margin-bottom:6px;font-weight:bold;font-family:monospace;letter-spacing:0.5px;">CHOIX DES CATÉGORIES :</div>';
+    html += '  <button onclick="openOnlineCategoryPopup()" ';
+    html += '          style="width:100%;padding:12px 14px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1.5px solid var(--border);color:var(--text);font-family:monospace;font-size:11px;letter-spacing:1px;transition:border-color 0.15s;" ';
+    html += '          onmouseover="this.style.borderColor=\'var(--acc)\'" onmouseout="this.style.borderColor=\'var(--border)\'">';
+    html += '    <span>📁 SÉLECTIONNER</span>';
+    var badgeColor = selCount === 0 ? 'var(--text2)' : 'var(--bg)';
+    var badgeBg = selCount === 0 ? 'var(--border)' : 'var(--acc)';
+    html += '    <span style="background:' + badgeBg + ';color:' + badgeColor + ';border-radius:20px;padding:2px 8px;font-size:10px;font-weight:bold;">' + selCount + ' / ' + totalCount + '</span>';
+    html += '  </button>';
+    html += '</div>';
+
+    // Speed bonus
+    html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;text-align:left;">';
+    var sbCheck = speedBonus ? 'checked' : '';
+    html += '  <label style="color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.9rem;user-select:none;">';
+    html += '    <input type="checkbox" id="online-speed-bonus" ' + sbCheck + ' onchange="updateOnlineConfigFromUI()" style="accent-color:var(--acc);width:18px;height:18px;">';
+    html += '    Bonus de vitesse (score dégressif selon le temps)';
+    html += '  </label>';
+    html += '</div>';
+  } else {
+    // Guest view: read-only
+    html += '<div style="margin-bottom:15px;text-align:left;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;">';
+    
+    html += '  <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem;color:var(--text2);">';
+    html += '    <span>Questions par round :</span>';
+    html += '    <span style="font-weight:bold;color:var(--text);">' + qCount + '</span>';
+    html += '  </div>';
+
+    html += '  <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem;color:var(--text2);">';
+    html += '    <span>Catégories :</span>';
+    html += '    <span style="font-weight:bold;color:var(--text);">' + selCount + ' / ' + totalCount + '</span>';
+    html += '  </div>';
+
+    html += '  <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem;color:var(--text2);">';
+    html += '    <span>Bonus de vitesse :</span>';
+    html += '    <span style="font-weight:bold;color:' + (speedBonus ? 'var(--acc)' : 'var(--text2)') + '">' + (speedBonus ? 'ACTIVÉ 👍' : 'DÉSACTIVÉ ✕') + '</span>';
+    html += '  </div>';
+
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
 
 // ─── POPUP CATÉGORIES EN LIGNE ───
 // Navigation 2 niveaux : liste des groupes => clic => cats du groupe
@@ -1965,7 +1974,7 @@ window.openOnlineCategoryPopup = function(){
 
   var GROUPS = window.GROUPS || {};
   var activeCats = Object.keys(CATS).filter(function(k){ return k!=='mix' && CATS[k] && CATS[k].qs && CATS[k].qs.length>0; });
-  if(!onlineSession.localCategories) onlineSession.localCategories = activeCats.slice();
+  if(!onlineSession.localCategories) onlineSession.localCategories = [];
   var popSel = onlineSession.localCategories.slice();
 
   // ── OVERLAY ──
@@ -1984,10 +1993,10 @@ window.openOnlineCategoryPopup = function(){
   var hdLeft = document.createElement('div');
   var hdTitle = document.createElement('div');
   hdTitle.style.cssText = 'font-size:12px;font-weight:bold;color:var(--acc);';
-  hdTitle.textContent = '📁 GROUPES DE CATÉGORIES';
+  hdTitle.textContent = '\ud83d\udcc1 GROUPES DE CAT\u00c9GORIES';
   var hdSub = document.createElement('div');
   hdSub.style.cssText = 'font-size:8px;color:var(--text2);font-family:monospace;margin-top:2px;';
-  hdSub.textContent = 'Clique sur un groupe pour choisir les catégories';
+  hdSub.textContent = 'Clique sur un groupe pour choisir les cat\u00e9gories';
   hdLeft.appendChild(hdTitle);
   hdLeft.appendChild(hdSub);
 
@@ -2023,7 +2032,7 @@ window.openOnlineCategoryPopup = function(){
       + '<span style="font-family:monospace;font-size:9px;padding:3px 8px;border-radius:12px;background:' + (allSel?'rgba(0,168,90,.15)':'var(--bg2)') + ';color:' + (allSel?'var(--acc)':'var(--text2)') + ';">' + sc + '/' + tc + '</span>';
     mixCard.onclick = function(){
       if(activeCats.every(function(c){ return popSel.indexOf(c) > -1; })){
-        popSel.length = 0; if(activeCats.length > 0) popSel.push(activeCats[0]);
+        popSel.length = 0;
       } else {
         popSel.length = 0; activeCats.forEach(function(c){ popSel.push(c); });
       }
@@ -2092,7 +2101,6 @@ window.openOnlineCategoryPopup = function(){
     groupAllBtn.onclick = function(){
       if(gCats.every(function(c){ return popSel.indexOf(c) > -1; })){
         gCats.forEach(function(c){ var i=popSel.indexOf(c); if(i>-1) popSel.splice(i,1); });
-        if(popSel.length === 0) popSel.push(activeCats[0]);
       } else {
         gCats.forEach(function(c){ if(popSel.indexOf(c)===-1) popSel.push(c); });
       }
@@ -2123,7 +2131,7 @@ window.openOnlineCategoryPopup = function(){
       (function(cId){
         cCard.onclick = function(){
           var idx = popSel.indexOf(cId);
-          if(idx > -1){ if(popSel.length > 1) popSel.splice(idx, 1); }
+          if(idx > -1){ popSel.splice(idx, 1); }
           else { popSel.push(cId); }
           showCatLevel(groupId, gCats, grpData);
         };
@@ -2149,11 +2157,14 @@ window.openOnlineCategoryPopup = function(){
   confirmFBtn.textContent = '✓ CONFIRMER';
   confirmFBtn.style.cssText = 'flex:2;padding:10px;border-radius:8px;background:var(--acc);border:none;color:var(--bg);font-family:monospace;font-size:10px;cursor:pointer;font-weight:bold;';
   confirmFBtn.onclick = function(){
-    if(popSel.length === 0) popSel.push(activeCats[0]);
     onlineSession.localCategories = popSel.slice();
     overlay.remove();
-    var d = {status:'voting', players:{}};
-    handleOnlineSessionUpdate(d);
+    if (onlineSession.role === 'host') {
+      updateOnlineConfigFromUI();
+    } else {
+      var d = {status: onlineSession.status || 'waiting', players:{}};
+      handleOnlineSessionUpdate(d);
+    }
   };
 
   footer.appendChild(cancelFBtn);
