@@ -144,6 +144,59 @@ window.fbSaveUserData = async function() {
 // Appelé après chargement Firestore OU fallback JSON local.
 // Compatible 100% avec le reste de l'app qui consomme window.CATS[catId].qs
 // ─────────────────────────────────────────────────────────────────────────────
+// ── Shuffle local (Fisher-Yates) sans dépendre de game.js ──
+function _fbShuffle(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+// ── Normaliser une question multiblank dont blanks est un tableau de strings ──
+// Entrée  : blanks = ["val1","val2"]
+// Sortie  : blanks = [{label:"Blanc 1", opts:["val1","val2","décoy",...], a:0}, ...]
+// On génère un pool de leurres à partir des autres réponses correctes (+ la bonne).
+function _fbNormalizeMultiblank(q) {
+  if (!q.blanks || !Array.isArray(q.blanks)) return null; // blanks manquant → désactiver
+
+  // Si déjà au bon format objet → rien à faire
+  if (q.blanks.length > 0 && typeof q.blanks[0] === 'object' && q.blanks[0] !== null) return q.blanks;
+
+  // Format tableau de strings → convertir
+  var correctAnswers = q.blanks; // ["val1","val2",...]
+  return correctAnswers.map(function(correctVal, i) {
+    // Pool = toutes les autres bonnes réponses sauf la même valeur (leurres naturels)
+    var distractors = correctAnswers.filter(function(v, j) { return j !== i; });
+    // Limiter à 3 leurres distincts
+    var unique = [];
+    distractors.forEach(function(d) { if (unique.indexOf(d) === -1 && unique.length < 3) unique.push(d); });
+    // Compléter si nécessaire
+    if (unique.length < 3 && correctAnswers.length < 4) {
+      var fillers = ['???', 'N/A', '---'];
+      fillers.forEach(function(f) { if (unique.length < 3 && unique.indexOf(f) === -1) unique.push(f); });
+    }
+    var optsPool = _fbShuffle([correctVal].concat(unique));
+    var answerIdx = optsPool.indexOf(correctVal);
+    return {
+      label: 'Blanc ' + (i + 1),
+      opts:  optsPool,
+      a:     answerIdx
+    };
+  });
+}
+
+// ── Détecter le placeholder fill dans le code (___XXX, __, (__)…) ──
+function _fbDetectFillBlank(code) {
+  if (!code) return null;
+  var m = code.match(/___([a-zA-Z0-9]*)/);
+  if (m) return m[0];
+  if (code.indexOf('(__)') !== -1) return '(__)';
+  if (code.indexOf('__') !== -1) return '__';
+  return null;
+}
+
 window.fbBuildCatsFromQuestions = function(questions) {
   if (!window.CATS)   window.CATS   = {};
   if (!window.GROUPS) window.GROUPS = {};
@@ -163,9 +216,75 @@ window.fbBuildCatsFromQuestions = function(questions) {
     delete cleanQ.mech;
     if (!cleanQ.t) cleanQ.t = 'qcm';
     if (cleanQ.d === undefined) cleanQ.d = 1;
-    // Harmoniser les propriétés de la base (o/exp) avec l'app (opts/x)
+
+    // ── 1. Harmoniser o/exp → opts/x ──
     if (cleanQ.o && !cleanQ.opts) cleanQ.opts = cleanQ.o;
     if (cleanQ.exp && !cleanQ.x) cleanQ.x = cleanQ.exp;
+
+    // ── 2. fill sans code → fallback qcm ──
+    if (cleanQ.t === 'fill' && !cleanQ.code) {
+      cleanQ.t = 'qcm';
+    }
+
+    // ── 3. fill avec code mais sans blank → détecter le placeholder ──
+    if (cleanQ.t === 'fill' && cleanQ.code && cleanQ.blank === undefined) {
+      var detected = _fbDetectFillBlank(cleanQ.code);
+      if (detected) cleanQ.blank = detected;
+    }
+
+    // ── 4. debug sans code → fallback qcm ──
+    if (cleanQ.t === 'debug' && !cleanQ.code) {
+      cleanQ.t = 'qcm';
+    }
+
+    // ── 5. word — normaliser o+a[] → words+correct ──
+    // renderWord attend q.words (tous les mots) et q.correct (les corrects)
+    if (cleanQ.t === 'word' && cleanQ.opts && Array.isArray(cleanQ.a)) {
+      cleanQ.words   = cleanQ.opts;
+      cleanQ.correct = cleanQ.a.map(function(idx) { return cleanQ.opts[idx]; });
+    }
+
+    // ── 6. calc — normaliser opts si tableau de strings (→ {v, sub}) ──
+    if (cleanQ.t === 'calc' && cleanQ.opts && cleanQ.opts.length > 0) {
+      if (typeof cleanQ.opts[0] === 'string') {
+        // Format simple strings → convertir en {v, sub}
+        cleanQ.opts = cleanQ.opts.map(function(s) { return { v: s, sub: '' }; });
+      }
+    }
+    // S'assurer que setup existe (renderCalc l'affiche)
+    if (cleanQ.t === 'calc' && !cleanQ.setup && cleanQ.q) {
+      cleanQ.setup = '';
+    }
+
+
+    // ── 7. multiblank — normaliser blanks ──
+    if (cleanQ.t === 'multiblank') {
+      if (!cleanQ.blanks) {
+        // Pas de blanks du tout → désactiver
+        cleanQ.active = false;
+        console.warn('[Firebase] multiblank sans blanks désactivé:', cleanQ.q && cleanQ.q.substring(0,50));
+      } else if (Array.isArray(cleanQ.blanks) && cleanQ.blanks.length > 0 && typeof cleanQ.blanks[0] === 'string') {
+        // Format tableau de strings → convertir en objets
+        var normalized = _fbNormalizeMultiblank(cleanQ);
+        if (normalized) {
+          cleanQ.blanks = normalized;
+        } else {
+          cleanQ.active = false;
+        }
+      }
+      // Vérifier cohérence placeholders dans le code
+      if (cleanQ.blanks && Array.isArray(cleanQ.blanks) && cleanQ.code) {
+        cleanQ.blanks.forEach(function(b, i) {
+          // Assurer que le placeholder ___N+1___ existe dans le code
+          // Sinon essayer le placeholder générique ___
+          var ph = '___' + (i+1) + '___';
+          if (cleanQ.code.indexOf(ph) === -1) {
+            // Remplacer le premier ___ générique par le placeholder numéroté
+            cleanQ.code = cleanQ.code.replace('___', ph);
+          }
+        });
+      }
+    }
 
     // Créer la catégorie en mémoire si inconnue
     if (!window.CATS[catId]) {
