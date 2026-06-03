@@ -3100,6 +3100,12 @@ function resolveCommon(ok,q){
     onlineAnswer(ok);
     return;
   }
+  // Duel local — types libres (order/slider/scramble/match/categorize/multiblank)
+  if(selMode === 'duel' && window._duelFreeformActive) {
+    window._duelFreeformActive = false;
+    duelResolveResult(ok, q);
+    return;
+  }
   // Temps de réponse
   var qt=typeof qStartTime!=='undefined'&&qStartTime>0?(Date.now()-qStartTime)/1000:0;
   if(qt>0){qTimes.push(Math.round(qt*100)/100);qStartTime=0;}
@@ -3421,37 +3427,137 @@ function launchDuel(){
   showDuelQ();
 }
 
+// ── Résolution partagée duel local (tous types) ──
+function duelResolveResult(ok, q){
+  clearInterval(timerInt);
+  var p = duelTurn;
+  var fbk = el('fbk');
+  if(ok){
+    duelScores[p]++;
+    flash('g'); playOk();
+    fbk.className='fbk show fok';
+    fbk.innerHTML='✅ <strong>'+escapeUserHtml(duelNames[p])+'</strong> a la bonne réponse ! ('+duelScores[p]+'/'+duelTarget+')<div class="fexp">'+safeQuestionHtml(q.x||'')+'</div>';
+    if(duelScores[p] >= duelTarget){ setTimeout(function(){showDuelWin(p);}, 800); return; }
+  } else {
+    flash('r'); playErr();
+    fbk.className='fbk show ferr';
+    fbk.innerHTML='❌ Mauvais !<span class="fans"> ✓ '+fmtAnswerForHtml(q)+'</span><div class="fexp">'+safeQuestionHtml(q.x||'')+'</div>';
+  }
+  duelTurn = 1 - duelTurn;
+  duelQIdx++;
+  el('nextbtn').className = 'next-btn show';
+  el('hint-txt').textContent = 'Espace → tour de ' + duelNames[duelTurn];
+}
+
+// ── Rendu de la mécanique en mode duel (tous types) ──
+function renderDuelMechanic(q, area, p){
+  var keys = p === 0 ? ['Q','W','E','R'] : ['U','I','O','P'];
+  window._duelFreeformActive = false;
+
+  if(q.t === 'tf'){
+    // Vrai / Faux — 2 boutons avec raccourcis clavier
+    var wrap = document.createElement('div'); wrap.className = 'opts'; wrap.id = 'duel-opts';
+    var makeBtn = function(label, val, keyLabel, keyIndex){
+      var b = document.createElement('button'); b.className = 'opt';
+      b.innerHTML = '<span class="okey">'+keyLabel+'</span><span>'+label+'</span>';
+      b.setAttribute('data-orig', val ? '1' : '0');
+      b.setAttribute('data-key-idx', ''+keyIndex);
+      b.onclick = function(){ if(!duelAnswered) pickDuelAnswerTF(val, b, wrap, q); };
+      return b;
+    };
+    wrap.appendChild(makeBtn('✅ VRAI', true,  keys[0], 0));
+    wrap.appendChild(makeBtn('❌ FAUX', false, keys[1], 1));
+    area.appendChild(wrap);
+
+  } else if(q.opts && q.opts.length > 0){
+    // QCM / fill / debug / calc / word — options avec raccourcis clavier
+    var shuffled = shuffle(q.opts.map(function(t,i){return{t:t,i:i};}));
+    var wrap = document.createElement('div'); wrap.className = 'opts'; wrap.id = 'duel-opts';
+    for(var ki = 0; ki < Math.min(4, shuffled.length); ki++){
+      (function(optData, keyLabel, keyIndex){
+        var b = document.createElement('button'); b.className = 'opt';
+        var duelOpt = (typeof optData.t === 'object' && optData.t && optData.t.v !== undefined)
+          ? safeQuestionHtml(String(optData.t.v)) + (optData.t.sub ? '<span class="calc-sub">'+escapeUserHtml(optData.t.sub)+'</span>' : '')
+          : safeQuestionHtml(String(optData.t));
+        b.innerHTML = '<span class="okey">'+keyLabel+'</span><span>'+duelOpt+'</span>';
+        b.setAttribute('data-orig', ''+optData.i);
+        b.setAttribute('data-key-idx', ''+keyIndex);
+        b.onclick = function(){ if(!duelAnswered) pickDuelAnswer(optData.i, b, wrap); };
+        wrap.appendChild(b);
+      })(shuffled[ki], keys[ki], ki);
+    }
+    // Afficher le code pour fill/debug
+    if((q.t === 'fill' || q.t === 'debug') && q.code){
+      var pre = document.createElement('pre');
+      pre.className = q.t === 'debug' ? 'debug-code' : 'fill-code';
+      function escHtml2(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+      if(q.t === 'fill' && q.blank){
+        var safeCode = escHtml2(q.code);
+        var safeBlank = escHtml2(q.blank);
+        pre.innerHTML = safeCode.replace(safeBlank, '<span class="fill-blank" style="background:var(--primary);color:#000;padding:0 4px;border-radius:4px;">'+safeBlank+'</span>');
+      } else {
+        pre.textContent = q.code;
+      }
+      area.insertBefore(pre, wrap);
+    }
+    area.appendChild(wrap);
+
+  } else {
+    // Types libres : order / slider / scramble / match / categorize / multiblank
+    window._duelFreeformActive = true;
+    var freeformTypes = ['order','slider','scramble','match','categorize','multiblank'];
+    if(freeformTypes.indexOf(q.t) === -1){
+      // Type inconnu → fallback QCM vide, ne pas bloquer
+      window._duelFreeformActive = false;
+      var msg = document.createElement('div');
+      msg.style.cssText = 'text-align:center;color:var(--dim);padding:20px;';
+      msg.textContent = '(type de question non supporté en duel)';
+      area.appendChild(msg);
+      return;
+    }
+    switch(q.t){
+      case 'order':      renderOrder(q, area);      break;
+      case 'slider':     renderSlider(q, area);     break;
+      case 'scramble':   renderScramble(q, area);   break;
+      case 'match':      renderMatch(q, area);      break;
+      case 'categorize': renderCategorize(q, area); break;
+      case 'multiblank': renderMultiblank(q, area); break;
+    }
+  }
+}
+
 function showDuelQ(){
   // Guard
-  if(duelQIdx>=session.length) duelQIdx=0;
-  duelCurQ=session[duelQIdx];
-  // Skip questions without opts (word/order/calc/fill)
-  var safetyGuard=0;
-  while(duelCurQ&&!duelCurQ.opts&&safetyGuard<session.length){
-    duelQIdx=(duelQIdx+1)%session.length;
-    duelCurQ=session[duelQIdx];
+  if(duelQIdx >= session.length) duelQIdx = 0;
+  duelCurQ = session[duelQIdx];
+  // Sauter les questions vraiment inutilisables (pas de champ q)
+  var safetyGuard = 0;
+  while(duelCurQ && !duelCurQ.q && safetyGuard < session.length){
+    duelQIdx = (duelQIdx+1) % session.length;
+    duelCurQ = session[duelQIdx];
     safetyGuard++;
   }
-  duelAnswered=false;
+  duelAnswered = false;
+  window._duelFreeformActive = false;
 
-  var q=duelCurQ;
-  var p=duelTurn;
-  var area=el('question-area');
-  area.innerHTML='';
+  var q = duelCurQ;
+  var p = duelTurn;
+  var area = el('question-area');
+  area.innerHTML = '';
 
   // Turn banner
-  var col=p===0?'#38bdf8':'#f472b6';
-  var cls=p===0?'turn-p1':'turn-p2';
-  var banner=document.createElement('div');
-  banner.className='duel-turn-banner '+cls;
-  banner.innerHTML='<span class="duel-turn-icon">'+(p===0?'🔵':'🩷')+'</span>&nbsp;Tour de <strong>'+escapeUserHtml(duelNames[p])+'</strong>';
+  var col = p === 0 ? '#38bdf8' : '#f472b6';
+  var cls = p === 0 ? 'turn-p1' : 'turn-p2';
+  var banner = document.createElement('div');
+  banner.className = 'duel-turn-banner ' + cls;
+  banner.innerHTML = '<span class="duel-turn-icon">'+(p===0?'🔵':'🩷')+'</span>&nbsp;Tour de <strong>'+escapeUserHtml(duelNames[p])+'</strong>';
   area.appendChild(banner);
 
   // Scoreboard
-  var pct0=Math.min(100,Math.round(duelScores[0]/duelTarget*100));
-  var pct1=Math.min(100,Math.round(duelScores[1]/duelTarget*100));
-  var sb=document.createElement('div'); sb.className='duel-scoreboard';
-  sb.innerHTML=
+  var pct0 = Math.min(100, Math.round(duelScores[0]/duelTarget*100));
+  var pct1 = Math.min(100, Math.round(duelScores[1]/duelTarget*100));
+  var sb = document.createElement('div'); sb.className = 'duel-scoreboard';
+  sb.innerHTML =
     '<div class="dsp'+(p===0?' p1-active':'')+'">'+
       '<span class="dsp-name" style="color:#38bdf8">'+escapeUserHtml(duelNames[0])+'</span>'+
       '<span class="dsp-score" style="color:#38bdf8">'+duelScores[0]+'</span>'+
@@ -3466,105 +3572,85 @@ function showDuelQ(){
   area.appendChild(sb);
 
   // Card
-  var card=document.createElement('div'); card.className='qcard'; card.id='qcard';
-  card.style.cssText='--acc:'+col+';';
-  // add diff color to qdiff span after render
+  var card = document.createElement('div'); card.className = 'qcard'; card.id = 'qcard';
+  card.style.cssText = '--acc:'+col+';';
   setTimeout(function(){var qd=card.querySelector('.qdiff');if(qd){qd.style.color=DS_COLORS[q.d]||'var(--dim)';qd.style.fontSize='9px';}},0);
-  card.innerHTML='<span class="qdiff">'+DS[q.d]+'</span><div class="qnum">Question '+(duelQIdx+1)+'</div><div class="qtext">'+safeQuestionHtml(q.q)+(q._cat?'<span class="qcat-tag">['+escapeUserHtml(q._cat)+']</span>':'')+'</div>';
+  // Badge de type pour les modes libres
+  var typeBadge = '';
+  var typeLabels = {order:'📋 Ordre',slider:'🎚️ Curseur',scramble:'🔀 Mots mêlés',match:'🔗 Association',categorize:'📂 Catégories',multiblank:'📝 Trous',tf:'✅ Vrai/Faux',fill:'✏️ Compléter',debug:'🐛 Debug',calc:'🧮 Calcul',word:'☁️ Mots',qcm:''};
+  if(typeLabels[q.t]) typeBadge = '<span style="font-size:10px;opacity:.6;margin-left:8px;">'+typeLabels[q.t]+'</span>';
+  card.innerHTML = '<span class="qdiff">'+DS[q.d]+'</span><div class="qnum">Question '+(duelQIdx+1)+typeBadge+'</div><div class="qtext">'+safeQuestionHtml(q.q)+(q._cat?'<span class="qcat-tag">['+escapeUserHtml(q._cat)+']</span>':'')+'</div>';
   area.appendChild(card);
 
-  // Options — shuffle and store mapping
-  var shuffled=shuffle(q.opts.map(function(t,i){return{t:t,i:i};}));
-  var keys=p===0?['Q','W','E','R']:['U','I','O','P'];
-  var wrap=document.createElement('div'); wrap.className='opts'; wrap.id='duel-opts';
+  // Rendu de la mécanique (tous types)
+  renderDuelMechanic(q, area, p);
 
-  for(var ki=0;ki<Math.min(4,shuffled.length);ki++){
-    (function(optData,keyLabel,keyIndex){
-      var b=document.createElement('button'); b.className='opt';
-      var duelOpt=(typeof optData.t==='object'&&optData.t&&optData.t.v!==undefined)
-        ? safeQuestionHtml(String(optData.t.v))+(optData.t.sub?'<span class="calc-sub">'+escapeUserHtml(optData.t.sub)+'</span>':'')
-        : safeQuestionHtml(String(optData.t));
-      b.innerHTML='<span class="okey">'+keyLabel+'</span><span>'+duelOpt+'</span>';
-      b.setAttribute('data-orig',''+optData.i);
-      b.setAttribute('data-key-idx',''+keyIndex);
-      b.onclick=function(){
-        if(!duelAnswered) pickDuelAnswer(optData.i, b, wrap);
-      };
-      wrap.appendChild(b);
-    })(shuffled[ki], keys[ki], ki);
+  // Reset feedback et bouton suivant
+  el('fbk').className = 'fbk';
+  el('nextbtn').className = 'next-btn';
+  // Hint clavier seulement pour les types avec opts/tf
+  if(q.opts || q.t === 'tf'){
+    el('hint-txt').textContent = (p===0 ? duelNames[0]+' : Q·W·E·R' : duelNames[1]+' : U·I·O·P');
+    if(q.t === 'tf') el('hint-txt').textContent = (p===0 ? duelNames[0]+' : Q=Vrai W=Faux' : duelNames[1]+' : U=Vrai I=Faux');
+  } else {
+    el('hint-txt').textContent = 'Tour de '+duelNames[p]+' — réponds puis valide';
   }
-  area.appendChild(wrap);
 
-  // Reset feedback and next button
-  el('fbk').className='fbk';
-  el('nextbtn').className='next-btn';
-  el('hint-txt').textContent=(p===0?duelNames[0]+' : Q·W·E·R':duelNames[1]+' : U·I·O·P');
-
-  // Timer 20s
+  // Timer 20s (30s pour les types libres, plus complexes)
   clearInterval(timerInt);
-  var tb=el('tbar'); tb.style.width='100%'; tb.style.background='#00d87a';
-  timeLeft=20;
-  timerInt=setInterval(function(){
+  var timerDur = (window._duelFreeformActive) ? 45 : 20;
+  var tb = el('tbar'); tb.style.width = '100%'; tb.style.background = '#00d87a';
+  timeLeft = timerDur;
+  timerInt = setInterval(function(){
     if(paused) return;
-    timeLeft-=0.1;
-    var pct=(timeLeft/20)*100;
-    tb.style.width=pct+'%';
-    if(pct<50) tb.style.background='#ff9800';
-    if(pct<20) tb.style.background='#dc2626';
-    updateTimerDrama(pct,timeLeft);
-    if(timeLeft<=0){
+    timeLeft -= 0.1;
+    var pct = (timeLeft/timerDur)*100;
+    tb.style.width = pct+'%';
+    if(pct < 50) tb.style.background = '#ff9800';
+    if(pct < 20) tb.style.background = '#dc2626';
+    updateTimerDrama(pct, timeLeft);
+    if(timeLeft <= 0){
       clearInterval(timerInt);
       if(!duelAnswered){
-        duelAnswered=true;
-        wrap.querySelectorAll('.opt').forEach(function(b){b.disabled=true;});
-        wrap.querySelectorAll('.opt').forEach(function(b){if(+b.getAttribute('data-orig')===q.a)b.classList.add('ok');});
-        var fbk=el('fbk');
-        fbk.className='fbk show ferr';
-        fbk.innerHTML='⏰ Temps écoulé !<span class="fans"> ✓ '+fmtAnswerForHtml(q)+'</span><div class="fexp">'+safeQuestionHtml(q.x||'')+'</div>';
-        duelTurn=1-duelTurn;
+        duelAnswered = true;
+        window._duelFreeformActive = false;
+        // Désactiver tous les boutons de la question
+        area.querySelectorAll('button:not(.next-btn)').forEach(function(b){b.disabled=true;});
+        var fbk = el('fbk');
+        fbk.className = 'fbk show ferr';
+        fbk.innerHTML = '⏰ Temps écoulé !<span class="fans"> ✓ '+fmtAnswerForHtml(q)+'</span><div class="fexp">'+safeQuestionHtml(q.x||'')+'</div>';
+        duelTurn = 1 - duelTurn;
         duelQIdx++;
-        el('nextbtn').className='next-btn show';
-        el('hint-txt').textContent='Espace → tour de '+duelNames[duelTurn];
+        el('nextbtn').className = 'next-btn show';
+        el('hint-txt').textContent = 'Espace → tour de '+duelNames[duelTurn];
       }
     }
-  },100);
+  }, 100);
 }
 
 function pickDuelAnswer(origIdx, btn, wrap){
   if(duelAnswered) return;
-  duelAnswered=true;
-  clearInterval(timerInt);
-
-  var q=duelCurQ;
-  var p=duelTurn;
-  var ok=(origIdx===q.a);
-
-  // Disable all, mark correct
+  duelAnswered = true;
+  var q = duelCurQ;
+  // Disable all buttons, highlight correct
   wrap.querySelectorAll('.opt').forEach(function(b){b.disabled=true;});
   wrap.querySelectorAll('.opt').forEach(function(b){if(+b.getAttribute('data-orig')===q.a)b.classList.add('ok');});
-  btn.classList.add(ok?'ok':'err');
+  btn.classList.add((origIdx===q.a)?'ok':'err');
+  duelResolveResult(origIdx === q.a, q);
+}
 
-  var fbk=el('fbk');
-  if(ok){
-    duelScores[p]++;
-    flash('g'); playOk();
-    fbk.className='fbk show fok';
-    fbk.innerHTML='✅ <strong>'+escapeUserHtml(duelNames[p])+'</strong> a la bonne réponse ! ('+duelScores[p]+'/'+duelTarget+')<div class="fexp">'+safeQuestionHtml(q.x||'')+'</div>';
-    if(duelScores[p]>=duelTarget){
-      setTimeout(function(){showDuelWin(p);},800);
-      return;
-    }
-  } else {
-    flash('r'); playErr();
-    fbk.className='fbk show ferr';
-    fbk.innerHTML='❌ Mauvais !<span class="fans"> ✓ '+fmtAnswerForHtml(q)+'</span><div class="fexp">'+safeQuestionHtml(q.x||'')+'</div>';
-  }
-
-  // Switch turn and advance question
-  duelTurn=1-duelTurn;
-  duelQIdx++;
-  el('nextbtn').className='next-btn show';
-  el('hint-txt').textContent='Espace → tour de '+duelNames[duelTurn];
+function pickDuelAnswerTF(val, btn, wrap, q){
+  if(duelAnswered) return;
+  duelAnswered = true;
+  var ok = (val === q.a);
+  wrap.querySelectorAll('.opt').forEach(function(b){b.disabled=true;});
+  // Highlight correct button
+  wrap.querySelectorAll('.opt').forEach(function(b){
+    var bval = b.getAttribute('data-orig') === '1';
+    if(bval === q.a) b.classList.add('ok');
+  });
+  btn.classList.add(ok ? 'ok' : 'err');
+  duelResolveResult(ok, q);
 }
 
 function showDuelWin(winner){
