@@ -1494,6 +1494,8 @@ async function createOnlineSession(){
     var num=document.getElementById('online-code-num');
     if(box) box.style.display='block';
     if(num) num.textContent=code;
+    var setupCtrl=document.getElementById('online-setup-controls');
+    if(setupCtrl) setupCtrl.style.display='none';
     document.getElementById('online-create-btn').style.display='none';
     document.getElementById('online-waiting').style.display='flex';
     listenOnlineSession(code);
@@ -1543,6 +1545,8 @@ async function joinOnlineSession(forcedCode){
     }
     
     // Switch to waiting view
+    var setupCtrl=document.getElementById('online-setup-controls');
+    if(setupCtrl) setupCtrl.style.display='none';
     document.getElementById('online-create-btn').style.display='none';
     var box=document.getElementById('online-code-box');
     if(box) box.style.display='none';
@@ -1670,6 +1674,8 @@ function cancelOnlineSession(){
   // Reset all panels
   var setupPanel = document.getElementById('online-setup-panel');
   if(setupPanel) setupPanel.style.display='block';
+  var setupCtrl = document.getElementById('online-setup-controls');
+  if(setupCtrl) setupCtrl.style.display='block';
   var createBtn = document.getElementById('online-create-btn');
   if(createBtn) createBtn.style.display='block';
   var codeBox = document.getElementById('online-code-box');
