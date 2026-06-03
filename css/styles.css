@@ -2307,7 +2307,6 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
    ============================================================ */
 #screen-online-duel {
   padding: 0;
-  display: flex;
   flex-direction: column;
 }
 #screen-online-duel > * {
@@ -2391,11 +2390,17 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
 
 /* ── DUEL EN LIGNE layout fix ── */
 #screen-online-duel{
-  position:fixed!important;inset:0!important;z-index:800!important;
-  background:var(--bg)!important;display:none;flex-direction:column;
+  background:var(--bg)!important;
+  display:none;
+  flex-direction:column;
   overflow-y:auto;
 }
-#screen-online-duel.active{display:flex!important;}
+#screen-online-duel.active{
+  display:flex!important;
+  position:fixed!important;
+  inset:0!important;
+  z-index:800!important;
+}
 .online-topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);flex-shrink:0;}
 #online-setup-panel,#online-vote-panel,#online-round-panel,#online-finish-panel{flex:1;width:100%;max-width:640px;margin:0 auto;padding:24px 20px;box-sizing:border-box;}
 #online-game-panel{flex:1;width:100%;max-width:900px;margin:0 auto;padding:16px 20px;box-sizing:border-box;}
