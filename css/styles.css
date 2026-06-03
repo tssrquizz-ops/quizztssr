@@ -2464,6 +2464,8 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
 #screen-daily.active {
   display: flex !important;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   pointer-events: all;
 }
 .daily-modal-content {
@@ -2474,6 +2476,7 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
   border-radius: 12px;
   max-width: 460px;
   width: 100%;
+  max-height: 90vh;
   box-shadow: 0 10px 40px rgba(0,0,0,0.3);
   animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   overflow: hidden;
@@ -2490,6 +2493,8 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
 }
 .daily-modal-content .daily-page-body {
   padding: 20px !important;
+  overflow-y: auto;
+  flex: 1;
 }
 .daily-modal-content .daily-page-q {
   font-size: 15px !important;
