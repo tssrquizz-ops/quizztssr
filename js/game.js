@@ -3814,18 +3814,23 @@ var dailyData=lsGet('tssr5_daily',{});
 var dailyPopupShownThisSession = false;
 
 function getDailyQuestion(){
-  // Deterministic question based on date (same question for everyone on same day)
-  var today=new Date().toDateString();
   var dayNum=Math.floor(Date.now()/86400000);
-  // Pick from hard questions
   var hardQs=[];
   Object.keys(CATS).forEach(function(k){
     if(k==='mix') return;
-    // Seulement les QCM avec des options valides
     CATS[k].qs.filter(function(q){ return q.d===3 && q.t==='qcm' && q.opts && q.opts.length >= 2; }).forEach(function(q){
       hardQs.push(Object.assign({},q,{_cat:CATS[k].label}));
     });
   });
+  // Fallback : si aucune question de niveau 3, prendre n'importe quelle QCM avec opts
+  if(!hardQs.length){
+    Object.keys(CATS).forEach(function(k){
+      if(k==='mix') return;
+      CATS[k].qs.filter(function(q){ return q.t==='qcm' && q.opts && q.opts.length >= 2; }).forEach(function(q){
+        hardQs.push(Object.assign({},q,{_cat:CATS[k].label}));
+      });
+    });
+  }
   if(!hardQs.length) return null;
   return hardQs[dayNum % hardQs.length];
 }
