@@ -163,6 +163,9 @@ window.fbBuildCatsFromQuestions = function(questions) {
     delete cleanQ.mech;
     if (!cleanQ.t) cleanQ.t = 'qcm';
     if (cleanQ.d === undefined) cleanQ.d = 1;
+    // Harmoniser les propriétés de la base (o/exp) avec l'app (opts/x)
+    if (cleanQ.o && !cleanQ.opts) cleanQ.opts = cleanQ.o;
+    if (cleanQ.exp && !cleanQ.x) cleanQ.x = cleanQ.exp;
 
     // Créer la catégorie en mémoire si inconnue
     if (!window.CATS[catId]) {
