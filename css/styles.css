@@ -1865,6 +1865,7 @@ body.rpg-mode::before { opacity:0 !important; }
 /* TOP BAR */
 .menu-topbar { display:flex; align-items:center; justify-content:space-between; padding:12px 0 16px; }
 .menu-topbar-center { flex:1; text-align:center; }
+.menu-logo-img { height: 32px; width: auto; display: block; margin: 0 auto; }
 .menu-logo-small { font-family:monospace; font-size:13px; color:var(--acc); letter-spacing:2px; text-shadow:0 0 12px var(--acc); }
 .menu-ham-btn { background:none; border:1.5px solid var(--border2); border-radius:8px; padding:8px 10px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:border-color .15s; }
 .menu-ham-btn span { display:block; width:18px; height:2px; background:var(--text2); border-radius:2px; transition:all .2s; }
@@ -2529,7 +2530,7 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
 }
 
 /* ===================== RESPONSIVE MAIN MENU (NO-SCROLL) ===================== */
-@media (max-height: 860px) {
+@media (max-height: 1150px) {
   #app {
     padding-bottom: 10px !important;
   }
@@ -2542,16 +2543,16 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
   .menu-logo-img {
     height: 26px !important;
   }
-  .streak-bar {
+  .streak-bar, body.ui-neon .streak-bar {
     padding: 8px 12px !important;
     margin-bottom: 8px !important;
   }
-  .streak-calendar {
+  .streak-calendar, body.ui-neon .streak-calendar {
     margin-top: 6px !important;
     padding-top: 6px !important;
     gap: 4px !important;
   }
-  .streak-day {
+  .streak-day, body.ui-neon .streak-day {
     height: 24px !important;
     width: 24px !important;
     font-size: 8px !important;
@@ -2562,33 +2563,33 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
   #live-lobbies-widget {
     margin-bottom: 8px !important;
   }
-  .hero-cards {
+  .hero-cards, body.ui-neon .hero-cards {
     margin: 8px 0 6px !important;
     gap: 8px !important;
   }
-  .hero-card {
+  .hero-card, body.ui-neon .hero-card {
     padding: 10px 12px !important;
   }
-  .hero-card-icon {
+  .hero-card-icon, body.ui-neon .hero-card-icon {
     font-size: 20px !important;
   }
-  .hero-card-desc {
+  .hero-card-desc, body.ui-neon .hero-card-desc {
     font-size: 9px !important;
     line-height: 1.3 !important;
   }
-  .start-btn-main {
+  .start-btn-main, body.ui-neon .start-btn-main {
     margin: 10px 0 10px !important;
     padding: 14px !important;
   }
-  .menu-actions-row {
+  .menu-actions-row, body.ui-neon .menu-actions-row {
     margin-bottom: 4px !important;
     gap: 6px !important;
   }
-  .menu-action-card {
+  .menu-action-card, body.ui-neon .menu-action-card {
     padding: 10px 6px !important;
     gap: 4px !important;
   }
-  .mac-icon {
+  .mac-icon, body.ui-neon .mac-icon {
     font-size: 18px !important;
   }
   .slbl {
@@ -2602,21 +2603,21 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
   }
 }
 
-@media (max-height: 750px) {
-  .streak-calendar {
+@media (max-height: 1000px) {
+  .streak-calendar, body.ui-neon .streak-calendar {
     display: none !important;
   }
-  .hero-card-desc {
+  .hero-card-desc, body.ui-neon .hero-card-desc {
     display: none !important;
   }
-  .hero-card {
+  .hero-card, body.ui-neon .hero-card {
     padding: 8px 10px !important;
     align-items: center !important;
     justify-content: center !important;
     flex-direction: row !important;
     gap: 10px !important;
   }
-  .hero-card-icon {
+  .hero-card-icon, body.ui-neon .hero-card-icon {
     margin-bottom: 0px !important;
     font-size: 18px !important;
   }
@@ -2629,31 +2630,31 @@ body.ui-neon #overlay-settings div[style*="font-size:13px"] { font-size:14px !im
   .menu-logo-img {
     height: 22px !important;
   }
-  .start-btn-main {
+  .start-btn-main, body.ui-neon .start-btn-main {
     margin: 6px 0 6px !important;
     padding: 12px !important;
     font-size: 10px !important;
   }
 }
 
-@media (max-height: 650px) {
+@media (max-height: 860px) {
   .slbl, #badges-row {
     display: none !important;
   }
   #quick-stats {
     display: none !important;
   }
-  .streak-bar {
+  .streak-bar, body.ui-neon .streak-bar {
     padding: 6px 10px !important;
     margin-bottom: 6px !important;
   }
   #daily-widget, #live-lobbies-widget {
     margin-bottom: 4px !important;
   }
-  .menu-action-card {
+  .menu-action-card, body.ui-neon .menu-action-card {
     padding: 6px 4px !important;
   }
-  .mac-icon {
+  .mac-icon, body.ui-neon .mac-icon {
     font-size: 14px !important;
   }
 }
