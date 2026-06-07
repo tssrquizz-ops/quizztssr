@@ -3261,13 +3261,32 @@ function resolveTF(val,q,bT,bF){
 }
 
 function renderFill(q,area){
-  var code=document.createElement('pre');code.className='fill-code';
-  // Échapper HTML puis injecter le blank
   function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  var code=document.createElement('pre');code.className='fill-code';
   var safeCode=escHtml(q.code||'');
   var safeBlank=escHtml(q.blank||'___');
   var blankHtml='<span class="fill-blank" id="fill-blank">'+safeBlank+'</span>';
   code.innerHTML=safeCode.replace(safeBlank,blankHtml);
+  area.appendChild(code);
+
+  // ── Nouveau format : saisie libre (a = string, pas de opts) ──
+  if (q.fillFreeText || (typeof q.a === 'string' && (!q.opts || q.opts.length === 0))) {
+    var inputWrap=document.createElement('div');inputWrap.className='fill-opts';inputWrap.style.cssText='display:flex;gap:8px;align-items:stretch;';
+    var inp=document.createElement('input');
+    inp.type='text';inp.id='fill-free-input';inp.placeholder='Tape ta réponse…';
+    inp.style.cssText='flex:1;background:var(--bg2);border:1.5px solid var(--border2);border-radius:6px;padding:8px 12px;font-family:DM Mono,monospace;font-size:13px;color:var(--text);outline:none;';
+    var vbtn=document.createElement('button');vbtn.className='validate-btn';vbtn.textContent='✓ VALIDER';
+    vbtn.style.cssText='padding:8px 16px;font-size:11px;';
+    var doValidate=function(){if(!answered)resolveFillFree(inp.value,q,inp,vbtn);};
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter')doValidate();});
+    vbtn.onclick=doValidate;
+    inputWrap.appendChild(inp);inputWrap.appendChild(vbtn);
+    area.appendChild(inputWrap);
+    setTimeout(function(){inp.focus();},50);
+    return;
+  }
+
+  // ── Ancien format : boutons cliquables ──
   var opts=document.createElement('div');opts.className='fill-opts';
   var shuffled=shuffle(q.opts.map(function(t,i){return{t:t,i:i};}));
   shuffled.forEach(function(opt){
@@ -3275,8 +3294,39 @@ function renderFill(q,area){
     b.onclick=function(){if(!answered)resolveFill(opt.i,opt.t,b,q,opts);};
     opts.appendChild(b);
   });
-  area.appendChild(code);area.appendChild(opts);
+  area.appendChild(opts);
 }
+
+// ── Résolution nouveau format (saisie libre) ──
+function levenshtein(a,b){
+  var m=a.length,n=b.length,dp=[];
+  for(var i=0;i<=m;i++){dp[i]=[i];for(var j=1;j<=n;j++)dp[i][j]=0;}
+  for(var j=0;j<=n;j++)dp[0][j]=j;
+  for(var i=1;i<=m;i++)for(var j=1;j<=n;j++){
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  }
+  return dp[m][n];
+}
+function resolveFillFree(rawInput,q,inpEl,vbtn){
+  clearInterval(timerInt);answered=true;
+  if(inpEl)inpEl.disabled=true;
+  if(vbtn)vbtn.disabled=true;
+  var input=(rawInput||'').toLowerCase().trim();
+  var correct=(q.a||'').toLowerCase().trim();
+  var alternatives=(q.alt||[]).map(function(s){return s.toLowerCase().trim();});
+  var exactOk=input===correct||alternatives.indexOf(input)!==-1;
+  var fuzzyOk=!exactOk&&(levenshtein(input,correct)<=2||alternatives.some(function(s){return levenshtein(input,s)<=2;}));
+  var ok=exactOk||fuzzyOk;
+  if(inpEl){
+    inpEl.style.borderColor=ok?'var(--ok,#4ade80)':'var(--err,#f87171)';
+    inpEl.style.color=ok?'var(--ok,#4ade80)':'var(--err,#f87171)';
+  }
+  var blank=document.getElementById('fill-blank');
+  if(blank){blank.textContent=fuzzyOk?correct:rawInput;blank.classList.add(ok?'ok-fill':'err-fill');}
+  if(!ok)errors.push({q:q.q,yours:rawInput,correct:q.a,x:q.x,orig:q,mech:q.t});
+  resolveCommon(ok,q);
+}
+
 function resolveFill(origIdx,val,btn,q,optsEl){
   clearInterval(timerInt);answered=true;
   optsEl.querySelectorAll('.fill-opt').forEach(function(b){b.disabled=true;});
@@ -3633,7 +3683,7 @@ function buildFlashDeck(cat,diff){
 function getFlashAnswer(q){
   if(q.t==='qcm'||q.t==='debug') return q.opts[q.a];
   if(q.t==='tf') return q.a===true?'VRAI ✅':'FAUX ❌';
-  if(q.t==='fill') return q.opts[q.a];
+  if(q.t==='fill') return q.opts&&q.opts.length?q.opts[q.a]:String(q.a);
   if(q.t==='calc') return q.opts[q.a].v;
   if(q.t==='order') return q.items.join(' → ');
   if(q.t==='word') return q.correct.join(', ');
@@ -4483,7 +4533,7 @@ function showDiscQ(){
   var ans='';
   if(q.t==='qcm'||q.t==='debug') ans=q.opts[q.a];
   else if(q.t==='tf') ans=q.a===true?'VRAI ✅':'FAUX ❌';
-  else if(q.t==='fill') ans=q.opts[q.a];
+  else if(q.t==='fill') ans=q.opts&&q.opts.length?q.opts[q.a]:String(q.a);
   else if(q.t==='calc') ans=q.opts[q.a].v;
   else if(q.t==='order') ans=q.items.join(' → ');
   else if(q.t==='word') ans=q.correct.join(', ');
@@ -4578,7 +4628,7 @@ function showDiscResults(){
   list.innerHTML=discSession.map(function(q,i){
     var sc=discGroupScores[i];
     var icon=sc===1?'✅':sc===0?'❌':'—';
-    var rawA=q.t==='qcm'||q.t==='debug'?q.opts[q.a]:q.t==='tf'?(q.a?'VRAI':'FAUX'):q.t==='fill'?q.opts[q.a]:'...';
+    var rawA=q.t==='qcm'||q.t==='debug'?q.opts[q.a]:q.t==='tf'?(q.a?'VRAI':'FAUX'):q.t==='fill'?(q.opts&&q.opts.length?q.opts[q.a]:String(q.a)):'...';
     var ans=(typeof rawA==='object'&&rawA&&rawA.v!==undefined)?String(rawA.v)+(rawA.sub?' ('+rawA.sub+')':''):String(rawA);
     return '<div class="disc-res-row"><span style="flex-shrink:0">'+icon+'</span><span style="flex:1">'+safeQuestionHtml(q.q)+'</span><span style="color:#00a85a;font-size:11px;flex-shrink:0;margin-left:8px;">'+escapeUserHtml(ans)+'</span></div>';
   }).join('');
@@ -4738,7 +4788,7 @@ function renderInverse(q,area){
     var ao=q.opts[q.a];
     ansDisp=(typeof ao==='object'&&ao&&ao.v!==undefined)?String(ao.v)+(ao.sub?' ('+ao.sub+')':''):String(ao);
   } else if(q.t==='tf') ansDisp=q.a===true?'VRAI':'FAUX';
-  else if(q.t==='fill') ansDisp=String(q.opts[q.a]);
+  else if(q.t==='fill') ansDisp=q.opts&&q.opts.length?String(q.opts[q.a]):String(q.a);
   else ansDisp=String(q.a);
   var box=document.createElement('div'); box.className='inv-answer-box';
   box.innerHTML='<span class="inv-answer-label">A QUELLE QUESTION CORRESPOND CETTE REPONSE ?</span><div class="inv-answer-val">'+escapeUserHtml(ansDisp)+'</div>';
