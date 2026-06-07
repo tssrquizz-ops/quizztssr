@@ -232,6 +232,13 @@ window.fbBuildCatsFromQuestions = function(questions) {
       if (detected) cleanQ.blank = detected;
     }
 
+    // ── 3b. fill nouveau format (a = string, pas de opts) ──
+    // On préserve alt[] et on marque fillFreeText pour le rendu
+    if (cleanQ.t === 'fill' && typeof cleanQ.a === 'string' && (!cleanQ.opts || cleanQ.opts.length === 0)) {
+      cleanQ.fillFreeText = true;
+      if (!cleanQ.alt) cleanQ.alt = [];
+    }
+
     // ── 4. debug sans code → fallback qcm ──
     if (cleanQ.t === 'debug' && !cleanQ.code) {
       cleanQ.t = 'qcm';
