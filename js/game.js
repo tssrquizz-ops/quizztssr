@@ -1805,15 +1805,7 @@ function handleOnlineSessionUpdate(data){
     if((allAnswered || data.reveal) && !onlineSession.revealing){
       onlineSession.revealing=true;
       revealOnlineQuestion(data);
-      if(isHost){
-        // Fetch fresh data so all player answers are included when advancing
-        setTimeout(async function(){
-          try {
-            var freshSnap = await window._fbGetDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code));
-            hostAdvance(freshSnap.exists() ? freshSnap.data() : data);
-          } catch(e){ hostAdvance(data); }
-        }, 3000);
-      }
+      // Host manually advances — button shown inside revealOnlineQuestion
     }
     return;
   }
@@ -2894,6 +2886,39 @@ function revealOnlineQuestion(data){
     + '<div style="margin-top:12px;background:var(--panel);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;">'
       + scoresHtml
     + '</div>';
+
+  // Host-only manual advance button
+  var existingBtn = document.getElementById('host-next-btn');
+  if(existingBtn) existingBtn.remove();
+  if(onlineSession.role === 'host'){
+    var nextBtn = document.createElement('button');
+    nextBtn.id = 'host-next-btn';
+    nextBtn.textContent = '➡ Question suivante';
+    nextBtn.style.cssText = 'display:block;width:100%;margin-top:14px;padding:13px;background:var(--acc);color:var(--bg);border:none;border-radius:8px;font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.5px;cursor:pointer;text-transform:uppercase;transition:opacity .15s;';
+    nextBtn.onmouseenter = function(){ this.style.opacity='0.85'; };
+    nextBtn.onmouseleave = function(){ this.style.opacity='1'; };
+    nextBtn.onclick = async function(){
+      nextBtn.disabled = true;
+      nextBtn.textContent = '⏳ Chargement...';
+      try {
+        var freshSnap = await window._fbGetDoc(window._fbDoc(window._fbDb,'duels',onlineSession.code));
+        hostAdvance(freshSnap.exists() ? freshSnap.data() : data);
+      } catch(e){ hostAdvance(data); }
+    };
+    var area3 = document.getElementById('online-question-area');
+    if(area3) area3.appendChild(nextBtn);
+  } else {
+    // Guest: show waiting message
+    var waitMsg = document.getElementById('host-next-btn');
+    if(!waitMsg){
+      var wDiv = document.createElement('div');
+      wDiv.id = 'host-next-btn';
+      wDiv.style.cssText = 'text-align:center;margin-top:14px;font-family:monospace;font-size:10px;color:var(--text2);letter-spacing:1px;animation:pulse 1.5s ease-in-out infinite;';
+      wDiv.textContent = '⏳ En attente de l\'hôte...';
+      var area4 = document.getElementById('online-question-area');
+      if(area4) area4.appendChild(wDiv);
+    }
+  }
 }
 
 function hostAdvance(data){
